@@ -3,7 +3,7 @@
   <PropertyGroup>
     <!-- Windows-targeted per usare Windows.Graphics.Imaging (WIC). Nessuna dipendenza WinUI/XAML:
          resta una class library pura, testabile senza avviare la UI. -->
-    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <TargetFramework>net10.0-windows10.0.22621.0</TargetFramework>
     <RootNamespace>WFastPic.Core.Decoding</RootNamespace>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
