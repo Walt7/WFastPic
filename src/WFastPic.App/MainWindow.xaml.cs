@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Threading;
 using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -38,6 +39,11 @@ public partial class MainWindow : Window
     private IReadOnlyList<PhotoRecord>? _scartiCorrenti;
     private RejectManager? _rejectManagerCorrente;
 
+    private List<string> _cartelleRecenti = [];
+
+    private int _miniatureCompletate;
+    private int _miniatureTotali;
+
     public MainWindow()
     {
         InitializeComponent();
@@ -47,9 +53,14 @@ public partial class MainWindow : Window
         AggiornaStatusBar();
         AggiornaFiltroText();
 
+        _cartelleRecenti = RecentFoldersStore.Carica();
+        CartelleRecentiList.ItemsSource = _cartelleRecenti;
+
         // handledEventsToo: la ScrollViewer interna della ListView consuma la rotella per lo
         // scroll e marca l'evento Handled prima che arrivi al gestore dichiarato in XAML.
         Griglia.AddHandler(UIElement.PointerWheelChangedEvent, new PointerEventHandler(Griglia_PointerWheelChanged), handledEventsToo: true);
+
+        InizializzaViewer();
     }
 
     private async void ApriCartellaButton_Click(object sender, RoutedEventArgs e)
@@ -64,6 +75,33 @@ public partial class MainWindow : Window
         {
             await CaricaCartellaAsync(cartella.Path);
         }
+    }
+
+    private void ToggleSidebarButton_Click(object sender, RoutedEventArgs e) =>
+        RootSplitView.IsPaneOpen = !RootSplitView.IsPaneOpen;
+
+    private async void CartellaRecente_ItemClick(object sender, ItemClickEventArgs e)
+    {
+        if (e.ClickedItem is string percorso)
+        {
+            RootSplitView.IsPaneOpen = false;
+            await CaricaCartellaAsync(percorso);
+        }
+    }
+
+    private async void PercorsoTextBox_KeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key != VirtualKey.Enter) return;
+
+        var percorso = PercorsoTextBox.Text.Trim().Trim('"');
+        if (!Directory.Exists(percorso))
+        {
+            PercorsoTextBox.BorderBrush = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.OrangeRed);
+            return;
+        }
+
+        PercorsoTextBox.ClearValue(TextBox.BorderBrushProperty);
+        await CaricaCartellaAsync(percorso);
     }
 
     private async Task CaricaCartellaAsync(string cartella)
@@ -81,6 +119,10 @@ public partial class MainWindow : Window
         _conteggioSelezionate = 0;
         _conteggioScarti = 0;
         _filtroIndice = 0;
+        _miniatureCompletate = 0;
+        _miniatureTotali = 0;
+
+        using var overlayDelay = MostraCaricamentoConRitardo("Scansione cartella…");
 
         var (db, records) = await Task.Run(() =>
         {
@@ -93,15 +135,18 @@ public partial class MainWindow : Window
         _db = db;
         _selectionManager = new SelectionManager(_db);
         _thumbnailLoader = new ThumbnailCacheLoader(cartella, DispatcherQueue);
+        _thumbnailLoader.ProgressoCambiato += ThumbnailLoader_ProgressoCambiato;
 
         foreach (var record in records)
         {
+            var percorsoCompleto = Path.Combine(cartella, record.PathRelativo);
             var item = new PhotoGridItem
             {
                 Id = record.Id,
                 PathRelativo = record.PathRelativo,
-                PercorsoCompleto = Path.Combine(cartella, record.PathRelativo),
+                PercorsoCompleto = percorsoCompleto,
                 CaptureDate = record.CaptureDate,
+                HasVideo = CompanionVideoDetector.TrovaVideoAbbinato(percorsoCompleto) is not null,
                 Stato = record.Stato,
                 Rating = record.Rating,
             };
@@ -118,6 +163,12 @@ public partial class MainWindow : Window
         AggiornaStatusBar();
         Griglia.Focus(FocusState.Programmatic);
         _thumbnailLoader.AvviaCaricamento(_tutte);
+
+        PercorsoTextBox.Text = cartella;
+        _cartelleRecenti = RecentFoldersStore.AggiungiRecente(_cartelleRecenti, cartella);
+        RecentFoldersStore.Salva(_cartelleRecenti);
+        CartelleRecentiList.ItemsSource = null;
+        CartelleRecentiList.ItemsSource = _cartelleRecenti;
     }
 
     // --- Raffiche: foto scattate a pochi secondi di distanza ---
@@ -175,6 +226,13 @@ public partial class MainWindow : Window
 
         _selectionManager?.SetStato(item.Id, nuovoStato);
 
+        ElementSoundPlayer.Play(nuovoStato switch
+        {
+            StatoSelezione.Selected => ElementSoundKind.Invoke,
+            StatoSelezione.Reject => ElementSoundKind.Hide,
+            _ => ElementSoundKind.Focus,
+        });
+
         if (!CorrispondeAlFiltro(item, Filtri[_filtroIndice]))
         {
             _visibili.Remove(item);
@@ -223,8 +281,58 @@ public partial class MainWindow : Window
         Griglia.SelectedIndex = _visibili.Count > 0 ? 0 : -1;
     }
 
-    private void AggiornaStatusBar() =>
-        StatusText.Text = $"Tutte {_tutte.Count} · Selezionate {_conteggioSelezionate} · Scarti {_conteggioScarti}";
+    private void AggiornaStatusBar()
+    {
+        var testo = $"Tutte {_tutte.Count} · Selezionate {_conteggioSelezionate} · Scarti {_conteggioScarti}";
+        if (_miniatureTotali > 0 && _miniatureCompletate < _miniatureTotali)
+        {
+            var percento = (int)(100.0 * _miniatureCompletate / _miniatureTotali);
+            testo += $" · Miniature {_miniatureCompletate}/{_miniatureTotali} ({percento}%)";
+        }
+        StatusText.Text = testo;
+    }
+
+    private void ThumbnailLoader_ProgressoCambiato(int completate, int totale)
+    {
+        _miniatureCompletate = completate;
+        _miniatureTotali = totale;
+        AggiornaStatusBar();
+    }
+
+    /// <summary>
+    /// Mostra l'overlay di caricamento solo se l'operazione supera i 300ms (evita flash inutile
+    /// su cartelle piccole/già in cache). Il Dispose nasconde l'overlay e annulla il timer se
+    /// l'operazione è già finita prima dei 300ms.
+    /// </summary>
+    private IDisposable MostraCaricamentoConRitardo(string messaggio)
+    {
+        CaricamentoText.Text = messaggio;
+        var cts = new CancellationTokenSource();
+        _ = MostraOverlayDopoRitardoAsync(cts.Token);
+        return new AzioneAllaFine(() =>
+        {
+            cts.Cancel();
+            CaricamentoOverlay.Visibility = Visibility.Collapsed;
+        });
+    }
+
+    private async Task MostraOverlayDopoRitardoAsync(CancellationToken token)
+    {
+        try
+        {
+            await Task.Delay(300, token);
+            CaricamentoOverlay.Visibility = Visibility.Visible;
+        }
+        catch (TaskCanceledException)
+        {
+            // Operazione finita prima dei 300ms: overlay mai mostrato, nessun flash.
+        }
+    }
+
+    private sealed class AzioneAllaFine(Action azione) : IDisposable
+    {
+        public void Dispose() => azione();
+    }
 
     private void AggiornaFiltroText() => FiltroText.Text = $"Filtro: {Filtri[_filtroIndice]}";
 
@@ -282,6 +390,11 @@ public partial class MainWindow : Window
                 e.Handled = true;
                 break;
 
+            case VirtualKey.Enter when corrente is not null:
+                ApriViewer(corrente);
+                e.Handled = true;
+                break;
+
             case VirtualKey.A when ctrlPremuto:
                 foreach (var item in _visibili.ToList())
                 {
@@ -289,6 +402,14 @@ public partial class MainWindow : Window
                 }
                 e.Handled = true;
                 break;
+        }
+    }
+
+    private void Griglia_DoubleTapped(object sender, DoubleTappedRoutedEventArgs e)
+    {
+        if (Griglia.SelectedItem is PhotoGridItem corrente)
+        {
+            ApriViewer(corrente);
         }
     }
 

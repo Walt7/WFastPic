@@ -4,14 +4,46 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="using:WFastPic.App">
 
-    <Grid RowDefinitions="Auto,*,Auto">
+    <SplitView
+        x:Name="RootSplitView"
+        DisplayMode="CompactOverlay"
+        OpenPaneLength="280"
+        IsPaneOpen="False"
+        PanePlacement="Left">
 
-        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="12" Padding="12,10" Background="#1A1A1A">
-            <Button x:Name="ApriCartellaButton" Content="Apri cartella…" Click="ApriCartellaButton_Click" />
-            <Button x:Name="GestisciScartiButton" Content="Gestisci scarti…" Click="GestisciScartiButton_Click" />
-            <TextBlock x:Name="StatusText" VerticalAlignment="Center" Margin="16,0,0,0" Foreground="White" />
-            <TextBlock x:Name="FiltroText" VerticalAlignment="Center" Margin="16,0,0,0" Foreground="#AAAAAA" />
-        </StackPanel>
+        <SplitView.Pane>
+            <Grid Background="#1E1E1E" Padding="16" RowDefinitions="Auto,*">
+                <TextBlock Grid.Row="0" Text="Cartelle recenti" Foreground="White" FontSize="16" Margin="0,0,0,12" />
+                <ListView
+                    x:Name="CartelleRecentiList"
+                    Grid.Row="1"
+                    SelectionMode="None"
+                    IsItemClickEnabled="True"
+                    ItemClick="CartellaRecente_ItemClick">
+                    <ListView.ItemTemplate>
+                        <DataTemplate x:DataType="x:String">
+                            <TextBlock Text="{x:Bind}" Foreground="#DDDDDD" TextTrimming="CharacterEllipsis" Padding="6,8" FontSize="13" />
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+            </Grid>
+        </SplitView.Pane>
+
+        <Grid RowDefinitions="Auto,*,Auto">
+
+            <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="12" Padding="12,10" Background="#1A1A1A">
+                <Button x:Name="ToggleSidebarButton" Content="☰" Click="ToggleSidebarButton_Click" />
+                <Button x:Name="ApriCartellaButton" Content="Apri cartella…" Click="ApriCartellaButton_Click" />
+                <TextBox
+                    x:Name="PercorsoTextBox"
+                    Width="380"
+                    PlaceholderText="Incolla o scrivi il percorso della cartella, poi Invio…"
+                    KeyDown="PercorsoTextBox_KeyDown" />
+                <Button x:Name="GestisciScartiButton" Content="Gestisci scarti…" Click="GestisciScartiButton_Click" />
+                <Button x:Name="EsportaButton" Content="Esporta…" Click="EsportaButton_Click" />
+                <TextBlock x:Name="StatusText" VerticalAlignment="Center" Margin="16,0,0,0" Foreground="White" />
+                <TextBlock x:Name="FiltroText" VerticalAlignment="Center" Margin="16,0,0,0" Foreground="#AAAAAA" />
+            </StackPanel>
 
         <ListView
             x:Name="Griglia"
@@ -19,7 +51,10 @@
             SelectionMode="Single"
             IsItemClickEnabled="False"
             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-            KeyDown="Griglia_KeyDown">
+            ScrollViewer.VerticalScrollBarVisibility="Visible"
+            ScrollViewer.VerticalScrollMode="Enabled"
+            KeyDown="Griglia_KeyDown"
+            DoubleTapped="Griglia_DoubleTapped">
             <ListView.ItemsPanel>
                 <ItemsPanelTemplate>
                     <ItemsWrapGrid Orientation="Horizontal" ItemWidth="160" ItemHeight="160" />
@@ -60,6 +95,14 @@
                             HorizontalAlignment="Left"
                             Background="#FFB300"
                             Visibility="{x:Bind HasGroup, Mode=OneWay}" />
+                        <FontIcon
+                            Glyph="&#xE714;"
+                            Foreground="White"
+                            FontSize="18"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            Margin="6"
+                            Visibility="{x:Bind HasVideo, Mode=OneWay}" />
                         <Border
                             Background="#CC000000"
                             CornerRadius="3"
@@ -77,10 +120,94 @@
 
         <StackPanel Grid.Row="2" Orientation="Horizontal" Padding="12,8" Background="#1A1A1A">
             <TextBlock
-                Text="←/→ naviga · Space seleziona · Shift+Space seleziona e scarta il resto della raffica · Delete scarta · 0-5 rating · Tab filtro · Ctrl+A seleziona visibili · Shift+rotella dimensione griglia"
+                Text="←/→ naviga · Space seleziona · Shift+Space seleziona e scarta il resto della raffica · Delete scarta · 0-5 rating · Tab filtro · Ctrl+A seleziona visibili · Shift+rotella dimensione griglia · Enter apri viewer"
                 Foreground="#888888"
                 FontSize="12" />
         </StackPanel>
+
+        <Grid
+            x:Name="ViewerOverlay"
+            Grid.Row="0"
+            Grid.RowSpan="3"
+            Background="#F0101010"
+            Visibility="Collapsed"
+            RowDefinitions="Auto,*,Auto,Auto">
+
+            <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="10" Padding="12" Background="#1A1A1A">
+                <Button x:Name="ViewerCloseButton" Content="← Chiudi (Esc)" Click="ViewerCloseButton_Click" />
+                <ToggleButton x:Name="ViewerCropToggle" Content="Crop (X)" Click="ViewerCropToggle_Click" />
+                <Button x:Name="ViewerProporzioneToggle" Content="Proporzioni: libera" Click="ViewerProporzioneToggle_Click" />
+                <Button x:Name="ViewerGrigliaToggle" Content="Griglia: terzi" Click="ViewerGrigliaToggle_Click" />
+                <TextBlock Text="Raddrizza:" VerticalAlignment="Center" Foreground="White" Margin="16,0,0,0" />
+                <Slider
+                    x:Name="ViewerStraightenSlider"
+                    Minimum="-15" Maximum="15" StepFrequency="0.1" Width="200"
+                    ValueChanged="ViewerStraightenSlider_ValueChanged" />
+                <TextBlock x:Name="ViewerAngleText" Text="0.0°" Foreground="White" VerticalAlignment="Center" Width="50" />
+                <Button x:Name="ViewerAutoButton" Content="Auto-correzione (U)" Click="ViewerAutoButton_Click" Margin="16,0,0,0" />
+                <TextBlock x:Name="ViewerStatusText" Foreground="#AAAAAA" VerticalAlignment="Center" Margin="16,0,0,0" />
+                <StackPanel x:Name="ViewerVideoBadge" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center" Margin="10,0,0,0" Visibility="Collapsed">
+                    <FontIcon Glyph="&#xE714;" Foreground="#FFB300" FontSize="16" />
+                    <TextBlock Text="ha un video abbinato" Foreground="#FFB300" FontSize="12" VerticalAlignment="Center" />
+                </StackPanel>
+            </StackPanel>
+
+            <Grid Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Center">
+                <Image x:Name="ViewerImage" Stretch="Fill">
+                    <Image.RenderTransform>
+                        <RotateTransform x:Name="ViewerRotateTransform" Angle="0" />
+                    </Image.RenderTransform>
+                    <Image.RenderTransformOrigin>0.5,0.5</Image.RenderTransformOrigin>
+                </Image>
+                <Canvas x:Name="ViewerCropCanvas" Background="Transparent" Visibility="Collapsed">
+                    <Border x:Name="CropRectBorder" BorderBrush="#FFB300" BorderThickness="2" Background="#22FFB300" />
+                    <Rectangle x:Name="ThirdsV1" Width="1" Fill="#88FFFFFF" />
+                    <Rectangle x:Name="ThirdsV2" Width="1" Fill="#88FFFFFF" />
+                    <Rectangle x:Name="ThirdsH1" Height="1" Fill="#88FFFFFF" />
+                    <Rectangle x:Name="ThirdsH2" Height="1" Fill="#88FFFFFF" />
+                    <Line x:Name="DiagLine1" Stroke="#88FFFFFF" StrokeThickness="1" />
+                    <Line x:Name="DiagLine2" Stroke="#88FFFFFF" StrokeThickness="1" />
+                    <Rectangle
+                        x:Name="HandleTL" Width="18" Height="18" Fill="#FFB300" Tag="TL"
+                        PointerPressed="Handle_PointerPressed" PointerMoved="Handle_PointerMoved" PointerReleased="Handle_PointerReleased" />
+                    <Rectangle
+                        x:Name="HandleBR" Width="18" Height="18" Fill="#FFB300" Tag="BR"
+                        PointerPressed="Handle_PointerPressed" PointerMoved="Handle_PointerMoved" PointerReleased="Handle_PointerReleased" />
+                </Canvas>
+            </Grid>
+
+            <ListView
+                x:Name="Filmstrip"
+                Grid.Row="2"
+                Height="110"
+                SelectionMode="None"
+                ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                IsItemClickEnabled="True"
+                ItemClick="Filmstrip_ItemClick">
+                <ListView.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <StackPanel Orientation="Horizontal" />
+                    </ItemsPanelTemplate>
+                </ListView.ItemsPanel>
+                <ListView.ItemTemplate>
+                    <DataTemplate x:DataType="local:PhotoGridItem">
+                        <Grid Width="90" Height="90" Margin="4">
+                            <Border Background="#2A2A2A" />
+                            <Image Source="{x:Bind Thumbnail, Mode=OneWay}" Stretch="UniformToFill" />
+                            <FontIcon Glyph="&#xE73E;" Foreground="LimeGreen" FontSize="14" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="2" Visibility="{x:Bind IsSelected, Mode=OneWay}" />
+                            <FontIcon Glyph="&#xE711;" Foreground="OrangeRed" FontSize="14" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="2" Visibility="{x:Bind IsReject, Mode=OneWay}" />
+                        </Grid>
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
+
+            <TextBlock
+                Grid.Row="3"
+                Foreground="#888888"
+                FontSize="12"
+                Padding="12,6"
+                Text="←/→ foto · Space seleziona · Delete scarta · 0-5 rating · X crop · L raddrizza (poi frecce/rotella sullo slider) · U auto-correzione · Esc chiudi" />
+        </Grid>
 
         <ContentDialog
             x:Name="DialogScarti"
@@ -100,7 +227,74 @@
             </StackPanel>
         </ContentDialog>
 
+        <ContentDialog
+            x:Name="DialogExport"
+            Grid.Row="0"
+            Grid.RowSpan="3"
+            Title="Esporta foto elette"
+            PrimaryButtonText="Esporta"
+            CloseButtonText="Chiudi"
+            DefaultButton="Primary"
+            PrimaryButtonClick="DialogExport_PrimaryButtonClick">
+            <StackPanel Spacing="10" MinWidth="420">
+                <CheckBox x:Name="ExportSoloSelezionateCheck" Content="Solo foto selezionate" IsChecked="True" />
+
+                <TextBlock Text="Cartella di output" Foreground="#AAAAAA" FontSize="12" />
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBox x:Name="ExportCartellaTextBox" Width="320" />
+                    <Button x:Name="ExportScegliCartellaButton" Content="Sfoglia…" Click="ExportScegliCartellaButton_Click" />
+                </StackPanel>
+
+                <TextBlock Text="Dimensione (lato lungo)" Foreground="#AAAAAA" FontSize="12" />
+                <ComboBox x:Name="ExportLatoLungoCombo" SelectedIndex="1" Width="200">
+                    <ComboBoxItem Content="1600 px" />
+                    <ComboBoxItem Content="2048 px" />
+                    <ComboBoxItem Content="3200 px" />
+                    <ComboBoxItem Content="Originale" />
+                </ComboBox>
+
+                <TextBlock Text="Qualità JPEG" Foreground="#AAAAAA" FontSize="12" />
+                <Slider x:Name="ExportQualitaSlider" Minimum="50" Maximum="100" Value="90" Width="200" HorizontalAlignment="Left" />
+
+                <TextBlock Text="Watermark (vuoto = nessuno)" Foreground="#AAAAAA" FontSize="12" />
+                <TextBox x:Name="ExportWatermarkTextBox" PlaceholderText="es. © Mario Rossi" />
+                <StackPanel Orientation="Horizontal" Spacing="12">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBlock Text="Opacità" VerticalAlignment="Center" Foreground="#AAAAAA" FontSize="12" />
+                        <Slider x:Name="ExportOpacitaSlider" Minimum="10" Maximum="100" Value="50" Width="120" />
+                    </StackPanel>
+                    <ComboBox x:Name="ExportPosizioneCombo" SelectedIndex="3" Width="150">
+                        <ComboBoxItem Content="Alto sinistra" />
+                        <ComboBoxItem Content="Alto destra" />
+                        <ComboBoxItem Content="Basso sinistra" />
+                        <ComboBoxItem Content="Basso destra" />
+                        <ComboBoxItem Content="Centro" />
+                    </ComboBox>
+                </StackPanel>
+
+                <TextBlock Text="Tag personalizzati (separati da virgola)" Foreground="#AAAAAA" FontSize="12" />
+                <TextBox x:Name="ExportTagTextBox" PlaceholderText="es. vacanza, puglia, 2026" />
+
+                <ProgressBar x:Name="ExportProgressBar" Minimum="0" Maximum="100" Value="0" Visibility="Collapsed" />
+                <TextBlock x:Name="ExportStatusText" Foreground="#AAAAAA" FontSize="12" />
+            </StackPanel>
+        </ContentDialog>
+
+        <Grid
+            x:Name="CaricamentoOverlay"
+            Grid.Row="0"
+            Grid.RowSpan="3"
+            Background="#B0101010"
+            Visibility="Collapsed">
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12">
+                <ProgressRing IsActive="True" Width="48" Height="48" />
+                <TextBlock x:Name="CaricamentoText" Text="Caricamento…" Foreground="White" FontSize="14" HorizontalAlignment="Center" />
+            </StackPanel>
+        </Grid>
+
     </Grid>
+
+    </SplitView>
 
     <Window.SystemBackdrop>
         <MicaBackdrop />

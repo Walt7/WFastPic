@@ -17,6 +17,7 @@
     <ProjectReference Include="..\..\src\WFastPic.Core.Library\WFastPic.Core.Library.csproj" />
     <ProjectReference Include="..\..\src\WFastPic.Core.Persistence\WFastPic.Core.Persistence.csproj" />
     <ProjectReference Include="..\..\src\WFastPic.Core.Selection\WFastPic.Core.Selection.csproj" />
+    <ProjectReference Include="..\..\src\WFastPic.Core.Processing\WFastPic.Core.Processing.csproj" />
   </ItemGroup>
 
 </Project>

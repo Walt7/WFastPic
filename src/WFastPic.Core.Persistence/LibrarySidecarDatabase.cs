@@ -269,5 +269,27 @@ public sealed class LibrarySidecarDatabase : IDisposable
         cmd.ExecuteNonQuery();
     }
 
+    /// <summary>Ricetta di editing salvata per la foto, o null se non è mai stata modificata.</summary>
+    public string? GetRecipeJson(long photoId)
+    {
+        using var cmd = _connection.CreateCommand();
+        cmd.CommandText = "SELECT recipe_json FROM edits WHERE photo_id = $id;";
+        cmd.Parameters.AddWithValue("$id", photoId);
+        return cmd.ExecuteScalar() as string;
+    }
+
+    public void SaveRecipe(long photoId, string recipeJson, int schemaVersion)
+    {
+        using var cmd = _connection.CreateCommand();
+        cmd.CommandText = """
+            INSERT INTO edits (photo_id, recipe_json, schema_version) VALUES ($id, $json, $version)
+            ON CONFLICT(photo_id) DO UPDATE SET recipe_json = excluded.recipe_json, schema_version = excluded.schema_version;
+            """;
+        cmd.Parameters.AddWithValue("$id", photoId);
+        cmd.Parameters.AddWithValue("$json", recipeJson);
+        cmd.Parameters.AddWithValue("$version", schemaVersion);
+        cmd.ExecuteNonQuery();
+    }
+
     public void Dispose() => _connection.Dispose();
 }

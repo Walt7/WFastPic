@@ -1,10 +1,25 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <!-- Windows-targeted: serve Windows.Graphics.Imaging (encoder JPEG + metadata EXIF) e
+         System.Drawing.Common (rendering testo watermark). Nessuna dipendenza WinUI/XAML. -->
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
     <RootNamespace>WFastPic.Core.Export</RootNamespace>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <UseWindowsForms>false</UseWindowsForms>
   </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.Drawing.Common" Version="10.0.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\WFastPic.Core.Library\WFastPic.Core.Library.csproj" />
+    <ProjectReference Include="..\WFastPic.Core.Processing\WFastPic.Core.Processing.csproj" />
+    <ProjectReference Include="..\WFastPic.Core.Decoding\WFastPic.Core.Decoding.csproj" />
+    <ProjectReference Include="..\WFastPic.Core.Persistence\WFastPic.Core.Persistence.csproj" />
+    <ProjectReference Include="..\WFastPic.Core.Selection\WFastPic.Core.Selection.csproj" />
+  </ItemGroup>
 
 </Project>

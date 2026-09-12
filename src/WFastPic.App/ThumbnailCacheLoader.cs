@@ -20,6 +20,11 @@ public sealed class ThumbnailCacheLoader
     private readonly SemaphoreSlim _semaforo = new(MaxParallelismo);
     private readonly ConcurrentQueue<PhotoGridItem> _coda = new();
     private CancellationTokenSource? _cts;
+    private int _totale;
+    private int _completate;
+
+    /// <summary>Notifica (completate, totale) ad ogni thumbnail caricata/generata, per mostrare una percentuale in UI.</summary>
+    public event Action<int, int>? ProgressoCambiato;
 
     public ThumbnailCacheLoader(string cartellaFoto, DispatcherQueue dispatcher)
     {
@@ -36,6 +41,8 @@ public sealed class ThumbnailCacheLoader
         var token = _cts.Token;
 
         _coda.Clear();
+        _totale = foto.Count;
+        _completate = 0;
         foreach (var item in foto)
         {
             _coda.Enqueue(item);
@@ -70,6 +77,9 @@ public sealed class ThumbnailCacheLoader
             finally
             {
                 _semaforo.Release();
+                var completate = Interlocked.Increment(ref _completate);
+                if (!token.IsCancellationRequested)
+                    _dispatcher.TryEnqueue(() => ProgressoCambiato?.Invoke(completate, _totale));
             }
         }
     }

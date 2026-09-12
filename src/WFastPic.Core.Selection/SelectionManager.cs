@@ -26,6 +26,9 @@ public sealed class SelectionManager : IAsyncDisposable
     public void SetRating(long photoId, int rating) =>
         _codaScritture.Writer.TryWrite(() => _db.UpdateRating(photoId, rating));
 
+    public void SaveRecipe(long photoId, string recipeJson, int schemaVersion) =>
+        _codaScritture.Writer.TryWrite(() => _db.SaveRecipe(photoId, recipeJson, schemaVersion));
+
     private async Task ProcessQueueAsync()
     {
         await foreach (var azione in _codaScritture.Reader.ReadAllAsync())

@@ -17,6 +17,7 @@ public sealed class PhotoGridItem : INotifyPropertyChanged
     public required string PathRelativo { get; init; }
     public required string PercorsoCompleto { get; init; }
     public DateTime? CaptureDate { get; init; }
+    public bool HasVideo { get; init; }
 
     private int? _groupId;
     public int? GroupId
