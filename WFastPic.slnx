@@ -1,0 +1,18 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/WFastPic.App/WFastPic.App.csproj" />
+    <Project Path="src/WFastPic.Core.Decoding/WFastPic.Core.Decoding.csproj" />
+    <Project Path="src/WFastPic.Core.Export/WFastPic.Core.Export.csproj" />
+    <Project Path="src/WFastPic.Core.Library/WFastPic.Core.Library.csproj" />
+    <Project Path="src/WFastPic.Core.Metadata/WFastPic.Core.Metadata.csproj" />
+    <Project Path="src/WFastPic.Core.Persistence/WFastPic.Core.Persistence.csproj" />
+    <Project Path="src/WFastPic.Core.Processing/WFastPic.Core.Processing.csproj" />
+    <Project Path="src/WFastPic.Core.Selection/WFastPic.Core.Selection.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/WFastPic.Core.Tests/WFastPic.Core.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/ScanSmokeTest/ScanSmokeTest.csproj" />
+  </Folder>
+</Solution>

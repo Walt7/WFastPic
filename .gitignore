@@ -1,0 +1,12 @@
+bin/
+obj/
+.vs/
+*.user
+
+# Sidecar per-cartella: mai versionare dati di una libreria foto reale
+.wfastpic/
+Scarti/
+
+# Dati di test locali con foto reali (non redistribuibili)
+tools/HeicSmokeTest/samples/
+tools/HeicSmokeTest/out/

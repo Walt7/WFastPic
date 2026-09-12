@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
+    <RootNamespace>WFastPic.App</RootNamespace>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <Platforms>x64;arm64</Platforms>
+    <RuntimeIdentifiers>win-x64;win-arm64</RuntimeIdentifiers>
+    <UseWinUI>true</UseWinUI>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <WindowsPackageType>None</WindowsPackageType>
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <SelfContained>true</SelfContained>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.4.0" />
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.28000.2705" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\WFastPic.Core.Library\WFastPic.Core.Library.csproj" />
+    <ProjectReference Include="..\WFastPic.Core.Decoding\WFastPic.Core.Decoding.csproj" />
+    <ProjectReference Include="..\WFastPic.Core.Processing\WFastPic.Core.Processing.csproj" />
+    <ProjectReference Include="..\WFastPic.Core.Metadata\WFastPic.Core.Metadata.csproj" />
+    <ProjectReference Include="..\WFastPic.Core.Selection\WFastPic.Core.Selection.csproj" />
+    <ProjectReference Include="..\WFastPic.Core.Persistence\WFastPic.Core.Persistence.csproj" />
+    <ProjectReference Include="..\WFastPic.Core.Export\WFastPic.Core.Export.csproj" />
+  </ItemGroup>
+
+</Project>

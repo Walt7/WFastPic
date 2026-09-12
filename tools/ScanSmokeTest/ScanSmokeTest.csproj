@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>ScanSmokeTest</RootNamespace>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\WFastPic.Core.Library\WFastPic.Core.Library.csproj" />
+    <ProjectReference Include="..\..\src\WFastPic.Core.Persistence\WFastPic.Core.Persistence.csproj" />
+  </ItemGroup>
+
+</Project>
