@@ -6,71 +6,103 @@ Guida per agenti AI (Claude Code e simili) che lavorano su questo repository.
 
 Successore open source moderno di Picasa: selezione velocissima e correzione rapida di grandi
 collezioni fotografiche HEIC su Windows. Riferimento UX: Picasa. Non Lightroom, non un file browser
-generico (FastStone). Vedi il documento di progettazione completo per contesto, decisioni e roadmap:
-`docs/design-doc.html` (se non presente, chiedere all'utente il link dell'Artifact pubblicato).
+generico (FastStone).
 
 Principio guida di ogni scelta tecnica: **selezionare e sistemare centinaia di foto di una vacanza
 nel minor numero possibile di azioni, senza mai interrompere il flusso dell'utente.**
 
 ## Stato del progetto
 
-Fase corrente: **solo progettazione**. Nessun codice ancora scritto. Non avviare implementazione senza
-conferma esplicita dell'utente su quale fase della roadmap (MVP → v1.0 → v1.1 → v1.2 → v2.0) affrontare.
+Fase 0-5 del piano originale (`~/.claude/plans/cheerful-sleeping-biscuit.md`) **completate**:
+smoke test HEIC, scaffold, scan+sidecar, griglia+selezione, viewer+editing minimo, export JPEG.
 
-## Decisioni architetturali vincolanti (ADR-001)
+Aggiunte fuori piano, su richiesta esplicita durante lo sviluppo:
+- Raggruppamento raffiche (foto scattate a pochi secondi di distanza) con azione "tieni questa,
+  scarta il resto del gruppo" (Shift+Space).
+- Icona/logo app.
+- Sidebar cartelle recenti (persistita su disco) + barra percorso stile Explorer.
+- Badge presenza video abbinato (Apple Live Photo / Motion Photo) — solo rilevamento, **nessuna
+  riproduzione** (resta fuori scope).
+- Export: watermark testuale configurabile, tag personalizzati scritti come Keywords EXIF,
+  cartella di output scelta o default `<cartella>/Export`.
+- Overlay di caricamento con ritardo 300ms (niente flash su cartelle piccole) + percentuale
+  miniature caricate in status bar.
 
-- **Stack:** C# + WinUI 3 (Windows App SDK) per la UI. Win2D per canvas GPU (zoom/pan/regolazioni).
-  Decoding HEIC via Windows Imaging Component (WIC), con `libheif` come fallback.
-- **Regola di layering non negoziabile:** nessun progetto sotto `src/WFastPic.Core.*` può referenziare
-  WinUI/XAML. Tutta la logica di dominio vive in class library .NET pure, testabili senza avviare la UI.
-  Questo è ciò che rende sostituibile sia il motore di decoding sia, in futuro, l'intera UI (es. Avalonia
-  per il porting cross-platform).
-- **Nessuna libreria fotografica centrale.** Le foto restano nelle cartelle originali. Selezione, rating
-  e modifiche vivono in un sidecar SQLite per cartella (`.wfastpic/library.db`), mai in un database globale.
-- **Editing sempre non distruttivo.** Ogni modifica è una ricetta dichiarativa (JSON versionato) applicata
-  al volo in rendering/export. Gli originali HEIC non vengono mai scritti.
+Non ancora implementato / verificato: nessuna fase residua del piano. Resta da fare solo verifica
+manuale interattiva utente su una cartella reale (drag crop, straighten, export end-to-end) — un
+agente CLI non ha accesso a mouse/tastiera su questa app desktop nativa.
+
+## Decisioni architetturali (ADR-001) — stato effettivo
+
+- **Stack:** C# + WinUI 3 (Windows App SDK 2.4.0), unpackaged, `net10.0-windows10.0.19041.0`.
+  Decoding HEIC via WIC (`Windows.Graphics.Imaging.BitmapDecoder`) — **nessun fallback libheif**:
+  il verdetto Fase 0 ha confermato che WIC basta sui file reali testati.
+- **Win2D non usato.** Crop/raddrizzamento nel Viewer sono overlay/RenderTransform WinUI puri
+  (niente GPU canvas); il bake reale dei pixel avviene solo in export (`PixelOps`/`RecipeApplier`,
+  math CPU pura). Se in futuro serve editing più pesante (esposizione, WB, ecc.), Win2D resta
+  l'opzione da valutare per allora.
+- **CommunityToolkit.Mvvm non usato.** Code-behind pragmatico con `INotifyPropertyChanged` manuale
+  (`PhotoGridItem`). Tech debt nota, non refactored perché la Grid è stabile così com'è.
+- **Regola di layering non negoziabile:** nessun progetto sotto `src/WFastPic.Core.*` referenzia
+  WinUI/XAML. `Core.Decoding` ed `Core.Export` sono Windows-targeted (`net10.0-windows...`) solo
+  per usare WinRT imaging APIs (WIC) — non per XAML — eccezione già accettata.
+- **Nessuna libreria fotografica centrale.** Sidecar SQLite per cartella (`.wfastpic/library.db`,
+  WAL, `Pooling=false`). Identità foto: `PathRelativo + Size + LastWriteTimeUtc`, mai hash di massa.
+- **Editing sempre non distruttivo.** `EditRecipe` (JSON versionato) in tabella `edits`, applicata
+  al volo in Viewer/export. Gli originali HEIC non vengono mai scritti.
 - **Licenza progetto:** MIT.
 
-## Struttura repository attesa
+## Struttura repository effettiva
 
 ```
 src/
-├─ WFastPic.App/              (WinUI 3, XAML, ViewModel — MVVM)
-├─ WFastPic.Core.Library/      (scan cartelle, modello foto/sessione, filtri)
-├─ WFastPic.Core.Decoding/     (IImageDecoder: WIC/HEIC, JPEG, fallback libheif)
-├─ WFastPic.Core.Processing/   (pipeline non distruttiva: crop, esposizione, ecc.)
-├─ WFastPic.Core.Metadata/     (EXIF/XMP/GPS, orientamento)
-├─ WFastPic.Core.Selection/    (stato selezione/rating/scarto)
-├─ WFastPic.Core.Persistence/  (sidecar SQLite, migrazioni schema)
-└─ WFastPic.Core.Export/       (rendering finale + resize + scrittura JPEG)
+├─ WFastPic.App/               (WinUI 3, XAML + code-behind, no MVVM toolkit)
+├─ WFastPic.Core.Library/       (scan cartelle, identità foto, raggruppamento raffiche, video abbinato)
+├─ WFastPic.Core.Decoding/      (thumbnail/preview/full decode via WIC — Windows-targeted)
+├─ WFastPic.Core.Processing/    (EditRecipe, crop/rotate/auto-correct — pure, testabile)
+├─ WFastPic.Core.Metadata/      (lettura data scatto EXIF)
+├─ WFastPic.Core.Selection/     (stato selezione/rating/scarto, coda scrittura async)
+├─ WFastPic.Core.Persistence/   (sidecar SQLite)
+└─ WFastPic.Core.Export/        (bake ricetta + watermark + tag EXIF + encode JPEG — Windows-targeted)
 tests/
-├─ WFastPic.Core.Tests/        (unit, xUnit)
-└─ WFastPic.Golden.Tests/      (regressione su immagini di riferimento)
-docs/
+└─ WFastPic.Core.Tests/         (xUnit, 21 test — Library/Selection/Processing)
+tools/
+├─ HeicSmokeTest/                (Fase 0, smoke test decoding)
+└─ ScanSmokeTest/
+assets/                          (icon.ico, logo.png)
 ```
 
 ## Performance: vincoli non negoziabili
 
-- Nessun decode a piena risoluzione quando basta una thumbnail o una preview (tre livelli distinti:
-  thumbnail 256px, preview 2048px, full-res solo per zoom 100%/editing).
-- Decoding sempre asincrono, mai sul thread UI. Coda con priorità: visibile > prefetch > background.
-- Preload predittivo delle foto N-1/N+1 nel viewer prima che l'utente prema freccia.
-- La UI non deve mai bloccarsi, nemmeno con librerie da 10 000–50 000 foto.
+- Nessun decode a piena risoluzione quando basta una thumbnail o una preview. Tre livelli distinti:
+  thumbnail (grid, `ThumbnailExtractor`, embedded WIC thumb), preview (`PreviewDecoder`, 2048px,
+  Viewer), full/preset (solo in export).
+- Decoding sempre asincrono, mai sul thread UI. Thumbnail loader: coda + 4 worker paralleli,
+  cache disco (`.wfastpic/thumbcache/`).
+- Filmstrip Viewer: solo finestra ±12 indici caricata, mai l'intera libreria.
+- Il ciclo `←/→ Space` non deve mai avere latenza percepibile, nemmeno su ~1300 foto reali
+  (cartella di riferimento: `E:\Fotocamera\2026\Puglia`).
 
-## Shortcut da tastiera (mappa di riferimento)
+## Shortcut da tastiera implementati (mappa di riferimento)
 
-`→/←` foto succ/prec · `Space` seleziona · `Delete` scarto · `0–5` rating · `Z` zoom 100% · `F` adatta ·
-`X` crop · `L` raddrizza · `U` auto-correzione · `R`/`Shift+R` ruota · `M` riproduci filmato incorporato
-(Motion Photo/Live Photo, quando presente) · `Ctrl+C`/`Ctrl+Shift+V` copia/incolla ricetta editing ·
-`Ctrl+Z`/`Ctrl+Y` undo/redo · `Tab` filtro tutte/selezionate/scarti. Non introdurre nuovi shortcut senza
-verificarne il conflitto con questa mappa.
+`←/→` naviga · `Space` seleziona · `Shift+Space` seleziona e scarta il resto della raffica ·
+`Delete`/`Backspace` scarta (mai cancellazione fisica) · `0-5` rating · `Tab` filtro
+tutte/selezionate/scarti · `Ctrl+A` seleziona tutte visibili · `Shift+rotella` dimensione cella
+griglia · `Enter` / doppio click apri viewer. Nel Viewer: `←/→` naviga · `Space` seleziona ·
+`Delete` scarta · `0-5` rating · `X` crop · `L` raddrizza (poi frecce/rotella sullo slider) ·
+`U` auto-correzione · `Esc` chiudi. Non introdurre nuovi shortcut senza verificarne il conflitto
+con questa mappa.
+
+Nota: `Z`/`F` zoom, `R` ruota rigida, `M` riproduci video, `Ctrl+C/V` copia ricetta, `Ctrl+Z/Y`
+undo/redo — presenti nella mappa di design originale ma **non ancora implementati**.
 
 ## Convenzioni per chi implementa
 
-- Test prima o insieme al codice per la logica in `Core.*` (xUnit). Golden image test per ogni
-  operazione della pipeline di editing (crop, rotazione, WB) con pixel-diff.
-- Nessuna dipendenza da WinUI nei progetti `Core.*` — se serve, è un segnale che la logica è nel posto
-  sbagliato.
-- Build CI su `windows-latest` (GitHub Actions): build + test su ogni PR.
-- Attribuzione dipendenze di terze parti da mantenere aggiornata (vedi documento di design, sezione
-  "Dipendenze e licenze") — in particolare `libheif` è LGPL v3, va linkata dinamicamente, mai staticamente.
+- Test prima o insieme al codice per la logica in `Core.*` (xUnit) — 21 test attuali coprono
+  scan/identità, raffiche, selezione, ricetta/crop/rotate/auto-correct.
+- Nessuna dipendenza da WinUI nei progetti `Core.*` — se serve, è un segnale che la logica è nel
+  posto sbagliato. `Core.Decoding`/`Core.Export` sono Windows-targeted solo per WinRT imaging.
+- Pattern ricorrente WinUI: se un evento (wheel, keydown) sparisce perché un controllo figlio
+  (ScrollViewer, Slider) lo marca `Handled` prima che arrivi al gestore voluto, usare
+  `AddHandler(..., handledEventsToo: true)` sull'antenato giusto invece di attributi XAML.
+- Build: `dotnet build WFastPic.slnx`. Test: `dotnet test tests/WFastPic.Core.Tests`.
