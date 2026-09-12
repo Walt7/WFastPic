@@ -42,9 +42,14 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         Title = "WFastPic";
+        AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "icon.ico"));
         Griglia.ItemsSource = _visibili;
         AggiornaStatusBar();
         AggiornaFiltroText();
+
+        // handledEventsToo: la ScrollViewer interna della ListView consuma la rotella per lo
+        // scroll e marca l'evento Handled prima che arrivi al gestore dichiarato in XAML.
+        Griglia.AddHandler(UIElement.PointerWheelChangedEvent, new PointerEventHandler(Griglia_PointerWheelChanged), handledEventsToo: true);
     }
 
     private async void ApriCartellaButton_Click(object sender, RoutedEventArgs e)
@@ -111,6 +116,7 @@ public partial class MainWindow : Window
         RaggruppaRaffiche();
         ApplicaFiltro();
         AggiornaStatusBar();
+        Griglia.Focus(FocusState.Programmatic);
         _thumbnailLoader.AvviaCaricamento(_tutte);
     }
 
@@ -199,6 +205,22 @@ public partial class MainWindow : Window
             _visibili.Add(item);
         }
         AggiornaFiltroText();
+        AssicuraSelezione();
+    }
+
+    /// <summary>
+    /// Senza un elemento selezionato, Space/Delete/rating non hanno un "corrente" su cui agire:
+    /// la griglia sembra non rispondere alla tastiera finché non si clicca manualmente un elemento.
+    /// Garantisce sempre una selezione valida dopo caricamento o cambio filtro.
+    /// </summary>
+    private void AssicuraSelezione()
+    {
+        if (Griglia.SelectedItem is PhotoGridItem attuale && _visibili.Contains(attuale))
+        {
+            return;
+        }
+
+        Griglia.SelectedIndex = _visibili.Count > 0 ? 0 : -1;
     }
 
     private void AggiornaStatusBar() =>

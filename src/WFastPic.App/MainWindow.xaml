@@ -19,7 +19,6 @@
             SelectionMode="Single"
             IsItemClickEnabled="False"
             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-            PointerWheelChanged="Griglia_PointerWheelChanged"
             KeyDown="Griglia_KeyDown">
             <ListView.ItemsPanel>
                 <ItemsPanelTemplate>
