@@ -44,15 +44,26 @@ public partial class MainWindow
     private double _viewerImgH;
     private EditRecipe _ricettaCorrente = EditRecipe.Default;
     private bool _cropModeAttivo;
+    private int _richiestaCaricamentoViewer;
+    private double _viewerZoom = 1;
     private string? _handleInDrag;
     private double _cropX0, _cropY0, _cropX1, _cropY1;
     private GrigliaComposizione _grigliaModo = GrigliaComposizione.Terzi;
+
+    // Cache delle preview decodificate (foto corrente ± vicini) cosi' <-- / --> nel Viewer non
+    // aspetta il decode HEIC ogni volta: il vicino e' gia' pronto quando ci si arriva.
+    private readonly Dictionary<string, (byte[] Pixel, int Larghezza, int Altezza)> _previewCache = new();
+    private readonly List<string> _previewCacheOrdine = new();
+    private readonly HashSet<string> _prefetchInCorso = new();
+    private const int PreviewCacheMax = 6;
 
     private void InizializzaViewer()
     {
         // handledEventsToo: i controlli interni (Slider, Button) possono marcare l'evento Handled
         // per uso proprio; gli shortcut del Viewer devono comunque sempre arrivare.
         ViewerOverlay.AddHandler(UIElement.KeyDownEvent, new KeyEventHandler(ViewerOverlay_KeyDown), handledEventsToo: true);
+        ViewerImageContainer.AddHandler(UIElement.PointerWheelChangedEvent,
+            new PointerEventHandler(ViewerImageContainer_PointerWheelChanged), handledEventsToo: true);
     }
 
     private void ApriViewer(PhotoGridItem? foto)
@@ -61,17 +72,22 @@ public partial class MainWindow
         _ = CaricaFotoNelViewerAsync(foto);
         ViewerOverlay.Visibility = Visibility.Visible;
         _viewerAperto = true;
+        ViewerOverlay.Focus(FocusState.Programmatic);
         ElementSoundPlayer.Play(ElementSoundKind.Show);
     }
 
     private async Task CaricaFotoNelViewerAsync(PhotoGridItem foto)
     {
+        var richiesta = ++_richiestaCaricamentoViewer;
         SalvaRicettaCorrente();
 
         _fotoViewerCorrente = foto;
         ViewerStatusText.Text = "Caricamento…";
 
-        var (pixel, larghezza, altezza) = await PreviewDecoder.DecodePreviewBgraAsync(foto.PercorsoCompleto);
+        var (pixel, larghezza, altezza) = await OttieniPreviewAsync(foto.PercorsoCompleto);
+
+        if (richiesta != _richiestaCaricamentoViewer || !_viewerAperto)
+            return;
 
         _viewerPixelOriginali = pixel;
         _viewerPixelWidth = larghezza;
@@ -88,17 +104,79 @@ public partial class MainWindow
 
         ComputeViewerSize(larghezza, altezza);
         AggiornaImmagineViewer();
+        ImpostaZoomViewer(1);
 
         ViewerStraightenSlider.Value = _ricettaCorrente.StraightenAngleDegrees;
         ViewerRotateTransform.Angle = _ricettaCorrente.StraightenAngleDegrees;
         ViewerAngleText.Text = $"{_ricettaCorrente.StraightenAngleDegrees:F1}°";
 
         ImpostaCropIniziale();
+        AggiornaGriglia();
         AggiornaFilmstrip();
         ViewerStatusText.Text = foto.PathRelativo;
         ViewerVideoBadge.Visibility = foto.HasVideo ? Visibility.Visible : Visibility.Collapsed;
+        ViewerSelectionBorder.Visibility = foto.IsSelected ? Visibility.Visible : Visibility.Collapsed;
 
-        ViewerCloseButton.Focus(FocusState.Programmatic);
+        ViewerOverlay.Focus(FocusState.Programmatic);
+
+        _ = PrecaricaViciniAsync(foto);
+    }
+
+    private async Task<(byte[] Pixel, int Larghezza, int Altezza)> OttieniPreviewAsync(string percorso)
+    {
+        if (_previewCache.TryGetValue(percorso, out var cache))
+        {
+            _previewCacheOrdine.Remove(percorso);
+            _previewCacheOrdine.Add(percorso);
+            return cache;
+        }
+
+        var risultato = await PreviewDecoder.DecodePreviewBgraAsync(percorso);
+        MemorizzaInCache(percorso, risultato);
+        return risultato;
+    }
+
+    private void MemorizzaInCache(string percorso, (byte[] Pixel, int Larghezza, int Altezza) valore)
+    {
+        _previewCache[percorso] = valore;
+        _previewCacheOrdine.Remove(percorso);
+        _previewCacheOrdine.Add(percorso);
+
+        while (_previewCacheOrdine.Count > PreviewCacheMax)
+        {
+            var piuVecchio = _previewCacheOrdine[0];
+            _previewCacheOrdine.RemoveAt(0);
+            _previewCache.Remove(piuVecchio);
+        }
+    }
+
+    private async Task PrecaricaViciniAsync(PhotoGridItem corrente)
+    {
+        var indice = _visibili.IndexOf(corrente);
+        if (indice < 0) return;
+
+        var percorsi = new List<string>();
+        if (indice > 0) percorsi.Add(_visibili[indice - 1].PercorsoCompleto);
+        if (indice < _visibili.Count - 1) percorsi.Add(_visibili[indice + 1].PercorsoCompleto);
+
+        foreach (var percorso in percorsi)
+        {
+            if (_previewCache.ContainsKey(percorso) || !_prefetchInCorso.Add(percorso)) continue;
+
+            try
+            {
+                var risultato = await PreviewDecoder.DecodePreviewBgraAsync(percorso);
+                MemorizzaInCache(percorso, risultato);
+            }
+            catch
+            {
+                // Ignora: se il prefetch fallisce, il decode verra' ritentato al caricamento effettivo.
+            }
+            finally
+            {
+                _prefetchInCorso.Remove(percorso);
+            }
+        }
     }
 
     private void ComputeViewerSize(int pixelWidth, int pixelHeight)
@@ -123,6 +201,8 @@ public partial class MainWindow
         ViewerImage.Source = wb;
         ViewerImage.Width = _viewerImgW;
         ViewerImage.Height = _viewerImgH;
+        ViewerImageHost.Width = _viewerImgW;
+        ViewerImageHost.Height = _viewerImgH;
         ViewerCropCanvas.Width = _viewerImgW;
         ViewerCropCanvas.Height = _viewerImgH;
     }
@@ -149,9 +229,15 @@ public partial class MainWindow
         Canvas.SetTop(HandleTL, y0 - 9);
         Canvas.SetLeft(HandleBR, x1 - 9);
         Canvas.SetTop(HandleBR, y1 - 9);
+    }
 
-        var w = x1 - x0;
-        var h = y1 - y0;
+    // Griglia di composizione: sempre riferita all'intera immagine (non al riquadro di crop), sola
+    // trasparenza sulle linee — deve restare leggibile per inquadrare il soggetto indipendentemente
+    // dal fatto che il crop sia in modifica o meno.
+    private void AggiornaGriglia()
+    {
+        var x0 = 0.0; var y0 = 0.0;
+        var w = _viewerImgW; var h = _viewerImgH;
 
         var mostraTerzi = _grigliaModo == GrigliaComposizione.Terzi;
         var mostraMeta = _grigliaModo == GrigliaComposizione.Meta;
@@ -172,8 +258,8 @@ public partial class MainWindow
         Canvas.SetLeft(ThirdsH1, x0); Canvas.SetTop(ThirdsH1, y0 + h * frazioneH1); ThirdsH1.Width = w;
         Canvas.SetLeft(ThirdsH2, x0); Canvas.SetTop(ThirdsH2, y0 + h * 2 / 3); ThirdsH2.Width = w;
 
-        DiagLine1.X1 = x0; DiagLine1.Y1 = y0; DiagLine1.X2 = x1; DiagLine1.Y2 = y1;
-        DiagLine2.X1 = x1; DiagLine2.Y1 = y0; DiagLine2.X2 = x0; DiagLine2.Y2 = y1;
+        DiagLine1.X1 = x0; DiagLine1.Y1 = y0; DiagLine1.X2 = x0 + w; DiagLine1.Y2 = y0 + h;
+        DiagLine2.X1 = x0 + w; DiagLine2.Y1 = y0; DiagLine2.X2 = x0; DiagLine2.Y2 = y0 + h;
     }
 
     private void ViewerGrigliaToggle_Click(object sender, RoutedEventArgs e)
@@ -192,7 +278,7 @@ public partial class MainWindow
             _ => "Griglia: diagonali",
         };
 
-        PosizionaCrop(_cropX0, _cropY0, _cropX1, _cropY1);
+        AggiornaGriglia();
     }
 
     private void Handle_PointerPressed(object sender, PointerRoutedEventArgs e)
@@ -264,7 +350,31 @@ public partial class MainWindow
     private void ViewerCropToggle_Click(object sender, RoutedEventArgs e)
     {
         _cropModeAttivo = !_cropModeAttivo;
-        ViewerCropCanvas.Visibility = _cropModeAttivo ? Visibility.Visible : Visibility.Collapsed;
+        if (_cropModeAttivo)
+            ImpostaZoomViewer(1);
+        var vis = _cropModeAttivo ? Visibility.Visible : Visibility.Collapsed;
+        CropRectBorder.Visibility = vis;
+        HandleTL.Visibility = vis;
+        HandleBR.Visibility = vis;
+    }
+
+    private void ViewerImageContainer_PointerWheelChanged(object sender, PointerRoutedEventArgs e)
+    {
+        if (_viewerPixelOriginali is null || _cropModeAttivo) return;
+
+        var delta = e.GetCurrentPoint(ViewerImageContainer).Properties.MouseWheelDelta;
+        if (delta == 0) return;
+
+        ImpostaZoomViewer(_viewerZoom * (delta > 0 ? 1.15 : 1 / 1.15));
+        e.Handled = true;
+    }
+
+    private void ImpostaZoomViewer(double zoom)
+    {
+        _viewerZoom = Math.Clamp(zoom, 1, 4);
+        ViewerZoomTransform.ScaleX = _viewerZoom;
+        ViewerZoomTransform.ScaleY = _viewerZoom;
+        ViewerZoomText.Text = $"Zoom {_viewerZoom * 100:F0}%";
     }
 
     private void ViewerStraightenSlider_ValueChanged(object sender, RangeBaseValueChangedEventArgs e)
@@ -308,6 +418,7 @@ public partial class MainWindow
 
     private void ChiudiViewer()
     {
+        _richiestaCaricamentoViewer++;
         SalvaRicettaCorrente();
         ViewerOverlay.Visibility = Visibility.Collapsed;
         _viewerAperto = false;
@@ -324,8 +435,16 @@ public partial class MainWindow
         }
     }
 
+    private PhotoGridItem? _filmstripCorrenteEvidenziata;
+    private readonly List<PhotoGridItem> _filmstripGruppoEvidenziato = new();
+
     private void AggiornaFilmstrip()
     {
+        if (_filmstripCorrenteEvidenziata is not null) _filmstripCorrenteEvidenziata.IsCorrenteViewer = false;
+        foreach (var item in _filmstripGruppoEvidenziato) item.EvidenziaGruppoViewer = false;
+        _filmstripGruppoEvidenziato.Clear();
+        _filmstripCorrenteEvidenziata = null;
+
         if (_fotoViewerCorrente is null) { Filmstrip.ItemsSource = null; return; }
 
         var indice = _visibili.IndexOf(_fotoViewerCorrente);
@@ -338,6 +457,21 @@ public partial class MainWindow
         var finestra = new List<PhotoGridItem>();
         for (var i = inizio; i <= fine; i++) finestra.Add(_visibili[i]);
         Filmstrip.ItemsSource = finestra;
+
+        _fotoViewerCorrente.IsCorrenteViewer = true;
+        _filmstripCorrenteEvidenziata = _fotoViewerCorrente;
+
+        if (_fotoViewerCorrente.GroupId is not null)
+        {
+            foreach (var item in finestra)
+            {
+                if (item != _fotoViewerCorrente && item.GroupId == _fotoViewerCorrente.GroupId)
+                {
+                    item.EvidenziaGruppoViewer = true;
+                    _filmstripGruppoEvidenziato.Add(item);
+                }
+            }
+        }
     }
 
     private async Task NavigaViewerAsync(int delta)
@@ -377,12 +511,12 @@ public partial class MainWindow
                 break;
 
             case VirtualKey.Space:
-                SetStato(_fotoViewerCorrente, _fotoViewerCorrente.Stato == StatoSelezione.Selected ? StatoSelezione.None : StatoSelezione.Selected);
+                SetStatoNelViewer(_fotoViewerCorrente, _fotoViewerCorrente.Stato == StatoSelezione.Selected ? StatoSelezione.None : StatoSelezione.Selected);
                 e.Handled = true;
                 break;
 
             case VirtualKey.Delete or VirtualKey.Back:
-                SetStato(_fotoViewerCorrente, StatoSelezione.Reject);
+                SetStatoNelViewer(_fotoViewerCorrente, StatoSelezione.Reject);
                 e.Handled = true;
                 break;
 
@@ -407,6 +541,31 @@ public partial class MainWindow
             case VirtualKey.Number3: SetRating(_fotoViewerCorrente, 3); e.Handled = true; break;
             case VirtualKey.Number4: SetRating(_fotoViewerCorrente, 4); e.Handled = true; break;
             case VirtualKey.Number5: SetRating(_fotoViewerCorrente, 5); e.Handled = true; break;
+        }
+    }
+
+    private void SetStatoNelViewer(PhotoGridItem foto, string nuovoStato)
+    {
+        var indice = _visibili.IndexOf(foto);
+        var alternativa = indice >= 0
+            ? _visibili.ElementAtOrDefault(indice + 1) ?? _visibili.ElementAtOrDefault(indice - 1)
+            : null;
+
+        SetStato(foto, nuovoStato);
+        ViewerSelectionBorder.Visibility = foto.IsSelected ? Visibility.Visible : Visibility.Collapsed;
+
+        if (_fotoViewerCorrente == foto && !_visibili.Contains(foto))
+        {
+            if (alternativa is not null && _visibili.Contains(alternativa))
+                _ = CaricaFotoNelViewerAsync(alternativa);
+            else if (_visibili.Count > 0)
+                _ = CaricaFotoNelViewerAsync(_visibili[0]);
+            else
+                ChiudiViewer();
+        }
+        else
+        {
+            AggiornaFilmstrip();
         }
     }
 }

@@ -52,7 +52,7 @@ public sealed class LibrarySidecarDatabase : IDisposable
 
         using (var pragma = connection.CreateCommand())
         {
-            pragma.CommandText = "PRAGMA journal_mode=WAL;";
+            pragma.CommandText = "PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;";
             pragma.ExecuteNonQuery();
         }
 
@@ -165,6 +165,32 @@ public sealed class LibrarySidecarDatabase : IDisposable
 
                 nuove++;
             }
+        }
+
+        // La scansione è l'autorità per il contenuto della cartella. Evitiamo un IN(...) per non
+        // superare il limite di parametri SQLite su cartelle molto grandi.
+        var percorsiScansionati = fotoScansionate.Select(f => f.Identity.PathRelativo)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var mancanti = new List<long>();
+        using (var tutteLeFoto = _connection.CreateCommand())
+        {
+            tutteLeFoto.Transaction = transaction;
+            tutteLeFoto.CommandText = "SELECT id, path_relativo FROM photos;";
+            using var reader = tutteLeFoto.ExecuteReader();
+            while (reader.Read())
+            {
+                if (!percorsiScansionati.Contains(reader.GetString(1)))
+                    mancanti.Add(reader.GetInt64(0));
+            }
+        }
+
+        foreach (var id in mancanti)
+        {
+            using var delete = _connection.CreateCommand();
+            delete.Transaction = transaction;
+            delete.CommandText = "DELETE FROM photos WHERE id = $id;";
+            delete.Parameters.AddWithValue("$id", id);
+            delete.ExecuteNonQuery();
         }
 
         transaction.Commit();

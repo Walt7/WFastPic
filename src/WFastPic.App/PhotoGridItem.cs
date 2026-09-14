@@ -16,6 +16,8 @@ public sealed class PhotoGridItem : INotifyPropertyChanged
     public required long Id { get; init; }
     public required string PathRelativo { get; init; }
     public required string PercorsoCompleto { get; init; }
+    public required long FileSize { get; init; }
+    public required DateTime LastWriteUtc { get; init; }
     public DateTime? CaptureDate { get; init; }
     public bool HasVideo { get; init; }
 
@@ -82,6 +84,48 @@ public sealed class PhotoGridItem : INotifyPropertyChanged
     public bool IsReject => Stato == StatoSelezione.Reject;
     public bool HasRating => Rating > 0;
     public string RatingTesto => new string('★', Rating);
+
+    private bool _isCorrenteGriglia;
+    public bool IsCorrenteGriglia
+    {
+        get => _isCorrenteGriglia;
+        set
+        {
+            if (_isCorrenteGriglia == value) return;
+            _isCorrenteGriglia = value;
+            OnPropertyChanged();
+        }
+    }
+
+    // Solo per il filmstrip del Viewer: quale foto e' quella grande, e quali fanno parte della
+    // stessa raffica cosi' da evidenziarle senza toccare l'aspetto nella griglia principale.
+    private bool _isCorrenteViewer;
+    public bool IsCorrenteViewer
+    {
+        get => _isCorrenteViewer;
+        set
+        {
+            if (_isCorrenteViewer == value) return;
+            _isCorrenteViewer = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(DimensioneFilmstrip));
+        }
+    }
+
+    private bool _evidenziaGruppoViewer;
+    public bool EvidenziaGruppoViewer
+    {
+        get => _evidenziaGruppoViewer;
+        set
+        {
+            if (_evidenziaGruppoViewer == value) return;
+            _evidenziaGruppoViewer = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(DimensioneFilmstrip));
+        }
+    }
+
+    public double DimensioneFilmstrip => IsCorrenteViewer ? 100 : EvidenziaGruppoViewer ? 90 : 80;
 
     private void OnPropertyChanged([CallerMemberName] string? nome = null) =>
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nome));

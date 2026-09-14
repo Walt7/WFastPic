@@ -43,6 +43,7 @@ public partial class MainWindow : Window
 
     private int _miniatureCompletate;
     private int _miniatureTotali;
+    private int _richiestaCaricamentoCartella;
 
     public MainWindow()
     {
@@ -51,16 +52,35 @@ public partial class MainWindow : Window
         AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "icon.ico"));
         Griglia.ItemsSource = _visibili;
         AggiornaStatusBar();
-        AggiornaFiltroText();
+        AggiornaFiltroUI();
 
         _cartelleRecenti = RecentFoldersStore.Carica();
         CartelleRecentiList.ItemsSource = _cartelleRecenti;
+        InizializzaAlberoCartelle();
 
         // handledEventsToo: la ScrollViewer interna della ListView consuma la rotella per lo
         // scroll e marca l'evento Handled prima che arrivi al gestore dichiarato in XAML.
         Griglia.AddHandler(UIElement.PointerWheelChangedEvent, new PointerEventHandler(Griglia_PointerWheelChanged), handledEventsToo: true);
 
         InizializzaViewer();
+
+        Closed += async (s, e) =>
+        {
+            if (_selectionManager is not null)
+            {
+                await _selectionManager.DisposeAsync();
+                _db?.Dispose();
+            }
+        };
+
+        if (_cartelleRecenti.Count > 0 && Directory.Exists(_cartelleRecenti[0]))
+        {
+            var cartellaIniziale = _cartelleRecenti[0];
+            DispatcherQueue.TryEnqueue(async () =>
+            {
+                await CaricaCartellaAsync(cartellaIniziale);
+            });
+        }
     }
 
     private async void ApriCartellaButton_Click(object sender, RoutedEventArgs e)
@@ -79,6 +99,88 @@ public partial class MainWindow : Window
 
     private void ToggleSidebarButton_Click(object sender, RoutedEventArgs e) =>
         RootSplitView.IsPaneOpen = !RootSplitView.IsPaneOpen;
+
+    private void InizializzaAlberoCartelle()
+    {
+        foreach (var cartellaCloud in CartelleCloudDisponibili())
+            DirectoryTree.RootNodes.Add(CreaNodoCartella(cartellaCloud, "\uE753"));
+
+        var questoPc = new TreeViewNode
+        {
+            Content = new DirectoryTreeEntry("Questo PC", null, "\uE770"),
+            IsExpanded = true,
+        };
+        foreach (var drive in DriveInfo.GetDrives().Where(d => d.IsReady))
+        {
+            var nome = string.IsNullOrWhiteSpace(drive.VolumeLabel)
+                ? drive.Name.TrimEnd(Path.DirectorySeparatorChar)
+                : $"{drive.VolumeLabel} ({drive.Name.TrimEnd(Path.DirectorySeparatorChar)})";
+            questoPc.Children.Add(CreaNodoCartella(drive.RootDirectory.FullName, "\uE8B7", nome));
+        }
+        DirectoryTree.RootNodes.Add(questoPc);
+    }
+
+    private static IEnumerable<string> CartelleCloudDisponibili()
+    {
+        var profilo = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        var candidate = new[] { Path.Combine(profilo, "Dropbox") }
+            .Concat(Directory.Exists(profilo)
+                ? Directory.EnumerateDirectories(profilo, "OneDrive*", SearchOption.TopDirectoryOnly)
+                : Enumerable.Empty<string>());
+
+        return candidate.Where(Directory.Exists).Distinct(StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static TreeViewNode CreaNodoCartella(string percorso, string icona, string? nome = null) => new()
+    {
+        Content = new DirectoryTreeEntry(nome ?? Path.GetFileName(percorso.TrimEnd(Path.DirectorySeparatorChar)), percorso, icona),
+        HasUnrealizedChildren = HaSottocartelle(percorso),
+    };
+
+    private static bool HaSottocartelle(string percorso)
+    {
+        try { return Directory.EnumerateDirectories(percorso).Any(); }
+        catch (UnauthorizedAccessException) { return false; }
+        catch (IOException) { return false; }
+    }
+
+    private static void CaricaFigli(TreeViewNode nodo, string percorso)
+    {
+        nodo.Children.Clear();
+        try
+        {
+            foreach (var figlio in Directory.EnumerateDirectories(percorso)
+                         .OrderBy(p => Path.GetFileName(p), StringComparer.CurrentCultureIgnoreCase))
+            {
+                nodo.Children.Add(CreaNodoCartella(figlio, "\uE8B7"));
+            }
+        }
+        catch (UnauthorizedAccessException)
+        {
+            // Cartella protetta: il ramo resta vuoto, come in Explorer senza autorizzazione.
+        }
+        catch (IOException)
+        {
+            // Un'unità rimovibile può sparire mentre il ramo viene espanso.
+        }
+    }
+
+    private void DirectoryTree_Expanding(TreeView sender, TreeViewExpandingEventArgs args)
+    {
+        if (args.Node.HasUnrealizedChildren && args.Node.Content is DirectoryTreeEntry { Percorso: not null } voce)
+        {
+            CaricaFigli(args.Node, voce.Percorso);
+            args.Node.HasUnrealizedChildren = false;
+        }
+    }
+
+    private async void DirectoryTree_ItemInvoked(TreeView sender, TreeViewItemInvokedEventArgs args)
+    {
+        if (args.InvokedItem is not DirectoryTreeEntry { Percorso: not null } voce) return;
+
+        RootSplitView.IsPaneOpen = false;
+        await CaricaCartellaAsync(voce.Percorso);
+    }
 
     private async void CartellaRecente_ItemClick(object sender, ItemClickEventArgs e)
     {
@@ -106,9 +208,18 @@ public partial class MainWindow : Window
 
     private async Task CaricaCartellaAsync(string cartella)
     {
+        var richiesta = ++_richiestaCaricamentoCartella;
+        if (_thumbnailLoader is not null)
+        {
+            _thumbnailLoader.ProgressoCambiato -= ThumbnailLoader_ProgressoCambiato;
+            _thumbnailLoader.Annulla();
+            _thumbnailLoader = null;
+        }
+
         if (_selectionManager is not null)
         {
             await _selectionManager.DisposeAsync();
+            _selectionManager.ScritturaFallita -= SelectionManager_ScritturaFallita;
         }
         _db?.Dispose();
 
@@ -132,8 +243,15 @@ public partial class MainWindow : Window
             return (database, database.GetAllPhotos());
         });
 
+        if (richiesta != _richiestaCaricamentoCartella)
+        {
+            db.Dispose();
+            return;
+        }
+
         _db = db;
         _selectionManager = new SelectionManager(_db);
+        _selectionManager.ScritturaFallita += SelectionManager_ScritturaFallita;
         _thumbnailLoader = new ThumbnailCacheLoader(cartella, DispatcherQueue);
         _thumbnailLoader.ProgressoCambiato += ThumbnailLoader_ProgressoCambiato;
 
@@ -145,6 +263,8 @@ public partial class MainWindow : Window
                 Id = record.Id,
                 PathRelativo = record.PathRelativo,
                 PercorsoCompleto = percorsoCompleto,
+                FileSize = record.Size,
+                LastWriteUtc = record.LastWriteUtc,
                 CaptureDate = record.CaptureDate,
                 HasVideo = CompanionVideoDetector.TrovaVideoAbbinato(percorsoCompleto) is not null,
                 Stato = record.Stato,
@@ -236,9 +356,39 @@ public partial class MainWindow : Window
         if (!CorrispondeAlFiltro(item, Filtri[_filtroIndice]))
         {
             _visibili.Remove(item);
+            AssicuraSelezione();
         }
 
         AggiornaStatusBar();
+    }
+
+    private PhotoGridItem? _correnteEvidenziata;
+
+    private void Griglia_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_correnteEvidenziata is not null)
+        {
+            _correnteEvidenziata.IsCorrenteGriglia = false;
+        }
+
+        if (Griglia.SelectedItem is PhotoGridItem nuovo)
+        {
+            _correnteEvidenziata = nuovo;
+            _correnteEvidenziata.IsCorrenteGriglia = true;
+        }
+        else
+        {
+            _correnteEvidenziata = null;
+        }
+    }
+
+    private void SelectionBadge_Tapped(object sender, TappedRoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: PhotoGridItem item })
+        {
+            SetStato(item, item.Stato == StatoSelezione.Selected ? StatoSelezione.None : StatoSelezione.Selected);
+            e.Handled = true;
+        }
     }
 
     private void SetRating(PhotoGridItem item, int rating)
@@ -262,7 +412,7 @@ public partial class MainWindow : Window
         {
             _visibili.Add(item);
         }
-        AggiornaFiltroText();
+        AggiornaFiltroUI();
         AssicuraSelezione();
     }
 
@@ -297,6 +447,14 @@ public partial class MainWindow : Window
         _miniatureCompletate = completate;
         _miniatureTotali = totale;
         AggiornaStatusBar();
+    }
+
+    private void SelectionManager_ScritturaFallita(Exception ex)
+    {
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            StatusText.Text = $"Errore nel salvare le modifiche: {ex.Message}";
+        });
     }
 
     /// <summary>
@@ -334,7 +492,33 @@ public partial class MainWindow : Window
         public void Dispose() => azione();
     }
 
-    private void AggiornaFiltroText() => FiltroText.Text = $"Filtro: {Filtri[_filtroIndice]}";
+    private bool _aggiornamentoFiltroInCorso;
+
+    private void FiltroComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_aggiornamentoFiltroInCorso) return;
+        if (FiltroComboBox.SelectedIndex is >= 0 and < 3 && FiltroComboBox.SelectedIndex != _filtroIndice)
+        {
+            _filtroIndice = FiltroComboBox.SelectedIndex;
+            ApplicaFiltro();
+        }
+    }
+
+    private void AggiornaFiltroUI()
+    {
+        if (FiltroComboBox.SelectedIndex != _filtroIndice)
+        {
+            _aggiornamentoFiltroInCorso = true;
+            try
+            {
+                FiltroComboBox.SelectedIndex = _filtroIndice;
+            }
+            finally
+            {
+                _aggiornamentoFiltroInCorso = false;
+            }
+        }
+    }
 
     // --- Tastiera: ← → SPACE è il ciclo critico, nessuna operazione qui deve bloccare ---
 

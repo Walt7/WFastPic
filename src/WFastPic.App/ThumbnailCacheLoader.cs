@@ -54,6 +54,9 @@ public sealed class ThumbnailCacheLoader
         }
     }
 
+    /// <summary>Annulla il lavoro ancora in coda quando la cartella non è più attiva.</summary>
+    public void Annulla() => _cts?.Cancel();
+
     private async Task WorkerAsync(CancellationToken token)
     {
         while (!token.IsCancellationRequested && _coda.TryDequeue(out var item))
@@ -86,7 +89,7 @@ public sealed class ThumbnailCacheLoader
 
     private async Task<byte[]?> CaricaOGeneraAsync(PhotoGridItem item)
     {
-        var percorsoCache = Path.Combine(_cartellaCache, $"{item.Id}.jpg");
+        var percorsoCache = Path.Combine(_cartellaCache, $"{item.Id}-{item.FileSize}-{item.LastWriteUtc.Ticks}.jpg");
         if (File.Exists(percorsoCache))
         {
             return await File.ReadAllBytesAsync(percorsoCache);

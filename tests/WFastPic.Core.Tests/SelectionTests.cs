@@ -69,6 +69,27 @@ public class SelectionTests
     }
 
     [Fact]
+    public void Riscansione_rimuove_dal_sidecar_le_foto_che_non_esistono_piu()
+    {
+        var cartella = CreaCartellaTemporaneaConFoto("a.jpg", "b.jpg");
+        try
+        {
+            using var db = LibrarySidecarDatabase.OpenOrCreate(cartella);
+            db.SyncScan(FolderScanner.Scan(cartella));
+            File.Delete(Path.Combine(cartella, "b.jpg"));
+
+            db.SyncScan(FolderScanner.Scan(cartella));
+
+            var rimasta = Assert.Single(db.GetAllPhotos());
+            Assert.Equal("a.jpg", rimasta.PathRelativo);
+        }
+        finally
+        {
+            Directory.Delete(cartella, recursive: true);
+        }
+    }
+
+    [Fact]
     public void RejectManager_SpostaInScarti_muove_il_file_e_rimuove_la_riga_dal_db()
     {
         var cartella = CreaCartellaTemporaneaConFoto("scarto.jpg");

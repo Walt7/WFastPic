@@ -6,17 +6,55 @@
 
     <SplitView
         x:Name="RootSplitView"
-        DisplayMode="CompactOverlay"
-        OpenPaneLength="280"
+        DisplayMode="Overlay"
+        OpenPaneLength="300"
         IsPaneOpen="False"
         PanePlacement="Left">
 
         <SplitView.Pane>
-            <Grid Background="#1E1E1E" Padding="16" RowDefinitions="Auto,*">
-                <TextBlock Grid.Row="0" Text="Cartelle recenti" Foreground="White" FontSize="16" Margin="0,0,0,12" />
+            <Grid Background="#1E1E1E" Padding="12" RowDefinitions="Auto,*,Auto,160">
+                <Grid Grid.Row="0" ColumnDefinitions="Auto,*" Margin="0,0,0,12">
+                    <Button
+                        Width="40"
+                        Height="36"
+                        Padding="0"
+                        Click="ToggleSidebarButton_Click"
+                        ToolTipService.ToolTip="Nascondi cartelle recenti"
+                        AutomationProperties.Name="Nascondi cartelle recenti">
+                        <FontIcon Glyph="&#xE700;" FontSize="18" />
+                    </Button>
+                    <TextBlock
+                        Grid.Column="1"
+                        Text="Esplora cartelle"
+                        Foreground="White"
+                        FontSize="16"
+                        VerticalAlignment="Center"
+                        Margin="10,0,0,0" />
+                </Grid>
+                <TreeView
+                    x:Name="DirectoryTree"
+                    Grid.Row="1"
+                    SelectionMode="None"
+                    Expanding="DirectoryTree_Expanding"
+                    ItemInvoked="DirectoryTree_ItemInvoked">
+                    <TreeView.ItemTemplate>
+                        <DataTemplate x:DataType="TreeViewNode">
+                            <StackPanel Orientation="Horizontal" Spacing="8" Padding="2,5">
+                                <FontIcon Glyph="{x:Bind ((local:DirectoryTreeEntry)Content).Icona}" Foreground="#B8D8F5" FontSize="15" />
+                                <TextBlock Text="{x:Bind ((local:DirectoryTreeEntry)Content).Nome}" Foreground="#DDDDDD" TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </TreeView.ItemTemplate>
+                </TreeView>
+                <TextBlock
+                    Grid.Row="2"
+                    Text="Cartelle recenti"
+                    Foreground="#AAAAAA"
+                    FontSize="12"
+                    Margin="4,12,0,4" />
                 <ListView
                     x:Name="CartelleRecentiList"
-                    Grid.Row="1"
+                    Grid.Row="3"
                     SelectionMode="None"
                     IsItemClickEnabled="True"
                     ItemClick="CartellaRecente_ItemClick">
@@ -32,7 +70,16 @@
         <Grid RowDefinitions="Auto,*,Auto">
 
             <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="12" Padding="12,10" Background="#1A1A1A">
-                <Button x:Name="ToggleSidebarButton" Content="☰" Click="ToggleSidebarButton_Click" />
+                <Button
+                    x:Name="ToggleSidebarButton"
+                    Width="40"
+                    Height="36"
+                    Padding="0"
+                    Click="ToggleSidebarButton_Click"
+                    ToolTipService.ToolTip="Mostra cartelle recenti"
+                    AutomationProperties.Name="Mostra cartelle recenti">
+                    <FontIcon Glyph="&#xE700;" FontSize="18" />
+                </Button>
                 <Button x:Name="ApriCartellaButton" Content="Apri cartella…" Click="ApriCartellaButton_Click" />
                 <TextBox
                     x:Name="PercorsoTextBox"
@@ -42,7 +89,17 @@
                 <Button x:Name="GestisciScartiButton" Content="Gestisci scarti…" Click="GestisciScartiButton_Click" />
                 <Button x:Name="EsportaButton" Content="Esporta…" Click="EsportaButton_Click" />
                 <TextBlock x:Name="StatusText" VerticalAlignment="Center" Margin="16,0,0,0" Foreground="White" />
-                <TextBlock x:Name="FiltroText" VerticalAlignment="Center" Margin="16,0,0,0" Foreground="#AAAAAA" />
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="16,0,0,0">
+                    <TextBlock Text="Filtro:" Foreground="#AAAAAA" VerticalAlignment="Center" Margin="0,0,8,0" />
+                    <ComboBox
+                        x:Name="FiltroComboBox"
+                        SelectedIndex="0"
+                        SelectionChanged="FiltroComboBox_SelectionChanged">
+                        <ComboBoxItem Content="Tutte" />
+                        <ComboBoxItem Content="Selezionate" />
+                        <ComboBoxItem Content="Scarti" />
+                    </ComboBox>
+                </StackPanel>
             </StackPanel>
 
         <ListView
@@ -53,8 +110,14 @@
             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
             ScrollViewer.VerticalScrollBarVisibility="Visible"
             ScrollViewer.VerticalScrollMode="Enabled"
+            SelectionChanged="Griglia_SelectionChanged"
             KeyDown="Griglia_KeyDown"
             DoubleTapped="Griglia_DoubleTapped">
+            <ListView.Resources>
+                <SolidColorBrush x:Key="ListViewItemSelectedBackground" Color="Transparent" />
+                <SolidColorBrush x:Key="ListViewItemSelectedPointerOverBackground" Color="#22FFFFFF" />
+                <SolidColorBrush x:Key="ListViewItemSelectedPressedBackground" Color="#33FFFFFF" />
+            </ListView.Resources>
             <ListView.ItemsPanel>
                 <ItemsPanelTemplate>
                     <ItemsWrapGrid Orientation="Horizontal" ItemWidth="160" ItemHeight="160" />
@@ -66,14 +129,35 @@
                         <Border Background="#2A2A2A" CornerRadius="4" />
                         <Image Source="{x:Bind Thumbnail, Mode=OneWay}" Stretch="UniformToFill" />
                         <Border Background="#66000000" Visibility="{x:Bind IsReject, Mode=OneWay}" />
-                        <FontIcon
-                            Glyph="&#xE73E;"
-                            Foreground="LimeGreen"
-                            FontSize="20"
+                        <Border
+                            BorderBrush="#FFD600"
+                            BorderThickness="3"
+                            CornerRadius="4"
+                            IsHitTestVisible="False"
+                            Visibility="{x:Bind IsSelected, Mode=OneWay}" />
+                        <Border
+                            Height="4"
+                            VerticalAlignment="Bottom"
+                            CornerRadius="0,0,4,4"
+                            Background="LimeGreen"
+                            IsHitTestVisible="False"
+                            Visibility="{x:Bind IsCorrenteGriglia, Mode=OneWay}" />
+                        <Border
+                            x:Name="SelectionBadge"
                             HorizontalAlignment="Right"
                             VerticalAlignment="Top"
-                            Margin="6"
-                            Visibility="{x:Bind IsSelected, Mode=OneWay}" />
+                            Width="32"
+                            Height="32"
+                            Background="Transparent"
+                            Tapped="SelectionBadge_Tapped">
+                            <FontIcon
+                                Glyph="&#xE73E;"
+                                Foreground="LimeGreen"
+                                FontSize="20"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
+                                Visibility="{x:Bind IsSelected, Mode=OneWay}" />
+                        </Border>
                         <FontIcon
                             Glyph="&#xE711;"
                             Foreground="OrangeRed"
@@ -93,7 +177,8 @@
                         <Border
                             Width="4"
                             HorizontalAlignment="Left"
-                            Background="#FFB300"
+                            CornerRadius="4,0,0,4"
+                            Background="#00B0FF"
                             Visibility="{x:Bind HasGroup, Mode=OneWay}" />
                         <FontIcon
                             Glyph="&#xE714;"
@@ -111,7 +196,7 @@
                             VerticalAlignment="Bottom"
                             Margin="6"
                             Visibility="{x:Bind HasGroup, Mode=OneWay}">
-                            <TextBlock Text="{x:Bind GruppoTesto, Mode=OneWay}" Foreground="#FFB300" FontSize="12" />
+                            <TextBlock Text="{x:Bind GruppoTesto, Mode=OneWay}" Foreground="#00B0FF" FontSize="12" />
                         </Border>
                     </Grid>
                 </DataTemplate>
@@ -131,20 +216,23 @@
             Grid.RowSpan="3"
             Background="#F0101010"
             Visibility="Collapsed"
+            IsTabStop="True"
             RowDefinitions="Auto,*,Auto,Auto">
 
             <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="10" Padding="12" Background="#1A1A1A">
-                <Button x:Name="ViewerCloseButton" Content="← Chiudi (Esc)" Click="ViewerCloseButton_Click" />
-                <ToggleButton x:Name="ViewerCropToggle" Content="Crop (X)" Click="ViewerCropToggle_Click" />
-                <Button x:Name="ViewerProporzioneToggle" Content="Proporzioni: libera" Click="ViewerProporzioneToggle_Click" />
-                <Button x:Name="ViewerGrigliaToggle" Content="Griglia: terzi" Click="ViewerGrigliaToggle_Click" />
+                <Button x:Name="ViewerCloseButton" Content="← Chiudi (Esc)" Click="ViewerCloseButton_Click" IsTabStop="False" />
+                <ToggleButton x:Name="ViewerCropToggle" Content="Crop (X)" Click="ViewerCropToggle_Click" IsTabStop="False" />
+                <Button x:Name="ViewerProporzioneToggle" Content="Proporzioni: libera" Click="ViewerProporzioneToggle_Click" IsTabStop="False" />
+                <Button x:Name="ViewerGrigliaToggle" Content="Griglia: terzi" Click="ViewerGrigliaToggle_Click" IsTabStop="False" />
                 <TextBlock Text="Raddrizza:" VerticalAlignment="Center" Foreground="White" Margin="16,0,0,0" />
                 <Slider
                     x:Name="ViewerStraightenSlider"
                     Minimum="-15" Maximum="15" StepFrequency="0.1" Width="200"
+                    IsTabStop="False"
                     ValueChanged="ViewerStraightenSlider_ValueChanged" />
                 <TextBlock x:Name="ViewerAngleText" Text="0.0°" Foreground="White" VerticalAlignment="Center" Width="50" />
-                <Button x:Name="ViewerAutoButton" Content="Auto-correzione (U)" Click="ViewerAutoButton_Click" Margin="16,0,0,0" />
+                <TextBlock x:Name="ViewerZoomText" Text="Zoom 100%" Foreground="#AAAAAA" VerticalAlignment="Center" Width="82" />
+                <Button x:Name="ViewerAutoButton" Content="Auto-correzione (U)" Click="ViewerAutoButton_Click" IsTabStop="False" Margin="16,0,0,0" />
                 <TextBlock x:Name="ViewerStatusText" Foreground="#AAAAAA" VerticalAlignment="Center" Margin="16,0,0,0" />
                 <StackPanel x:Name="ViewerVideoBadge" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center" Margin="10,0,0,0" Visibility="Collapsed">
                     <FontIcon Glyph="&#xE714;" Foreground="#FFB300" FontSize="16" />
@@ -152,15 +240,25 @@
                 </StackPanel>
             </StackPanel>
 
-            <Grid Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Center">
-                <Image x:Name="ViewerImage" Stretch="Fill">
-                    <Image.RenderTransform>
-                        <RotateTransform x:Name="ViewerRotateTransform" Angle="0" />
-                    </Image.RenderTransform>
-                    <Image.RenderTransformOrigin>0.5,0.5</Image.RenderTransformOrigin>
-                </Image>
-                <Canvas x:Name="ViewerCropCanvas" Background="Transparent" Visibility="Collapsed">
-                    <Border x:Name="CropRectBorder" BorderBrush="#FFB300" BorderThickness="2" Background="#22FFB300" />
+            <Grid x:Name="ViewerImageContainer" Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Center">
+                <Grid x:Name="ViewerImageHost">
+                    <Grid.RenderTransform>
+                        <TransformGroup>
+                            <ScaleTransform x:Name="ViewerZoomTransform" ScaleX="1" ScaleY="1" />
+                            <RotateTransform x:Name="ViewerRotateTransform" Angle="0" />
+                        </TransformGroup>
+                    </Grid.RenderTransform>
+                    <Grid.RenderTransformOrigin>0.5,0.5</Grid.RenderTransformOrigin>
+                    <Image x:Name="ViewerImage" Stretch="Fill" />
+                    <Border
+                        x:Name="ViewerSelectionBorder"
+                        BorderBrush="#FFD600"
+                        BorderThickness="4"
+                        IsHitTestVisible="False"
+                        Visibility="Collapsed" />
+                </Grid>
+                <Canvas x:Name="ViewerCropCanvas" Background="Transparent">
+                    <Border x:Name="CropRectBorder" BorderBrush="#FFB300" BorderThickness="2" Background="#22FFB300" Visibility="Collapsed" />
                     <Rectangle x:Name="ThirdsV1" Width="1" Fill="#88FFFFFF" />
                     <Rectangle x:Name="ThirdsV2" Width="1" Fill="#88FFFFFF" />
                     <Rectangle x:Name="ThirdsH1" Height="1" Fill="#88FFFFFF" />
@@ -168,10 +266,10 @@
                     <Line x:Name="DiagLine1" Stroke="#88FFFFFF" StrokeThickness="1" />
                     <Line x:Name="DiagLine2" Stroke="#88FFFFFF" StrokeThickness="1" />
                     <Rectangle
-                        x:Name="HandleTL" Width="18" Height="18" Fill="#FFB300" Tag="TL"
+                        x:Name="HandleTL" Width="18" Height="18" Fill="#FFB300" Tag="TL" Visibility="Collapsed"
                         PointerPressed="Handle_PointerPressed" PointerMoved="Handle_PointerMoved" PointerReleased="Handle_PointerReleased" />
                     <Rectangle
-                        x:Name="HandleBR" Width="18" Height="18" Fill="#FFB300" Tag="BR"
+                        x:Name="HandleBR" Width="18" Height="18" Fill="#FFB300" Tag="BR" Visibility="Collapsed"
                         PointerPressed="Handle_PointerPressed" PointerMoved="Handle_PointerMoved" PointerReleased="Handle_PointerReleased" />
                 </Canvas>
             </Grid>
@@ -191,9 +289,15 @@
                 </ListView.ItemsPanel>
                 <ListView.ItemTemplate>
                     <DataTemplate x:DataType="local:PhotoGridItem">
-                        <Grid Width="90" Height="90" Margin="4">
+                        <Grid
+                            Width="{x:Bind DimensioneFilmstrip, Mode=OneWay}"
+                            Height="{x:Bind DimensioneFilmstrip, Mode=OneWay}"
+                            Margin="4"
+                            VerticalAlignment="Bottom">
                             <Border Background="#2A2A2A" />
                             <Image Source="{x:Bind Thumbnail, Mode=OneWay}" Stretch="UniformToFill" />
+                            <Border BorderBrush="#00B0FF" BorderThickness="2" Visibility="{x:Bind EvidenziaGruppoViewer, Mode=OneWay}" />
+                            <Border BorderBrush="#FFD600" BorderThickness="3" Visibility="{x:Bind IsCorrenteViewer, Mode=OneWay}" />
                             <FontIcon Glyph="&#xE73E;" Foreground="LimeGreen" FontSize="14" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="2" Visibility="{x:Bind IsSelected, Mode=OneWay}" />
                             <FontIcon Glyph="&#xE711;" Foreground="OrangeRed" FontSize="14" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="2" Visibility="{x:Bind IsReject, Mode=OneWay}" />
                         </Grid>

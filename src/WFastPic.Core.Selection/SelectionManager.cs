@@ -14,6 +14,9 @@ public sealed class SelectionManager : IAsyncDisposable
     private readonly Channel<Action> _codaScritture = Channel.CreateUnbounded<Action>();
     private readonly Task _writerTask;
 
+    /// <summary>Notifica l'applicazione solo dopo tre tentativi falliti di persistenza.</summary>
+    public event Action<Exception>? ScritturaFallita;
+
     public SelectionManager(LibrarySidecarDatabase db)
     {
         _db = db;
@@ -33,14 +36,25 @@ public sealed class SelectionManager : IAsyncDisposable
     {
         await foreach (var azione in _codaScritture.Reader.ReadAllAsync())
         {
-            try
+            Exception? ultimoErrore = null;
+            for (var tentativo = 0; tentativo < 3; tentativo++)
             {
-                azione();
+                try
+                {
+                    azione();
+                    ultimoErrore = null;
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    ultimoErrore = ex;
+                    if (tentativo < 2)
+                        await Task.Delay(TimeSpan.FromMilliseconds(100 * (tentativo + 1)));
+                }
             }
-            catch
-            {
-                // Una scrittura fallita non deve mai bloccare le successive né il thread UI.
-            }
+
+            if (ultimoErrore is not null)
+                ScritturaFallita?.Invoke(ultimoErrore);
         }
     }
 
