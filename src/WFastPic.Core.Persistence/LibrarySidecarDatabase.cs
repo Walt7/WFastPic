@@ -10,7 +10,9 @@ public sealed record PhotoRecord(
     DateTime LastWriteUtc,
     DateTime? CaptureDate,
     string Stato,
-    int Rating);
+    int Rating,
+    double? Latitude = null,
+    double? Longitude = null);
 
 public sealed record SyncResult(int Nuove, int Aggiornate, int Invariate);
 
@@ -70,7 +72,9 @@ public sealed class LibrarySidecarDatabase : IDisposable
                 path_relativo TEXT NOT NULL UNIQUE,
                 size INTEGER NOT NULL,
                 last_write_utc TEXT NOT NULL,
-                capture_date TEXT NULL
+                capture_date TEXT NULL,
+                latitude REAL NULL,
+                longitude REAL NULL
             );
 
             CREATE TABLE IF NOT EXISTS selection_state (
@@ -87,6 +91,32 @@ public sealed class LibrarySidecarDatabase : IDisposable
             );
             """;
         cmd.ExecuteNonQuery();
+
+        // Migrazione tabelle photos create in versioni precedenti prive di coordinate GPS
+        var colonneEsistenti = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        using (var infoCmd = _connection.CreateCommand())
+        {
+            infoCmd.CommandText = "PRAGMA table_info(photos);";
+            using var reader = infoCmd.ExecuteReader();
+            while (reader.Read())
+            {
+                colonneEsistenti.Add(reader.GetString(1));
+            }
+        }
+
+        if (!colonneEsistenti.Contains("latitude"))
+        {
+            using var alterCmd = _connection.CreateCommand();
+            alterCmd.CommandText = "ALTER TABLE photos ADD COLUMN latitude REAL NULL;";
+            alterCmd.ExecuteNonQuery();
+        }
+
+        if (!colonneEsistenti.Contains("longitude"))
+        {
+            using var alterCmd = _connection.CreateCommand();
+            alterCmd.CommandText = "ALTER TABLE photos ADD COLUMN longitude REAL NULL;";
+            alterCmd.ExecuteNonQuery();
+        }
     }
 
     /// <summary>
@@ -103,7 +133,7 @@ public sealed class LibrarySidecarDatabase : IDisposable
         {
             using var select = _connection.CreateCommand();
             select.Transaction = transaction;
-            select.CommandText = "SELECT id, size, last_write_utc FROM photos WHERE path_relativo = $path;";
+            select.CommandText = "SELECT id, size, last_write_utc, latitude, longitude FROM photos WHERE path_relativo = $path;";
             select.Parameters.AddWithValue("$path", foto.Identity.PathRelativo);
 
             using var reader = select.ExecuteReader();
@@ -112,10 +142,14 @@ public sealed class LibrarySidecarDatabase : IDisposable
                 var id = reader.GetInt64(0);
                 var sizeEsistente = reader.GetInt64(1);
                 var lastWriteEsistente = DateTime.Parse(reader.GetString(2)).ToUniversalTime();
+                double? latEsistente = reader.IsDBNull(3) ? null : reader.GetDouble(3);
+                double? lonEsistente = reader.IsDBNull(4) ? null : reader.GetDouble(4);
                 reader.Close();
 
                 var invariato = sizeEsistente == foto.Identity.Size
-                    && lastWriteEsistente == foto.Identity.LastWriteUtc;
+                    && lastWriteEsistente == foto.Identity.LastWriteUtc
+                    && latEsistente == foto.Gps?.Latitude
+                    && lonEsistente == foto.Gps?.Longitude;
 
                 if (invariato)
                 {
@@ -126,12 +160,15 @@ public sealed class LibrarySidecarDatabase : IDisposable
                 using var update = _connection.CreateCommand();
                 update.Transaction = transaction;
                 update.CommandText = """
-                    UPDATE photos SET size = $size, last_write_utc = $lastWrite, capture_date = $captureDate
+                    UPDATE photos SET size = $size, last_write_utc = $lastWrite, capture_date = $captureDate,
+                                      latitude = $lat, longitude = $lon
                     WHERE id = $id;
                     """;
                 update.Parameters.AddWithValue("$size", foto.Identity.Size);
                 update.Parameters.AddWithValue("$lastWrite", foto.Identity.LastWriteUtc.ToString("O"));
                 update.Parameters.AddWithValue("$captureDate", (object?)foto.CaptureDate?.ToString("O") ?? DBNull.Value);
+                update.Parameters.AddWithValue("$lat", (object?)foto.Gps?.Latitude ?? DBNull.Value);
+                update.Parameters.AddWithValue("$lon", (object?)foto.Gps?.Longitude ?? DBNull.Value);
                 update.Parameters.AddWithValue("$id", id);
                 update.ExecuteNonQuery();
                 aggiornate++;
@@ -143,14 +180,16 @@ public sealed class LibrarySidecarDatabase : IDisposable
                 using var insert = _connection.CreateCommand();
                 insert.Transaction = transaction;
                 insert.CommandText = """
-                    INSERT INTO photos (path_relativo, size, last_write_utc, capture_date)
-                    VALUES ($path, $size, $lastWrite, $captureDate);
+                    INSERT INTO photos (path_relativo, size, last_write_utc, capture_date, latitude, longitude)
+                    VALUES ($path, $size, $lastWrite, $captureDate, $lat, $lon);
                     SELECT last_insert_rowid();
                     """;
                 insert.Parameters.AddWithValue("$path", foto.Identity.PathRelativo);
                 insert.Parameters.AddWithValue("$size", foto.Identity.Size);
                 insert.Parameters.AddWithValue("$lastWrite", foto.Identity.LastWriteUtc.ToString("O"));
                 insert.Parameters.AddWithValue("$captureDate", (object?)foto.CaptureDate?.ToString("O") ?? DBNull.Value);
+                insert.Parameters.AddWithValue("$lat", (object?)foto.Gps?.Latitude ?? DBNull.Value);
+                insert.Parameters.AddWithValue("$lon", (object?)foto.Gps?.Longitude ?? DBNull.Value);
                 var nuovoId = (long)insert.ExecuteScalar()!;
 
                 using var insertStato = _connection.CreateCommand();
@@ -202,7 +241,7 @@ public sealed class LibrarySidecarDatabase : IDisposable
         using var cmd = _connection.CreateCommand();
         cmd.CommandText = """
             SELECT p.id, p.path_relativo, p.size, p.last_write_utc, p.capture_date,
-                   s.stato, s.rating
+                   s.stato, s.rating, p.latitude, p.longitude
             FROM photos p
             JOIN selection_state s ON s.photo_id = p.id
             ORDER BY p.path_relativo;
@@ -219,7 +258,9 @@ public sealed class LibrarySidecarDatabase : IDisposable
                 LastWriteUtc: DateTime.Parse(reader.GetString(3)).ToUniversalTime(),
                 CaptureDate: reader.IsDBNull(4) ? null : DateTime.Parse(reader.GetString(4)),
                 Stato: reader.GetString(5),
-                Rating: reader.GetInt32(6)));
+                Rating: reader.GetInt32(6),
+                Latitude: reader.IsDBNull(7) ? null : reader.GetDouble(7),
+                Longitude: reader.IsDBNull(8) ? null : reader.GetDouble(8)));
         }
 
         return risultato;
@@ -258,7 +299,7 @@ public sealed class LibrarySidecarDatabase : IDisposable
         using var cmd = _connection.CreateCommand();
         cmd.CommandText = """
             SELECT p.id, p.path_relativo, p.size, p.last_write_utc, p.capture_date,
-                   s.stato, s.rating
+                   s.stato, s.rating, p.latitude, p.longitude
             FROM photos p
             JOIN selection_state s ON s.photo_id = p.id
             WHERE s.stato = $stato
@@ -277,7 +318,9 @@ public sealed class LibrarySidecarDatabase : IDisposable
                 LastWriteUtc: DateTime.Parse(reader.GetString(3)).ToUniversalTime(),
                 CaptureDate: reader.IsDBNull(4) ? null : DateTime.Parse(reader.GetString(4)),
                 Stato: reader.GetString(5),
-                Rating: reader.GetInt32(6)));
+                Rating: reader.GetInt32(6),
+                Latitude: reader.IsDBNull(7) ? null : reader.GetDouble(7),
+                Longitude: reader.IsDBNull(8) ? null : reader.GetDouble(8)));
         }
 
         return risultato;
@@ -315,6 +358,27 @@ public sealed class LibrarySidecarDatabase : IDisposable
         cmd.Parameters.AddWithValue("$json", recipeJson);
         cmd.Parameters.AddWithValue("$version", schemaVersion);
         cmd.ExecuteNonQuery();
+    }
+
+    public void UpdateGpsBatch(IEnumerable<(long Id, double? Latitude, double? Longitude)> updates)
+    {
+        using var transaction = _connection.BeginTransaction();
+        using var cmd = _connection.CreateCommand();
+        cmd.Transaction = transaction;
+        cmd.CommandText = "UPDATE photos SET latitude = $lat, longitude = $lon WHERE id = $id;";
+        var pLat = cmd.Parameters.Add("$lat", SqliteType.Real);
+        var pLon = cmd.Parameters.Add("$lon", SqliteType.Real);
+        var pId = cmd.Parameters.Add("$id", SqliteType.Integer);
+
+        foreach (var (id, lat, lon) in updates)
+        {
+            pLat.Value = (object?)lat ?? DBNull.Value;
+            pLon.Value = (object?)lon ?? DBNull.Value;
+            pId.Value = id;
+            cmd.ExecuteNonQuery();
+        }
+
+        transaction.Commit();
     }
 
     public void Dispose() => _connection.Dispose();

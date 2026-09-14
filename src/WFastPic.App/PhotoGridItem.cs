@@ -20,6 +20,33 @@ public sealed class PhotoGridItem : INotifyPropertyChanged
     public required DateTime LastWriteUtc { get; init; }
     public DateTime? CaptureDate { get; init; }
     public bool HasVideo { get; init; }
+    private double? _latitude;
+    public double? Latitude
+    {
+        get => _latitude;
+        set
+        {
+            if (_latitude == value) return;
+            _latitude = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(HasGps));
+        }
+    }
+
+    private double? _longitude;
+    public double? Longitude
+    {
+        get => _longitude;
+        set
+        {
+            if (_longitude == value) return;
+            _longitude = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(HasGps));
+        }
+    }
+
+    public bool HasGps => Latitude.HasValue && Longitude.HasValue;
 
     private int? _groupId;
     public int? GroupId

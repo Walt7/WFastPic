@@ -88,6 +88,7 @@
                     KeyDown="PercorsoTextBox_KeyDown" />
                 <Button x:Name="GestisciScartiButton" Content="Gestisci scarti…" Click="GestisciScartiButton_Click" />
                 <Button x:Name="EsportaButton" Content="Esporta…" Click="EsportaButton_Click" />
+                <Button x:Name="MappaButton" Content="📍 Mappa" Click="MappaButton_Click" ToolTipService.ToolTip="Visualizza le foto geolocalizzate sulla mappa" />
                 <TextBlock x:Name="StatusText" VerticalAlignment="Center" Margin="16,0,0,0" Foreground="White" />
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="16,0,0,0">
                     <TextBlock Text="Filtro:" Foreground="#AAAAAA" VerticalAlignment="Center" Margin="0,0,8,0" />
@@ -98,6 +99,7 @@
                         <ComboBoxItem Content="Tutte" />
                         <ComboBoxItem Content="Selezionate" />
                         <ComboBoxItem Content="Scarti" />
+                        <ComboBoxItem Content="Geolocalizzate" />
                     </ComboBox>
                 </StackPanel>
             </StackPanel>
@@ -180,14 +182,21 @@
                             CornerRadius="4,0,0,4"
                             Background="#00B0FF"
                             Visibility="{x:Bind HasGroup, Mode=OneWay}" />
-                        <FontIcon
-                            Glyph="&#xE714;"
-                            Foreground="White"
-                            FontSize="18"
-                            HorizontalAlignment="Left"
-                            VerticalAlignment="Top"
-                            Margin="6"
-                            Visibility="{x:Bind HasVideo, Mode=OneWay}" />
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="6" Spacing="4">
+                            <FontIcon
+                                Glyph="&#xE714;"
+                                Foreground="White"
+                                FontSize="18"
+                                Visibility="{x:Bind HasVideo, Mode=OneWay}" />
+                            <Border
+                                Background="#B3000000"
+                                CornerRadius="3"
+                                Padding="3,2"
+                                Visibility="{x:Bind HasGps, Mode=OneWay}"
+                                ToolTipService.ToolTip="Foto con coordinate GPS">
+                                <FontIcon Glyph="&#xE707;" Foreground="#4FC3F7" FontSize="12" />
+                            </Border>
+                        </StackPanel>
                         <Border
                             Background="#CC000000"
                             CornerRadius="3"
@@ -394,6 +403,34 @@
                 <ProgressRing IsActive="True" Width="48" Height="48" />
                 <TextBlock x:Name="CaricamentoText" Text="Caricamento…" Foreground="White" FontSize="14" HorizontalAlignment="Center" />
             </StackPanel>
+        </Grid>
+
+        <Grid
+            x:Name="MapOverlay"
+            Grid.Row="0"
+            Grid.RowSpan="3"
+            Background="#F0101010"
+            Visibility="Collapsed"
+            IsTabStop="True"
+            RowDefinitions="Auto,*">
+
+            <Grid Grid.Row="0" Background="#1A1A1A" Padding="12,10" ColumnDefinitions="Auto,Auto,*,Auto,Auto">
+                <Button x:Name="MapCloseButton" Content="← Chiudi mappa (Esc)" Click="MapCloseButton_Click" IsTabStop="False" />
+                <TextBlock Grid.Column="1" Text="📍 Mappa" Foreground="White" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" Margin="16,0,0,0" />
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" Margin="20,0,0,0">
+                    <Button x:Name="MapFiltroSelezionateButton" Content="Solo selezionate" Click="MapFiltroSelezionate_Click" IsTabStop="False" />
+                    <Button x:Name="MapFiltroTutteButton" Content="Tutte le foto" Click="MapFiltroTutte_Click" IsTabStop="False" />
+                    <TextBlock x:Name="MapStatusText" Foreground="#AAAAAA" VerticalAlignment="Center" Margin="12,0,0,0" />
+                </StackPanel>
+                <Button Grid.Column="3" x:Name="MapRescanButton" Content="🔄 Riscansiona GPS" Click="MapRescanButton_Click" Margin="0,0,12,0" IsTabStop="False" />
+                <Button Grid.Column="4" Content="✕" Width="36" Height="36" Padding="0" Click="MapCloseButton_Click" IsTabStop="False" />
+            </Grid>
+
+            <Grid Grid.Row="1">
+                <WebView2 x:Name="MapWebView" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
+                <ProgressRing x:Name="MapLoadingRing" Width="48" Height="48" IsActive="False" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                <InfoBar x:Name="MapInfoBar" IsOpen="False" Severity="Informational" Title="Nessuna foto" Message="Nessuna foto con coordinate GPS trovata in questa cartella." HorizontalAlignment="Center" VerticalAlignment="Center" />
+            </Grid>
         </Grid>
 
     </Grid>

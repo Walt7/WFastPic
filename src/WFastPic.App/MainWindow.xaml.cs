@@ -20,7 +20,7 @@ public partial class MainWindow : Window
     private const int CellSizeMax = 400;
     private const int CellSizeStep = 20;
 
-    private static readonly string[] Filtri = ["Tutte", "Selezionate", "Scarti"];
+    private static readonly string[] Filtri = ["Tutte", "Selezionate", "Scarti", "Geolocalizzate"];
 
     private readonly ObservableCollection<PhotoGridItem> _visibili = new();
     private readonly List<PhotoGridItem> _tutte = new();
@@ -266,6 +266,8 @@ public partial class MainWindow : Window
                 FileSize = record.Size,
                 LastWriteUtc = record.LastWriteUtc,
                 CaptureDate = record.CaptureDate,
+                Latitude = record.Latitude,
+                Longitude = record.Longitude,
                 HasVideo = CompanionVideoDetector.TrovaVideoAbbinato(percorsoCompleto) is not null,
                 Stato = record.Stato,
                 Rating = record.Rating,
@@ -401,6 +403,7 @@ public partial class MainWindow : Window
     {
         "Selezionate" => item.Stato == StatoSelezione.Selected,
         "Scarti" => item.Stato == StatoSelezione.Reject,
+        "Geolocalizzate" => item.HasGps,
         _ => true,
     };
 
@@ -497,7 +500,7 @@ public partial class MainWindow : Window
     private void FiltroComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (_aggiornamentoFiltroInCorso) return;
-        if (FiltroComboBox.SelectedIndex is >= 0 and < 3 && FiltroComboBox.SelectedIndex != _filtroIndice)
+        if (FiltroComboBox.SelectedIndex >= 0 && FiltroComboBox.SelectedIndex < Filtri.Length && FiltroComboBox.SelectedIndex != _filtroIndice)
         {
             _filtroIndice = FiltroComboBox.SelectedIndex;
             ApplicaFiltro();

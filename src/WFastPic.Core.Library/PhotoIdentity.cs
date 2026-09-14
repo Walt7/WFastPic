@@ -1,3 +1,5 @@
+using WFastPic.Core.Metadata;
+
 namespace WFastPic.Core.Library;
 
 /// <summary>
@@ -7,4 +9,4 @@ namespace WFastPic.Core.Library;
 /// </summary>
 public sealed record PhotoIdentity(string PathRelativo, long Size, DateTime LastWriteUtc);
 
-public sealed record ScannedPhoto(PhotoIdentity Identity, DateTime? CaptureDate);
+public sealed record ScannedPhoto(PhotoIdentity Identity, DateTime? CaptureDate, GeoCoordinate? Gps = null);

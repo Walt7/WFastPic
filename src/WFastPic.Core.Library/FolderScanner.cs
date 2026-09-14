@@ -28,8 +28,8 @@ public static class FolderScanner
                 Size: info.Length,
                 LastWriteUtc: info.LastWriteTimeUtc);
 
-            var captureDate = CaptureDateReader.TryRead(path);
-            risultato.Add(new ScannedPhoto(identity, captureDate));
+            var metadata = PhotoMetadataReader.Read(path);
+            risultato.Add(new ScannedPhoto(identity, metadata.CaptureDate, metadata.Gps));
         }
 
         return risultato;
