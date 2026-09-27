@@ -56,6 +56,10 @@ public static class Exporter
 
                 risultati.Add(new RisultatoExport(record.Id, percorsoOutput, true, null));
             }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                throw;
+            }
             catch (Exception ex)
             {
                 risultati.Add(new RisultatoExport(record.Id, "", false, ex.Message));
