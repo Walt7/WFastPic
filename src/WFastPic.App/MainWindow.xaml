@@ -229,19 +229,9 @@
             RowDefinitions="Auto,*,Auto,Auto">
 
             <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="10" Padding="12" Background="#1A1A1A">
-                <Button x:Name="ViewerCloseButton" Content="← Chiudi (Esc)" Click="ViewerCloseButton_Click" IsTabStop="False" />
-                <ToggleButton x:Name="ViewerCropToggle" Content="Crop (X)" Click="ViewerCropToggle_Click" IsTabStop="False" />
-                <Button x:Name="ViewerProporzioneToggle" Content="Proporzioni: libera" Click="ViewerProporzioneToggle_Click" IsTabStop="False" />
-                <Button x:Name="ViewerGrigliaToggle" Content="Griglia: terzi" Click="ViewerGrigliaToggle_Click" IsTabStop="False" />
-                <TextBlock Text="Raddrizza:" VerticalAlignment="Center" Foreground="White" Margin="16,0,0,0" />
-                <Slider
-                    x:Name="ViewerStraightenSlider"
-                    Minimum="-15" Maximum="15" StepFrequency="0.1" Width="200"
-                    IsTabStop="False"
-                    ValueChanged="ViewerStraightenSlider_ValueChanged" />
-                <TextBlock x:Name="ViewerAngleText" Text="0.0°" Foreground="White" VerticalAlignment="Center" Width="50" />
+                <Button x:Name="ViewerCloseButton" Content="← Chiudi (Esc)" Click="ViewerCloseButton_Click" IsTabStop="False" AllowFocusOnInteraction="False" />
+                <Button x:Name="ViewerGrigliaToggle" Content="Griglia: terzi" Click="ViewerGrigliaToggle_Click" IsTabStop="False" AllowFocusOnInteraction="False" />
                 <TextBlock x:Name="ViewerZoomText" Text="Zoom 100%" Foreground="#AAAAAA" VerticalAlignment="Center" Width="82" />
-                <Button x:Name="ViewerAutoButton" Content="Auto-correzione (U)" Click="ViewerAutoButton_Click" IsTabStop="False" Margin="16,0,0,0" />
                 <TextBlock x:Name="ViewerStatusText" Foreground="#AAAAAA" VerticalAlignment="Center" Margin="16,0,0,0" />
                 <StackPanel x:Name="ViewerVideoBadge" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center" Margin="10,0,0,0" Visibility="Collapsed">
                     <FontIcon Glyph="&#xE714;" Foreground="#FFB300" FontSize="16" />
@@ -249,38 +239,111 @@
                 </StackPanel>
             </StackPanel>
 
-            <Grid x:Name="ViewerImageContainer" Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Center">
-                <Grid x:Name="ViewerImageHost">
-                    <Grid.RenderTransform>
-                        <TransformGroup>
-                            <ScaleTransform x:Name="ViewerZoomTransform" ScaleX="1" ScaleY="1" />
-                            <RotateTransform x:Name="ViewerRotateTransform" Angle="0" />
-                        </TransformGroup>
-                    </Grid.RenderTransform>
-                    <Grid.RenderTransformOrigin>0.5,0.5</Grid.RenderTransformOrigin>
-                    <Image x:Name="ViewerImage" Stretch="Fill" />
-                    <Border
-                        x:Name="ViewerSelectionBorder"
-                        BorderBrush="#FFD600"
-                        BorderThickness="4"
-                        IsHitTestVisible="False"
-                        Visibility="Collapsed" />
+            <Grid Grid.Row="1" ColumnDefinitions="260,*">
+
+                <!-- Pannello editor stile Picasa: "Correzioni base" e "Regolazioni". -->
+                <ScrollViewer Grid.Column="0" Background="#1A1A1A" VerticalScrollBarVisibility="Auto" IsTabStop="False">
+                    <StackPanel Padding="12" Spacing="8">
+                        <Grid ColumnDefinitions="*,*" ColumnSpacing="6">
+                            <ToggleButton x:Name="ViewerTabBase" Grid.Column="0" Content="Correzioni base" IsChecked="True" HorizontalAlignment="Stretch" Click="ViewerTabBase_Click" IsTabStop="False" AllowFocusOnInteraction="False" />
+                            <ToggleButton x:Name="ViewerTabTuning" Grid.Column="1" Content="Regolazioni" HorizontalAlignment="Stretch" Click="ViewerTabTuning_Click" IsTabStop="False" AllowFocusOnInteraction="False" />
+                        </Grid>
+
+                        <!-- Modalita geometria: ritaglia + raddrizza con Applica/Annulla. -->
+                        <StackPanel x:Name="PannelloGeometria" Spacing="8" Visibility="Collapsed">
+                            <TextBlock Text="Ritaglia e raddrizza" Foreground="White" FontWeight="SemiBold" />
+                            <Button x:Name="ViewerProporzioneToggle" Content="Proporzioni: libera" Click="ViewerProporzioneToggle_Click" HorizontalAlignment="Stretch" IsTabStop="False" AllowFocusOnInteraction="False" />
+                            <TextBlock Text="Raddrizza (L)" Foreground="#CCCCCC" FontSize="12" />
+                            <Grid ColumnDefinitions="*,48">
+                                <Slider
+                                    x:Name="ViewerStraightenSlider"
+                                    Minimum="-15" Maximum="15" StepFrequency="0.1"
+                                    IsTabStop="False"
+                                    ValueChanged="ViewerStraightenSlider_ValueChanged" />
+                                <TextBlock x:Name="ViewerAngleText" Grid.Column="1" Text="0.0°" Foreground="White" VerticalAlignment="Center" HorizontalAlignment="Right" />
+                            </Grid>
+                            <Grid ColumnDefinitions="*,*" ColumnSpacing="6">
+                                <Button Grid.Column="0" Content="Applica (Invio)" Click="ViewerGeometriaApplica_Click" HorizontalAlignment="Stretch" Style="{StaticResource AccentButtonStyle}" IsTabStop="False" AllowFocusOnInteraction="False" />
+                                <Button Grid.Column="1" Content="Annulla (Esc)" Click="ViewerGeometriaAnnulla_Click" HorizontalAlignment="Stretch" IsTabStop="False" AllowFocusOnInteraction="False" />
+                            </Grid>
+                        </StackPanel>
+
+                        <StackPanel x:Name="PannelloBase" Spacing="8">
+                            <Button x:Name="ViewerCropButton" Content="Ritaglia (X)" Click="ViewerCropButton_Click" HorizontalAlignment="Stretch" IsTabStop="False" AllowFocusOnInteraction="False" />
+                            <Button x:Name="ViewerStraightenButton" Content="Raddrizza (L)" Click="ViewerStraightenButton_Click" HorizontalAlignment="Stretch" IsTabStop="False" AllowFocusOnInteraction="False" />
+                            <ToggleButton x:Name="ViewerLuckyToggle" Content="Ho fortuna (U)" Click="ViewerLuckyToggle_Click" HorizontalAlignment="Stretch" IsTabStop="False" AllowFocusOnInteraction="False" />
+                            <ToggleButton x:Name="ViewerAutoContrastToggle" Content="Auto contrasto" Click="ViewerAutoContrastToggle_Click" HorizontalAlignment="Stretch" IsTabStop="False" AllowFocusOnInteraction="False" />
+                            <ToggleButton x:Name="ViewerAutoColorToggle" Content="Auto colore" Click="ViewerAutoColorToggle_Click" HorizontalAlignment="Stretch" IsTabStop="False" AllowFocusOnInteraction="False" />
+                        </StackPanel>
+
+                        <StackPanel x:Name="PannelloTuning" Spacing="4" Visibility="Collapsed">
+                            <Grid ColumnDefinitions="*,44">
+                                <TextBlock Text="Luce di riempimento" Foreground="#CCCCCC" FontSize="12" />
+                                <TextBlock x:Name="ViewerFillLightText" Grid.Column="1" Text="0" Foreground="White" FontSize="12" HorizontalAlignment="Right" />
+                            </Grid>
+                            <Slider x:Name="ViewerFillLightSlider" Minimum="0" Maximum="100" StepFrequency="1" IsTabStop="False" ValueChanged="ViewerTuningSlider_ValueChanged" />
+                            <Grid ColumnDefinitions="*,44">
+                                <TextBlock Text="Evidenzia (alte luci)" Foreground="#CCCCCC" FontSize="12" />
+                                <TextBlock x:Name="ViewerHighlightsText" Grid.Column="1" Text="0" Foreground="White" FontSize="12" HorizontalAlignment="Right" />
+                            </Grid>
+                            <Slider x:Name="ViewerHighlightsSlider" Minimum="0" Maximum="100" StepFrequency="1" IsTabStop="False" ValueChanged="ViewerTuningSlider_ValueChanged" />
+                            <Grid ColumnDefinitions="*,44">
+                                <TextBlock Text="Ombre" Foreground="#CCCCCC" FontSize="12" />
+                                <TextBlock x:Name="ViewerShadowsText" Grid.Column="1" Text="0" Foreground="White" FontSize="12" HorizontalAlignment="Right" />
+                            </Grid>
+                            <Slider x:Name="ViewerShadowsSlider" Minimum="0" Maximum="100" StepFrequency="1" IsTabStop="False" ValueChanged="ViewerTuningSlider_ValueChanged" />
+                            <Grid ColumnDefinitions="*,44">
+                                <TextBlock Text="Temperatura colore" Foreground="#CCCCCC" FontSize="12" />
+                                <TextBlock x:Name="ViewerTemperatureText" Grid.Column="1" Text="0" Foreground="White" FontSize="12" HorizontalAlignment="Right" />
+                            </Grid>
+                            <Slider x:Name="ViewerTemperatureSlider" Minimum="-100" Maximum="100" StepFrequency="1" IsTabStop="False" ValueChanged="ViewerTuningSlider_ValueChanged" />
+                            <Button Content="Azzera regolazioni" Click="ViewerTuningReset_Click" HorizontalAlignment="Stretch" Margin="0,6,0,0" IsTabStop="False" AllowFocusOnInteraction="False" />
+                        </StackPanel>
+
+                        <Rectangle Height="1" Fill="#333333" Margin="0,6" />
+
+                        <Grid ColumnDefinitions="*,*" ColumnSpacing="6">
+                            <Button x:Name="ViewerUndoButton" Grid.Column="0" Content="↶ Annulla" Click="ViewerUndo_Click" HorizontalAlignment="Stretch" IsTabStop="False" AllowFocusOnInteraction="False" />
+                            <Button x:Name="ViewerRedoButton" Grid.Column="1" Content="Ripeti ↷" Click="ViewerRedo_Click" HorizontalAlignment="Stretch" IsTabStop="False" AllowFocusOnInteraction="False" />
+                        </Grid>
+                        <Button x:Name="ViewerResetButton" Content="Ripristina originale" Click="ViewerReset_Click" HorizontalAlignment="Stretch" IsTabStop="False" AllowFocusOnInteraction="False" />
+                        <TextBlock Text="Tieni premuto B per vedere l'originale" Foreground="#777777" FontSize="11" TextWrapping="Wrap" />
+                    </StackPanel>
+                </ScrollViewer>
+
+                <Grid x:Name="ViewerArea" Grid.Column="1" SizeChanged="ViewerArea_SizeChanged">
+                    <Grid x:Name="ViewerImageContainer" HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <Grid x:Name="ViewerImageHost">
+                            <Grid.RenderTransform>
+                                <TransformGroup>
+                                    <ScaleTransform x:Name="ViewerZoomTransform" ScaleX="1" ScaleY="1" />
+                                    <RotateTransform x:Name="ViewerRotateTransform" Angle="0" />
+                                </TransformGroup>
+                            </Grid.RenderTransform>
+                            <Grid.RenderTransformOrigin>0.5,0.5</Grid.RenderTransformOrigin>
+                            <Image x:Name="ViewerImage" Stretch="Fill" />
+                            <Border
+                                x:Name="ViewerSelectionBorder"
+                                BorderBrush="#FFD600"
+                                BorderThickness="4"
+                                IsHitTestVisible="False"
+                                Visibility="Collapsed" />
+                        </Grid>
+                        <Canvas x:Name="ViewerCropCanvas" Background="Transparent">
+                            <Rectangle x:Name="DimTop" Fill="#99000000" IsHitTestVisible="False" Visibility="Collapsed" />
+                            <Rectangle x:Name="DimBottom" Fill="#99000000" IsHitTestVisible="False" Visibility="Collapsed" />
+                            <Rectangle x:Name="DimLeft" Fill="#99000000" IsHitTestVisible="False" Visibility="Collapsed" />
+                            <Rectangle x:Name="DimRight" Fill="#99000000" IsHitTestVisible="False" Visibility="Collapsed" />
+                            <Rectangle x:Name="ThirdsV1" Width="1" Fill="#88FFFFFF" IsHitTestVisible="False" />
+                            <Rectangle x:Name="ThirdsV2" Width="1" Fill="#88FFFFFF" IsHitTestVisible="False" />
+                            <Rectangle x:Name="ThirdsH1" Height="1" Fill="#88FFFFFF" IsHitTestVisible="False" />
+                            <Rectangle x:Name="ThirdsH2" Height="1" Fill="#88FFFFFF" IsHitTestVisible="False" />
+                            <Line x:Name="DiagLine1" Stroke="#88FFFFFF" StrokeThickness="1" IsHitTestVisible="False" />
+                            <Line x:Name="DiagLine2" Stroke="#88FFFFFF" StrokeThickness="1" IsHitTestVisible="False" />
+                            <Border x:Name="CropRectBorder" Tag="M" BorderBrush="#FFB300" BorderThickness="2" Background="#11FFB300" Visibility="Collapsed" />
+                        </Canvas>
+                    </Grid>
                 </Grid>
-                <Canvas x:Name="ViewerCropCanvas" Background="Transparent">
-                    <Border x:Name="CropRectBorder" BorderBrush="#FFB300" BorderThickness="2" Background="#22FFB300" Visibility="Collapsed" />
-                    <Rectangle x:Name="ThirdsV1" Width="1" Fill="#88FFFFFF" />
-                    <Rectangle x:Name="ThirdsV2" Width="1" Fill="#88FFFFFF" />
-                    <Rectangle x:Name="ThirdsH1" Height="1" Fill="#88FFFFFF" />
-                    <Rectangle x:Name="ThirdsH2" Height="1" Fill="#88FFFFFF" />
-                    <Line x:Name="DiagLine1" Stroke="#88FFFFFF" StrokeThickness="1" />
-                    <Line x:Name="DiagLine2" Stroke="#88FFFFFF" StrokeThickness="1" />
-                    <Rectangle
-                        x:Name="HandleTL" Width="18" Height="18" Fill="#FFB300" Tag="TL" Visibility="Collapsed"
-                        PointerPressed="Handle_PointerPressed" PointerMoved="Handle_PointerMoved" PointerReleased="Handle_PointerReleased" />
-                    <Rectangle
-                        x:Name="HandleBR" Width="18" Height="18" Fill="#FFB300" Tag="BR" Visibility="Collapsed"
-                        PointerPressed="Handle_PointerPressed" PointerMoved="Handle_PointerMoved" PointerReleased="Handle_PointerReleased" />
-                </Canvas>
             </Grid>
 
             <ListView
@@ -319,7 +382,7 @@
                 Foreground="#888888"
                 FontSize="12"
                 Padding="12,6"
-                Text="←/→ foto · Space seleziona · Delete scarta · 0-5 rating · X crop · L raddrizza (poi frecce/rotella sullo slider) · U auto-correzione · Esc chiudi" />
+                Text="←/→ foto · Space seleziona · Delete scarta · 0-5 rating · X ritaglia · L raddrizza · U ho fortuna · Invio applica / Esc annulla ritaglio · Ctrl+Z/Y annulla/ripeti · B originale · Esc chiudi" />
         </Grid>
 
         <ContentDialog

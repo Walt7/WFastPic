@@ -28,7 +28,12 @@ public class ProcessingTests
             CropWidth = 0.5,
             CropHeight = 0.6,
             StraightenAngleDegrees = 3.5,
-            AutoCorrect = true,
+            AutoContrast = true,
+            AutoColor = true,
+            FillLight = 0.4,
+            Highlights = 0.3,
+            Shadows = 0.2,
+            Temperature = -0.5,
         };
 
         var json = EditRecipeSerializer.ToJson(originale);
@@ -66,46 +71,6 @@ public class ProcessingTests
 
         Assert.True(x + w <= 1000);
         Assert.True(y + h <= 1000);
-    }
-
-    [Fact]
-    public void AutoCorrectProcessor_allunga_un_istogramma_compresso_verso_tutta_la_gamma()
-    {
-        const int width = 4;
-        const int height = 4;
-        var bgra = new byte[width * height * 4];
-
-        // Tutti i pixel in una fascia compressa e scura (100-140): dopo la correzione l'istogramma
-        // deve occupare una gamma molto piu ampia (piu vicina a 0-255).
-        for (var i = 0; i < bgra.Length; i += 4)
-        {
-            var v = (byte)(100 + (i / 4 % 40));
-            bgra[i] = v; bgra[i + 1] = v; bgra[i + 2] = v; bgra[i + 3] = 255;
-        }
-
-        AutoCorrectProcessor.ApplyInPlace(bgra, width, height);
-
-        byte min = 255, max = 0;
-        for (var i = 0; i < bgra.Length; i += 4)
-        {
-            min = Math.Min(min, bgra[i]);
-            max = Math.Max(max, bgra[i]);
-        }
-
-        Assert.True(max - min > 100, $"Gamma dopo correzione troppo stretta: {min}-{max}");
-    }
-
-    [Fact]
-    public void AutoCorrectProcessor_non_esplode_su_immagine_a_tinta_unita()
-    {
-        var bgra = new byte[2 * 2 * 4];
-        for (var i = 0; i < bgra.Length; i += 4)
-        {
-            bgra[i] = 128; bgra[i + 1] = 128; bgra[i + 2] = 128; bgra[i + 3] = 255;
-        }
-
-        var eccezione = Record.Exception(() => AutoCorrectProcessor.ApplyInPlace(bgra, 2, 2));
-        Assert.Null(eccezione);
     }
 
     [Fact]

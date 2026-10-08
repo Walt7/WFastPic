@@ -38,8 +38,10 @@ agente CLI non ha accesso a mouse/tastiera su questa app desktop nativa.
   Decoding HEIC via WIC (`Windows.Graphics.Imaging.BitmapDecoder`) — **nessun fallback libheif**:
   il verdetto Fase 0 ha confermato che WIC basta sui file reali testati.
 - **Win2D non usato.** Crop/raddrizzamento nel Viewer sono overlay/RenderTransform WinUI puri
-  (niente GPU canvas); il bake reale dei pixel avviene solo in export (`PixelOps`/`RecipeApplier`,
-  math CPU pura). Se in futuro serve editing più pesante (esposizione, WB, ecc.), Win2D resta
+  (niente GPU canvas) finche si e in "modalita geometria"; poi Applica e regolazioni tonali usano la
+  stessa pipeline CPU dell'export (`RecipeApplier` = raddrizza → ritaglia → `ToneProcessor`), eseguita
+  su thread di background sulla preview. Il crop resta sempre dentro l'immagine ruotata
+  (`StraightenGeometry`, niente angoli vuoti). Se in futuro serve editing più pesante (esposizione, WB, ecc.), Win2D resta
   l'opzione da valutare per allora.
 - **CommunityToolkit.Mvvm non usato.** Code-behind pragmatico con `INotifyPropertyChanged` manuale
   (`PhotoGridItem`). Tech debt nota, non refactored perché la Grid è stabile così com'è.
@@ -65,7 +67,7 @@ src/
 ├─ WFastPic.Core.Persistence/   (sidecar SQLite)
 └─ WFastPic.Core.Export/        (bake ricetta + watermark + tag EXIF + encode JPEG — Windows-targeted)
 tests/
-└─ WFastPic.Core.Tests/         (xUnit, 21 test — Library/Selection/Processing)
+└─ WFastPic.Core.Tests/         (xUnit, 45 test — Library/Selection/Processing)
 tools/
 ├─ HeicSmokeTest/                (Fase 0, smoke test decoding)
 └─ ScanSmokeTest/
@@ -89,17 +91,17 @@ assets/                          (icon.ico, logo.png)
 `Delete`/`Backspace` scarta (mai cancellazione fisica) · `0-5` rating · `Tab` filtro
 tutte/selezionate/scarti · `Ctrl+A` seleziona tutte visibili · `Shift+rotella` dimensione cella
 griglia · `Enter` / doppio click apri viewer. Nel Viewer: `←/→` naviga · `Space` seleziona ·
-`Delete` scarta · `0-5` rating · `X` crop · `L` raddrizza (poi frecce/rotella sullo slider) ·
-`U` auto-correzione · `Esc` chiudi. Non introdurre nuovi shortcut senza verificarne il conflitto
+`Delete` scarta · `0-5` rating · `X` ritaglia (di nuovo = applica) · `L` raddrizza (poi frecce/rotella
+sullo slider) · `Invio` applica / `Esc` annulla ritaglio · `U` "Ho fortuna" (auto contrasto+colore) ·
+`Ctrl+Z`/`Ctrl+Y` annulla/ripeti · `B` (tenuto premuto) mostra l'originale · `Esc` chiudi. Non introdurre nuovi shortcut senza verificarne il conflitto
 con questa mappa.
 
-Nota: `Z`/`F` zoom, `R` ruota rigida, `M` riproduci video, `Ctrl+C/V` copia ricetta, `Ctrl+Z/Y`
-undo/redo — presenti nella mappa di design originale ma **non ancora implementati**.
+Nota: `Z`/`F` zoom, `R` ruota rigida, `M` riproduci video, `Ctrl+C/V` copia ricetta — presenti nella mappa di design originale ma **non ancora implementati**.
 
 ## Convenzioni per chi implementa
 
-- Test prima o insieme al codice per la logica in `Core.*` (xUnit) — 21 test attuali coprono
-  scan/identità, raffiche, selezione, ricetta/crop/rotate/auto-correct.
+- Test prima o insieme al codice per la logica in `Core.*` (xUnit) — 45 test attuali coprono
+  scan/identità, raffiche, selezione, ricetta/crop/rotate/tono/geometria raddrizzamento.
 - Nessuna dipendenza da WinUI nei progetti `Core.*` — se serve, è un segnale che la logica è nel
   posto sbagliato. `Core.Decoding`/`Core.Export` sono Windows-targeted solo per WinRT imaging.
 - Pattern ricorrente WinUI: se un evento (wheel, keydown) sparisce perché un controllo figlio
