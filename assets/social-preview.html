@@ -1,0 +1,126 @@
+<!doctype html>
+<!--
+  Sorgente dell'immagine social preview del repository (1280x640, assets/social-preview.png).
+  Le "foto" sono paesaggi stilizzati disegnati in SVG: nessuna foto reale.
+  Rigenerare:  msedge --headless --screenshot=assets/social-preview.png --window-size=1280,640 --hide-scrollbars assets/social-preview.html
+-->
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<title>WFastPic social preview</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1280px; height: 640px; overflow: hidden; }
+  body {
+    font-family: "Segoe UI Variable Display", "Segoe UI", sans-serif;
+    color: #fff;
+    background:
+      radial-gradient(900px 500px at 85% 20%, #26334a 0%, rgba(38,51,74,0) 70%),
+      radial-gradient(700px 500px at 0% 100%, #2b2433 0%, rgba(43,36,51,0) 70%),
+      #151515;
+    position: relative;
+  }
+  .testo { position: absolute; left: 64px; top: 0; bottom: 0; width: 570px; display: flex; flex-direction: column; justify-content: center; }
+  .logo { width: 96px; height: 96px; margin-bottom: 26px; filter: drop-shadow(0 6px 18px rgba(0,0,0,.5)); }
+  h1 { font-size: 84px; font-weight: 700; letter-spacing: -2px; line-height: 1; }
+  .erede { margin-top: 18px; font-size: 38px; font-weight: 600; line-height: 1.15; color: #4cc2ff; }
+  .sotto { margin-top: 18px; font-size: 24px; line-height: 1.35; color: #c8c8c8; }
+  .tag { margin-top: 30px; display: flex; flex-wrap: wrap; gap: 10px; }
+  .tag span { font-size: 18px; padding: 6px 13px; border-radius: 999px; background: rgba(255,255,255,.09); border: 1px solid rgba(255,255,255,.14); color: #e8e8e8; }
+  .tag b { color: #ffd600; font-weight: 600; }
+
+  .finestra {
+    position: absolute; left: 650px; top: 50px; width: 590px; height: 540px;
+    border-radius: 14px; background: #1f1f1f; border: 1px solid rgba(255,255,255,.12);
+    box-shadow: 0 30px 80px rgba(0,0,0,.65), 0 0 0 1px rgba(0,0,0,.4);
+    overflow: hidden;
+  }
+  .barra { height: 40px; background: #2a2a2a; display: flex; align-items: center; padding: 0 14px; gap: 8px; font-size: 14px; color: #bbb; }
+  .barra i { width: 10px; height: 10px; border-radius: 50%; background: #555; display: inline-block; }
+  .barra .t { margin-left: 8px; }
+  .griglia { padding: 12px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .cella { position: relative; aspect-ratio: 4 / 3; border-radius: 6px; overflow: hidden; background: #2a2a2a; }
+  .cella svg { width: 100%; height: 100%; display: block; }
+  .cella.sel::after { content: ""; position: absolute; inset: 0; border: 5px solid #ffd600; border-radius: 6px; background: rgba(255,214,0,.13); }
+  .cella .ok { position: absolute; right: 6px; top: 5px; z-index: 2; width: 22px; height: 22px; border-radius: 50%; background: #1f1f1f; color: #3ddc84; font-size: 15px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+  .cella .stelle { position: absolute; left: 7px; bottom: 5px; z-index: 2; font-size: 14px; color: #ffd600; text-shadow: 0 1px 3px #000; letter-spacing: 1px; }
+  .cella .corr { position: absolute; left: 0; right: 0; bottom: 0; height: 5px; background: #3ddc84; z-index: 2; }
+  .stato { position: absolute; left: 0; right: 0; bottom: 0; height: 36px; background: #2a2a2a; display: flex; align-items: center; padding: 0 14px; font-size: 14px; color: #bbb; justify-content: space-between; }
+  .stato b { color: #ffd600; font-weight: 600; }
+</style>
+</head>
+<body>
+  <div class="testo">
+    <img class="logo" src="icon-256.png" alt="">
+    <h1>WFastPic</h1>
+    <div class="erede">L'erede open source<br>di Picasa</div>
+    <div class="sotto">Scegli e sistema centinaia di foto HEIC su Windows, da tastiera e senza aspettare.</div>
+    <div class="tag"><span><b>Space</b> tieni</span><span>★ stelle</span><span>Ritaglia</span><span>Persone</span><span>Mappa</span></div>
+  </div>
+
+  <div class="finestra">
+    <div class="barra"><i></i><i></i><i></i><span class="t">WFastPic · Vacanza al mare</span></div>
+    <div class="griglia" id="griglia"></div>
+    <div class="stato"><span>Selezionate <b>3</b> di 9</span><span>Tutte · Selezionate · Scarti</span></div>
+  </div>
+
+<script>
+  // Paesaggi stilizzati (cielo, sole, colline, mare...): segnaposto generici al posto delle foto.
+  const S = (corpo) => `<svg viewBox="0 0 200 150" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">${corpo}</svg>`;
+  const grad = (id, a, b) => `<linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${a}"/><stop offset="1" stop-color="${b}"/></linearGradient>`;
+
+  const scene = [
+    // 0 tramonto sul mare
+    S(`<defs>${grad('a0','#3b2a6b','#ff9a4d')}${grad('m0','#ff9a4d','#2a3b6b')}</defs>
+       <rect width="200" height="150" fill="url(#a0)"/><circle cx="100" cy="82" r="22" fill="#ffd27a"/>
+       <rect y="84" width="200" height="66" fill="url(#m0)"/><rect x="82" y="88" width="36" height="3" fill="#ffe3a8" opacity=".7"/>
+       <rect x="88" y="96" width="24" height="3" fill="#ffe3a8" opacity=".5"/>`),
+    // 1 montagne innevate
+    S(`<defs>${grad('a1','#6fb1ea','#d8ecfb')}</defs><rect width="200" height="150" fill="url(#a1)"/>
+       <polygon points="-10,150 55,45 120,150" fill="#5b6b86"/><polygon points="55,45 41,75 55,68 68,78" fill="#fff"/>
+       <polygon points="60,150 135,30 215,150" fill="#7a8aa5"/><polygon points="135,30 118,66 134,58 150,70" fill="#fff"/>
+       <rect y="128" width="200" height="22" fill="#3f6b4a"/>`),
+    // 2 bosco di pini
+    S(`<defs>${grad('a2','#bfe3c8','#7fb98f')}</defs><rect width="200" height="150" fill="url(#a2)"/>
+       ${[20,55,90,125,160,190].map((x,i)=>`<polygon points="${x},${60+i%2*10} ${x-26},${140} ${x+26},${140}" fill="${i%2?'#1f5a3a':'#2b6e47'}"/>`).join('')}
+       <rect y="138" width="200" height="12" fill="#1a3d2a"/>`),
+    // 3 dune del deserto
+    S(`<defs>${grad('a3','#f7c58a','#fde7c3')}</defs><rect width="200" height="150" fill="url(#a3)"/><circle cx="150" cy="38" r="16" fill="#fff4d6"/>
+       <path d="M0 110 Q50 70 110 100 T200 90 V150 H0Z" fill="#e0a05a"/><path d="M0 130 Q60 100 120 125 T200 118 V150 H0Z" fill="#c9843a"/>`),
+    // 4 spiaggia
+    S(`<defs>${grad('a4','#7cc6f2','#cdeefc')}</defs><rect width="200" height="150" fill="url(#a4)"/>
+       <rect y="62" width="200" height="40" fill="#2fb5c6"/><path d="M0 98 Q50 88 100 98 T200 96 V104 H0Z" fill="#e9fbff" opacity=".8"/>
+       <rect y="102" width="200" height="48" fill="#f1d9a0"/><circle cx="165" cy="30" r="13" fill="#fff6c9"/>`),
+    // 5 lago con riflessi
+    S(`<defs>${grad('a5','#8fb8e8','#f3d9c0')}</defs><rect width="200" height="150" fill="url(#a5)"/>
+       <path d="M0 78 L45 50 L85 74 L130 44 L200 80 V84 H0Z" fill="#4c6a7c"/>
+       <rect y="82" width="200" height="68" fill="#6d93ad"/><path d="M0 86 L45 112 L85 90 L130 118 L200 84 V150 H0Z" fill="#4c6a7c" opacity=".35"/>`),
+    // 6 cielo stellato
+    S(`<defs>${grad('a6','#0c1233','#2c3a73')}</defs><rect width="200" height="150" fill="url(#a6)"/>
+       ${Array.from({length:34},(_,i)=>`<circle cx="${(i*47)%200}" cy="${(i*29)%90}" r="${i%5?0.9:1.6}" fill="#fff" opacity="${0.5+(i%4)*0.12}"/>`).join('')}
+       <circle cx="150" cy="35" r="12" fill="#fff6c9"/><path d="M0 120 Q50 92 100 112 T200 104 V150 H0Z" fill="#0a0f26"/>`),
+    // 7 prato fiorito
+    S(`<defs>${grad('a7','#9fd4f5','#e6f6ff')}</defs><rect width="200" height="150" fill="url(#a7)"/>
+       <rect y="70" width="200" height="80" fill="#5aa84a"/><path d="M0 74 Q60 58 120 72 T200 66 V80 H0Z" fill="#74bf5f"/>
+       ${Array.from({length:28},(_,i)=>`<circle cx="${(i*37)%196+4}" cy="${84+(i*19)%58}" r="2.6" fill="${['#ff5d73','#ffd600','#fff','#c58bff'][i%4]}"/>`).join('')}`),
+    // 8 campo innevato
+    S(`<defs>${grad('a8','#b9d7ee','#eef6fc')}</defs><rect width="200" height="150" fill="url(#a8)"/>
+       <path d="M0 96 Q50 76 110 94 T200 88 V150 H0Z" fill="#fff"/><path d="M0 122 Q70 104 140 124 T200 116 V150 H0Z" fill="#dfeaf4"/>
+       ${[40,70,150].map(x=>`<polygon points="${x},62 ${x-11},96 ${x+11},96" fill="#3d6a55"/>`).join('')}`),
+  ];
+
+  // Cosa mostra ogni cella: selezionata, stelle, "corrente" (barra verde).
+  const decori = [
+    {sel:true, stelle:'★★★★★', corr:true}, {}, {sel:true, stelle:'★★★★'},
+    {}, {sel:true}, {stelle:'★★★'},
+    {}, {}, {},
+  ];
+  const g = document.getElementById('griglia');
+  scene.forEach((svg, i) => {
+    const d = decori[i];
+    g.insertAdjacentHTML('beforeend',
+      `<div class="cella ${d.sel ? 'sel' : ''}">${svg}${d.sel ? '<div class="ok">✓</div>' : ''}${d.stelle ? `<div class="stelle">${d.stelle}</div>` : ''}${d.corr ? '<div class="corr"></div>' : ''}</div>`);
+  });
+</script>
+</body>
+</html>
