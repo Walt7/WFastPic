@@ -20,6 +20,9 @@ I dettagli tecnici (cause dei bug, file toccati) sono in [`doc/correzioni-e-novi
 - **Viewer, colonna dei dettagli**: sezione "Voto" (il tuo e quello automatico, con i motivi) e sezione
   **"Volti"** come in Picasa: le persone nella foto con il nome (con "?" se è solo una proposta); clic su
   un volto per dire chi è, confermare o correggere.
+- **"Segnala il problema"** nel dialogo degli errori inattesi: apre GitHub nel browser con la
+  segnalazione già scritta, che controlli e invii tu. Dal testo mostrato, copiato o inviato vengono tolti
+  percorsi e nomi delle foto, nome utente e nome del PC; il report completo resta solo sul tuo PC.
 
 ## [0.9.2] — 2026-10-10
 

@@ -118,6 +118,12 @@ internal static partial class TestiEn
         d["Si è verificato un errore inatteso"] = "An unexpected error occurred";
         d["Copia report"] = "Copy report";
         d["Apri cartella report"] = "Open report folder";
+        d["Segnala il problema"] = "Report the problem";
+        d["Il testo qui sopra è quello che puoi inviare: percorsi e nomi delle foto, nome utente e nome del PC sono già stati tolti. " +
+          "«Segnala il problema» apre GitHub nel browser con la segnalazione già scritta: la controlli e la invii tu (serve un account GitHub)."] =
+            "The text above is what you can send: photo paths and names, user name and PC name have already been removed. " +
+            "«Report the problem» opens GitHub in the browser with the report already written: you check it and send it yourself (a GitHub account is needed).";
+        d["Cosa stavi facendo quando è comparso l'errore? (scrivilo qui)"] = "What were you doing when the error appeared? (write it here)";
     }
 
     /// <summary>Testi costruiti nel codice del viewer (editor).</summary>

@@ -21,6 +21,9 @@ The app interface is in Italian: names of buttons and menus below are given as t
 - **Viewer, details column**: a "Rating" section (yours and the automatic one, with the reasons) and a
   **"Faces"** section as in Picasa: the people in the photo with their name ("?" if only suggested);
   click a face to say who it is, confirm or correct it.
+- **"Report the problem"** in the unexpected error dialog: opens GitHub in the browser with the report
+  already written, which you check and send yourself. Photo paths and names, user name and PC name are
+  removed from the text shown, copied or sent; the full report stays only on your PC.
 
 ## [0.9.2] — 2026-10-10
 

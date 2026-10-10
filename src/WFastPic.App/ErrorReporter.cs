@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text;
+using WFastPic.Core.Library;
 using WFastPic.Core.Localizzazione;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -10,7 +11,9 @@ namespace WFastPic.App;
 /// <summary>
 /// Gestione centralizzata degli errori inattesi: ogni eccezione non gestita viene scritta in un report
 /// testuale in LocalAppData (mai persa), poi l'utente la vede in un dialogo non bloccante per il flusso
-/// (un solo dialogo alla volta) con "Copia" e "Apri cartella report". Nessun invio in rete.
+/// (un solo dialogo alla volta) senza dati personali (<see cref="ReportErrore"/>): "Segnala il problema"
+/// apre una segnalazione GitHub già scritta che l'utente controlla e invia lui, "Copia", "Apri cartella
+/// report". Nessun invio automatico in rete.
 /// </summary>
 public static class ErrorReporter
 {
@@ -111,9 +114,11 @@ public static class ErrorReporter
         _dialogoAperto = true;
         try
         {
+            // Quello che si vede, si copia o si invia è senza dati personali; il file su disco resta completo.
+            var anonimo = ReportErrore.Anonimizza(testo, Environment.UserName, Environment.MachineName);
             var dettagli = new TextBox
             {
-                Text = testo,
+                Text = anonimo,
                 IsReadOnly = true,
                 AcceptsReturn = true,
                 TextWrapping = TextWrapping.NoWrap,
@@ -125,9 +130,10 @@ public static class ErrorReporter
             ScrollViewer.SetVerticalScrollBarVisibility(dettagli, ScrollBarVisibility.Auto);
 
             var contenuto = new StackPanel { Spacing = 8, Width = 560 };
+            var riassunto = ReportErrore.Anonimizza($"{eccezione?.GetType().Name}: {eccezione?.Message}", Environment.UserName, Environment.MachineName);
             contenuto.Children.Add(new TextBlock
             {
-                Text = $"{eccezione?.GetType().Name}: {eccezione?.Message}",
+                Text = riassunto,
                 TextWrapping = TextWrapping.Wrap,
             });
             contenuto.Children.Add(new TextBlock
@@ -137,14 +143,26 @@ public static class ErrorReporter
                 Opacity = 0.7,
             });
             contenuto.Children.Add(dettagli);
+            contenuto.Children.Add(new TextBlock
+            {
+                Text = Testi.T("Il testo qui sopra è quello che puoi inviare: percorsi e nomi delle foto, nome utente e nome del PC sono già stati tolti. " +
+                               "«Segnala il problema» apre GitHub nel browser con la segnalazione già scritta: la controlli e la invii tu (serve un account GitHub)."),
+                TextWrapping = TextWrapping.Wrap,
+                FontSize = 12,
+                Opacity = 0.7,
+            });
+            var apriCartella = new HyperlinkButton { Content = Testi.T("Apri cartella report"), Padding = new Thickness(0) };
+            apriCartella.Click += (_, _) =>
+                Process.Start(new ProcessStartInfo("explorer.exe", $"/select,\"{percorso}\"") { UseShellExecute = true });
+            contenuto.Children.Add(apriCartella);
 
             var dialogo = new ContentDialog
             {
                 XamlRoot = xamlRoot,
                 Title = Testi.T("Si è verificato un errore inatteso"),
                 Content = contenuto,
-                PrimaryButtonText = Testi.T("Copia report"),
-                SecondaryButtonText = Testi.T("Apri cartella report"),
+                PrimaryButtonText = Testi.T("Segnala il problema"),
+                SecondaryButtonText = Testi.T("Copia report"),
                 CloseButtonText = Testi.T("Chiudi"),
                 DefaultButton = ContentDialogButton.Close,
             };
@@ -154,17 +172,21 @@ public static class ErrorReporter
                 var risultato = await dialogo.ShowAsync();
                 if (risultato == ContentDialogResult.Primary)
                 {
-                    var pacchetto = new DataPackage();
-                    pacchetto.SetText(testo);
-                    Clipboard.SetContent(pacchetto);
-                    Clipboard.Flush();
+                    // Niente parte da solo: il browser mostra la segnalazione e l'utente decide se inviarla.
+                    var titolo = riassunto.Length > 120 ? riassunto[..120] + "…" : riassunto;
+                    var indirizzo = ReportErrore.IndirizzoSegnalazione(titolo,
+                        Testi.T("Cosa stavi facendo quando è comparso l'errore? (scrivilo qui)"), anonimo);
+                    Process.Start(new ProcessStartInfo(indirizzo) { UseShellExecute = true });
                 }
                 else if (risultato == ContentDialogResult.Secondary)
                 {
-                    Process.Start(new ProcessStartInfo("explorer.exe", $"/select,\"{percorso}\"") { UseShellExecute = true });
+                    var pacchetto = new DataPackage();
+                    pacchetto.SetText(anonimo);
+                    Clipboard.SetContent(pacchetto);
+                    Clipboard.Flush();
                 }
                 else break;
-                // Copia/Apri non chiudono il flusso: riproponi il dialogo finché l'utente non preme Chiudi.
+                // Segnala/Copia non chiudono il flusso: riproponi il dialogo finché l'utente non preme Chiudi.
             }
         }
         catch
