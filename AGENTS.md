@@ -147,6 +147,8 @@ agente CLI non ha accesso a mouse/tastiera su questa app desktop nativa.
 ```
 src/
 ├─ WFastPic.App/               (WinUI 3, XAML + code-behind, no MVVM toolkit)
+│  ├─ MainWindow.*.cs          (griglia, cartelle, persone, mappa, export: partial della finestra)
+│  └─ Viewer/                  (ViewerView: UserControl con viewer + editor, legato a MainWindow da IViewerHost)
 ├─ WFastPic.Core.Library/       (scan cartelle, identità foto, raggruppamento raffiche, video abbinato)
 ├─ WFastPic.Core.Decoding/      (thumbnail/preview/full decode via WIC — Windows-targeted)
 ├─ WFastPic.Core.Processing/    (EditRecipe, crop/rotate/auto-correct — pure, testabile)
@@ -187,6 +189,11 @@ con questa mappa.
 Nota: `Z`/`F` zoom, `R` ruota rigida, `M` riproduci video, `Ctrl+C/V` copia ricetta — presenti nella mappa di design originale ma **non ancora implementati**.
 
 ## Convenzioni per chi implementa
+
+- Il viewer (`Viewer/ViewerView*`) non tocca i campi di `MainWindow`: quello che gli serve dalla
+  finestra (elenco visibile, sidecar, selezione, miniature, stato/rating, nomi dei luoghi) passa da
+  `IViewerHost`; la finestra lo usa con `Viewer.Apri/Chiudi/IsAperto/SalvaRicettaCorrente` e l'evento
+  `Chiuso`. Una nuova dipendenza va aggiunta all'interfaccia, non aggirata.
 
 - Test prima o insieme al codice per la logica in `Core.*` (xUnit) — 138 test attuali coprono
   scan/identità, raffiche, selezione, ricetta/crop/rotate/tono/geometria raddrizzamento, ordinamento

@@ -22,38 +22,21 @@ namespace WFastPic.App;
 /// temperatura). L'editing e sempre non distruttivo: la ricetta (<see cref="EditRecipe"/>) viene
 /// applicata alla preview con la stessa pipeline dell'export (<see cref="RecipeApplier"/>), su un
 /// thread di background. Ritaglia/raddrizza lavorano in una "modalita geometria" con Applica/Annulla.
+/// Tutto quello che non è del viewer (elenco, sidecar, selezione) arriva da <see cref="IViewerHost"/>.
 /// </summary>
-public partial class MainWindow
+public sealed partial class ViewerView : UserControl
 {
-    private enum GrigliaComposizione { Terzi, Meta, Diagonali }
+    private IViewerHost Host = null!;
 
-    // NaN = "originale": le proporzioni della foto stessa, calcolate sulla foto aperta.
-    private static readonly (string Etichetta, double? Rapporto)[] ProporzioniDisponibili =
-    [
-        ("libera", null),
-        ("originale", double.NaN),
-        ("1:1", 1.0),
-        ("4:3", 4.0 / 3),
-        ("3:2", 3.0 / 2),
-        ("16:9", 16.0 / 9),
-    ];
+    /// <summary>Viewer chiuso (Esc, pulsante, foto finite): la finestra riporta la tastiera alla griglia.</summary>
+    internal event EventHandler? Chiuso;
 
-    private static readonly string[] TagManiglie = ["TL", "T", "TR", "R", "BR", "B", "BL", "L"];
-    private const double DimensioneManiglia = 14;
-    private const double CropMinimoPx = 24;
-    private const int UndoMax = 50;
+    internal bool IsAperto => _viewerAperto;
 
-    private int _proporzioneIndice;
-    private double? ProporzioneCorrente => RapportoProporzione(_proporzioneIndice);
-
-    // In forma "orizzontale" (>= 1): RapportoEffettivo la gira per le foto verticali, come le altre.
-    private double? RapportoProporzione(int indice) => ProporzioniDisponibili[indice].Rapporto switch
+    public ViewerView()
     {
-        double r when double.IsNaN(r) && _viewerPixelWidth > 0 && _viewerPixelHeight > 0 =>
-            Math.Max((double)_viewerPixelWidth / _viewerPixelHeight, (double)_viewerPixelHeight / _viewerPixelWidth),
-        double r when double.IsNaN(r) => null,
-        var r => r,
-    };
+        InitializeComponent();
+    }
 
     private bool _viewerAperto;
     private PhotoGridItem? _fotoViewerCorrente;
@@ -84,20 +67,6 @@ public partial class MainWindow
     private bool _gestoInCorso;
     private DispatcherTimer? _gestoTimer;
 
-    // Modalita geometria (ritaglia + raddrizza).
-    private bool _geometriaAttiva;
-    private bool _cropAutoPieno;                        // il crop segue il massimo rettangolo inscritto
-    private double _cropN0X, _cropN0Y, _cropN1X, _cropN1Y; // crop normalizzato sulla tela (0..1)
-    private string? _dragTag;
-    private Point _dragStart;
-    private (double X0, double Y0, double X1, double Y1) _dragRect;
-    private readonly Dictionary<string, Rectangle> _maniglie = new();
-    // Riquadro voluto dall'utente (normalizzato): raddrizzando lo si adatta sempre a partire da
-    // questo, così tornando verso 0° il crop si riallarga invece di restare rimpicciolito.
-    private (double X0, double Y0, double X1, double Y1) _cropVoluto = (0, 0, 1, 1);
-    // Risultato mostrato prima del ritaglio: se si annulla (o non cambia nulla) torna subito.
-    private (byte[] Pixel, int Larghezza, int Altezza)? _bufferPrimaGeometria;
-
     // Cache delle preview decodificate (foto corrente ± vicini) cosi' <-- / --> nel Viewer non
     // aspetta il decode HEIC ogni volta: il vicino e' gia' pronto quando ci si arriva.
     private readonly Dictionary<string, (byte[] Pixel, int Larghezza, int Altezza)> _previewCache = new();
@@ -105,8 +74,10 @@ public partial class MainWindow
     private readonly HashSet<string> _prefetchInCorso = new();
     private const int PreviewCacheMax = 6;
 
-    private void InizializzaViewer()
+    internal void Inizializza(IViewerHost host)
     {
+        Host = host;
+
         // handledEventsToo: i controlli interni (Slider, Button) possono marcare l'evento Handled
         // per uso proprio; gli shortcut del Viewer devono comunque sempre arrivare.
         ViewerOverlay.AddHandler(UIElement.KeyDownEvent, new KeyEventHandler(ViewerOverlay_KeyDown), handledEventsToo: true);
@@ -145,10 +116,10 @@ public partial class MainWindow
         // A schermo intero la barra in alto è nascosta: la posizione "N di M" si vede nel pannello.
         ViewerStatusText.RegisterPropertyChangedCallback(TextBlock.TextProperty,
             (_, _) => ViewerPosizioneSchermoInteroText.Text = ViewerStatusText.Text);
-        AppWindow.Changed += AppWindow_Changed;
+        Host.Finestra.AppWindow.Changed += AppWindow_Changed;
 
         // B tenuto premuto e finestra che perde il focus: il KeyUp non arriverebbe mai.
-        Activated += (_, a) =>
+        Host.Finestra.Activated += (_, a) =>
         {
             if (a.WindowActivationState == WindowActivationState.Deactivated && _mostraOriginale)
             {
@@ -166,24 +137,11 @@ public partial class MainWindow
     private bool EditingPronto =>
         _viewerPixelOriginali is not null && _fotoRicetta is not null && _fotoRicetta == _fotoViewerCorrente;
 
-    private void AgganciaDragCrop(UIElement el)
-    {
-        el.PointerPressed += Crop_PointerPressed;
-        el.PointerMoved += Crop_PointerMoved;
-        el.PointerReleased += Crop_PointerReleased;
-        el.PointerCaptureLost += Crop_PointerReleased;
-    }
-
-    private bool _pannelloCartelleAperto = true;
-
-    private void ApriViewer(PhotoGridItem? foto)
+    internal void Apri(PhotoGridItem? foto)
     {
         if (foto is null || _viewerAperto) return;
         _ = CaricaFotoNelViewerAsync(foto);
-        // Pannello cartelle nascosto mentre si edita: tutta la larghezza va alla foto. Si ripristina alla chiusura.
-        _pannelloCartelleAperto = RootSplitView.IsPaneOpen;
-        RootSplitView.IsPaneOpen = false;
-        ViewerOverlay.Visibility = Visibility.Visible;
+        Visibility = Visibility.Visible;
         _viewerAperto = true;
         ViewerOverlay.Focus(FocusState.Programmatic);
         ElementSoundPlayer.Play(ElementSoundKind.Show);
@@ -221,7 +179,7 @@ public partial class MainWindow
             return;
 
         // Dal SelectionManager, non dal DB: una ricetta appena salvata può essere ancora in coda.
-        var recipeJson = _selectionManager?.GetRecipeJson(foto.Id) ?? _db?.GetRecipeJson(foto.Id);
+        var recipeJson = Host.SelectionManager?.GetRecipeJson(foto.Id) ?? Host.Database?.GetRecipeJson(foto.Id);
         _ricettaCorrente = recipeJson is not null ? EditRecipeSerializer.FromJson(recipeJson) : EditRecipe.Default;
         _ricettaCaricata = _ricettaCorrente;
         _fotoRicetta = foto;
@@ -279,8 +237,8 @@ public partial class MainWindow
     // "IMG_1234.HEIC · 34 di 1300": come in Picasa si sa sempre dove si è nella cartella (o nel filtro).
     private string TestoPosizioneViewer(PhotoGridItem foto)
     {
-        var indice = _visibili.IndexOf(foto);
-        return indice < 0 ? foto.PathRelativo : $"{foto.PathRelativo} · {indice + 1} di {_visibili.Count}";
+        var indice = Host.Visibili.IndexOf(foto);
+        return indice < 0 ? foto.PathRelativo : $"{foto.PathRelativo} · {indice + 1} di {Host.Visibili.Count}";
     }
 
     private async Task<(byte[] Pixel, int Larghezza, int Altezza)> OttieniPreviewAsync(string percorso)
@@ -313,12 +271,12 @@ public partial class MainWindow
 
     private async Task PrecaricaViciniAsync(PhotoGridItem corrente)
     {
-        var indice = _visibili.IndexOf(corrente);
+        var indice = Host.Visibili.IndexOf(corrente);
         if (indice < 0) return;
 
         var percorsi = new List<string>();
-        if (indice > 0) percorsi.Add(_visibili[indice - 1].PercorsoCompleto);
-        if (indice < _visibili.Count - 1) percorsi.Add(_visibili[indice + 1].PercorsoCompleto);
+        if (indice > 0) percorsi.Add(Host.Visibili[indice - 1].PercorsoCompleto);
+        if (indice < Host.Visibili.Count - 1) percorsi.Add(Host.Visibili[indice + 1].PercorsoCompleto);
 
         foreach (var percorso in percorsi)
         {
@@ -684,343 +642,6 @@ public partial class MainWindow
         ModificaRicetta(EditRecipe.Default);
     }
 
-    // ---------------------------------------------------------------- geometria (ritaglia + raddrizza)
-
-    private void ViewerCropButton_Click(object sender, RoutedEventArgs e) => EntraInGeometria(focusSlider: false);
-
-    private void ViewerStraightenButton_Click(object sender, RoutedEventArgs e) => EntraInGeometria(focusSlider: true);
-
-    private void EntraInGeometria(bool focusSlider)
-    {
-        if (!EditingPronto) return;
-
-        if (!_geometriaAttiva)
-        {
-            _geometriaAttiva = true;
-            _mostraOriginale = false;
-            ImpostaZoomViewer(1);
-
-            var r = _ricettaCorrente;
-            _aggiornandoUi = true;
-            ViewerStraightenSlider.Value = r.StraightenAngleDegrees;
-            _aggiornandoUi = false;
-            ViewerAngleText.Text = $"{r.StraightenAngleDegrees:F1}°";
-            ViewerRotateTransform.Angle = r.StraightenAngleDegrees;
-
-            _cropN0X = r.CropX; _cropN0Y = r.CropY;
-            _cropN1X = r.CropX + r.CropWidth; _cropN1Y = r.CropY + r.CropHeight;
-
-            // Crop pieno (o pari al massimo inscritto): segue l'angolo come in Picasa.
-            _cropAutoPieno = !r.HasGeometry || (r.StraightenAngleDegrees != 0 && CropCoincideConInscritto(r));
-            _cropVoluto = _cropAutoPieno ? (0, 0, 1, 1) : (_cropN0X, _cropN0Y, _cropN1X, _cropN1Y);
-
-            // Foto già ritagliata/raddrizzata: si passa subito alla tela intera (solo il tono arriva
-            // col render), invece di mostrare per un attimo maniglie e rotazione sulla foto ritagliata.
-            _bufferPrimaGeometria = _viewerPixelCorrenti is not null ? (_viewerPixelCorrenti, _displayWidth, _displayHeight) : null;
-            if (r.HasGeometry && _viewerPixelOriginali is not null)
-                MostraBuffer(_viewerPixelOriginali, _viewerPixelWidth, _viewerPixelHeight);
-
-            ViewerProporzioneToggle.Content = $"Proporzioni: {ProporzioniDisponibili[_proporzioneIndice].Etichetta}";
-            ImpostaVisibilitaGeometria(true);
-            SincronizzaPannello();
-            RichiediRender();
-            CalcolaSuggerimentiRitaglio();
-        }
-
-        if (focusSlider) ViewerStraightenSlider.Focus(FocusState.Programmatic);
-    }
-
-    private bool CropCoincideConInscritto(EditRecipe r)
-    {
-        var w = (double)_viewerPixelWidth;
-        var h = (double)_viewerPixelHeight;
-        var (x0, y0, x1, y1) = StraightenGeometry.FitRect(w, h, r.StraightenAngleDegrees, 0, 0, w, h);
-        return Math.Abs(x0 / w - r.CropX) < 0.005 && Math.Abs(y0 / h - r.CropY) < 0.005
-            && Math.Abs(x1 / w - (r.CropX + r.CropWidth)) < 0.005 && Math.Abs(y1 / h - (r.CropY + r.CropHeight)) < 0.005;
-    }
-
-    private void ImpostaVisibilitaGeometria(bool attiva)
-    {
-        PannelloGeometria.Visibility = attiva ? Visibility.Visible : Visibility.Collapsed;
-        MostraTab(tuning: ViewerTabTuning.IsChecked == true);
-
-        var vis = attiva ? Visibility.Visible : Visibility.Collapsed;
-        CropRectBorder.Visibility = vis;
-        DimTop.Visibility = vis; DimBottom.Visibility = vis; DimLeft.Visibility = vis; DimRight.Visibility = vis;
-        foreach (var m in _maniglie.Values) m.Visibility = vis;
-
-        // Come Picasa: durante ritaglio/raddrizza si vede solo la foto. Il filmstrip sparisce (più
-        // spazio, nessun click accidentale che cambia foto a metà ritaglio); il SizeChanged
-        // dell'area ridimensiona l'immagine e riposiziona le maniglie.
-        Filmstrip.Visibility = attiva || _schermoIntero ? Visibility.Collapsed : Visibility.Visible;
-        PannelloLuogo.Visibility = attiva ? Visibility.Collapsed : Visibility.Visible;
-        ViewerHintText.Text = attiva ? HintGeometria : HintViewer;
-
-        AggiornaBadgeFoto(_fotoViewerCorrente);
-        if (attiva) AggiornaOverlayCrop();
-    }
-
-    private const string HintViewer =
-        "←/→ foto · Space seleziona · Delete scarta · 0-5 rating · rotella zoom, trascina per spostare · X ritaglia · L raddrizza · U ho fortuna · Ctrl+Z/Y annulla/ripeti · B originale · F11 schermo intero · Esc chiudi";
-    private const string HintGeometria =
-        "Trascina gli angoli o i lati per ritagliare, trascina dentro per spostare · L / frecce raddrizza · Invio o X applica · Esc annulla";
-
-    private void EsciDaGeometria()
-    {
-        _geometriaAttiva = false;
-        _dragTag = null;
-        SvuotaSuggerimentiRitaglio();
-        ViewerRotateTransform.Angle = 0;
-        ImpostaVisibilitaGeometria(false);
-        AggiornaGriglia(); // torna sull'intera foto
-        SincronizzaPannello();
-    }
-
-    private void ViewerGeometriaApplica_Click(object sender, RoutedEventArgs e) => ApplicaGeometria();
-
-    private void ViewerGeometriaAnnulla_Click(object sender, RoutedEventArgs e) => AnnullaGeometria();
-
-    private void ApplicaGeometria()
-    {
-        if (!_geometriaAttiva) return;
-
-        var nuova = _ricettaCorrente with
-        {
-            CropX = _cropN0X,
-            CropY = _cropN0Y,
-            CropWidth = _cropN1X - _cropN0X,
-            CropHeight = _cropN1Y - _cropN0Y,
-            StraightenAngleDegrees = Math.Round(ViewerStraightenSlider.Value, 1),
-        };
-
-        // Crop praticamente a tutta tela e senza angolo: ricetta pulita, niente crop "fantasma".
-        if (nuova.StraightenAngleDegrees == 0 && nuova.CropWidth > 0.995 && nuova.CropHeight > 0.995)
-            nuova = nuova with { CropX = 0, CropY = 0, CropWidth = 1, CropHeight = 1 };
-
-        if (nuova == _ricettaCorrente)
-        {
-            AnnullaGeometria();
-            return;
-        }
-
-        RegistraUndo(_ricettaCorrente);
-        _ricettaCorrente = nuova;
-        _bufferPrimaGeometria = null;
-        EsciDaGeometria();
-        RichiediRender();
-    }
-
-    private void AnnullaGeometria()
-    {
-        if (!_geometriaAttiva) return;
-        EsciDaGeometria();
-
-        // Ricetta invariata: il risultato di prima è ancora valido, niente ricalcolo né lampo.
-        if (_bufferPrimaGeometria is { } prima) MostraBuffer(prima.Pixel, prima.Larghezza, prima.Altezza);
-        else RichiediRender();
-        _bufferPrimaGeometria = null;
-    }
-
-    private (double X0, double Y0, double X1, double Y1) CropPx() =>
-        (_cropN0X * _viewerImgW, _cropN0Y * _viewerImgH, _cropN1X * _viewerImgW, _cropN1Y * _viewerImgH);
-
-    private void ImpostaCropPx(double x0, double y0, double x1, double y1)
-    {
-        _cropN0X = x0 / _viewerImgW; _cropN0Y = y0 / _viewerImgH;
-        _cropN1X = x1 / _viewerImgW; _cropN1Y = y1 / _viewerImgH;
-        AggiornaOverlayCrop();
-    }
-
-    private void AggiornaOverlayCrop()
-    {
-        if (_viewerImgW <= 0 || _viewerImgH <= 0) return;
-
-        var (x0, y0, x1, y1) = CropPx();
-
-        Canvas.SetLeft(CropRectBorder, x0);
-        Canvas.SetTop(CropRectBorder, y0);
-        CropRectBorder.Width = Math.Max(1, x1 - x0);
-        CropRectBorder.Height = Math.Max(1, y1 - y0);
-
-        PosizionaRettangolo(DimTop, 0, 0, _viewerImgW, y0);
-        PosizionaRettangolo(DimBottom, 0, y1, _viewerImgW, _viewerImgH - y1);
-        PosizionaRettangolo(DimLeft, 0, y0, x0, y1 - y0);
-        PosizionaRettangolo(DimRight, x1, y0, _viewerImgW - x1, y1 - y0);
-
-        double mx = (x0 + x1) / 2, my = (y0 + y1) / 2;
-        PosizionaManiglia("TL", x0, y0); PosizionaManiglia("T", mx, y0); PosizionaManiglia("TR", x1, y0);
-        PosizionaManiglia("R", x1, my); PosizionaManiglia("BR", x1, y1); PosizionaManiglia("B", mx, y1);
-        PosizionaManiglia("BL", x0, y1); PosizionaManiglia("L", x0, my);
-
-        AggiornaGriglia();
-    }
-
-    private static void PosizionaRettangolo(Rectangle r, double x, double y, double w, double h)
-    {
-        Canvas.SetLeft(r, x);
-        Canvas.SetTop(r, y);
-        r.Width = Math.Max(0, w);
-        r.Height = Math.Max(0, h);
-    }
-
-    private void PosizionaManiglia(string tag, double x, double y)
-    {
-        var m = _maniglie[tag];
-        Canvas.SetLeft(m, x - DimensioneManiglia / 2);
-        Canvas.SetTop(m, y - DimensioneManiglia / 2);
-    }
-
-    // Proporzione scelta, orientata come la foto (4:3 su una foto verticale diventa 3:4).
-    private double? RapportoEffettivo()
-    {
-        var r = ProporzioneCorrente;
-        if (r is not double rapporto) return null;
-        return _viewerImgH > _viewerImgW ? 1 / rapporto : rapporto;
-    }
-
-    private void Crop_PointerPressed(object sender, PointerRoutedEventArgs e)
-    {
-        if (!_geometriaAttiva || sender is not FrameworkElement el || el.Tag is not string tag) return;
-
-        _dragTag = tag;
-        _dragStart = e.GetCurrentPoint(ViewerCropCanvas).Position;
-        _dragRect = CropPx();
-        el.CapturePointer(e.Pointer);
-        e.Handled = true;
-    }
-
-    private void Crop_PointerMoved(object sender, PointerRoutedEventArgs e)
-    {
-        if (_dragTag is null || !_geometriaAttiva) return;
-
-        var pos = e.GetCurrentPoint(ViewerCropCanvas).Position;
-        var candidato = CalcolaDragCrop(_dragTag, pos);
-        var angolo = ViewerStraightenSlider.Value;
-
-        // Il crop non puo uscire dall'immagine ruotata (niente angoli vuoti): se il movimento
-        // porta fuori, il riquadro si ferma esattamente sul bordo.
-        var attuale = CropPx();
-        var nuovo = StraightenGeometry.AvvicinaRect(_viewerImgW, _viewerImgH, angolo, attuale, candidato);
-        if (nuovo != attuale)
-        {
-            _cropAutoPieno = false;
-            ImpostaCropPx(nuovo.X0, nuovo.Y0, nuovo.X1, nuovo.Y1);
-        }
-    }
-
-    private void Crop_PointerReleased(object sender, PointerRoutedEventArgs e)
-    {
-        if (_dragTag is not null && !_cropAutoPieno) _cropVoluto = (_cropN0X, _cropN0Y, _cropN1X, _cropN1Y);
-        _dragTag = null;
-        if (sender is UIElement el) el.ReleasePointerCaptures();
-    }
-
-    private (double X0, double Y0, double X1, double Y1) CalcolaDragCrop(string tag, Point pos)
-    {
-        var (x0, y0, x1, y1) = _dragRect;
-        double W = _viewerImgW, H = _viewerImgH;
-
-        if (tag == "M")
-        {
-            var w = x1 - x0;
-            var h = y1 - y0;
-            var nx0 = Math.Clamp(x0 + (pos.X - _dragStart.X), 0, W - w);
-            var ny0 = Math.Clamp(y0 + (pos.Y - _dragStart.Y), 0, H - h);
-            return (nx0, ny0, nx0 + w, ny0 + h);
-        }
-
-        var px = Math.Clamp(pos.X, 0, W);
-        var py = Math.Clamp(pos.Y, 0, H);
-        var sinistra = tag.Contains('L');
-        var destra = tag.Contains('R');
-        var alto = tag.Contains('T');
-        var basso = tag.Contains('B');
-
-        double nx0b = x0, ny0b = y0, nx1b = x1, ny1b = y1;
-        if (sinistra) nx0b = Math.Min(px, x1 - CropMinimoPx);
-        if (destra) nx1b = Math.Max(px, x0 + CropMinimoPx);
-        if (alto) ny0b = Math.Min(py, y1 - CropMinimoPx);
-        if (basso) ny1b = Math.Max(py, y0 + CropMinimoPx);
-
-        if (RapportoEffettivo() is not double r) return (nx0b, ny0b, nx1b, ny1b);
-
-        var angolare = tag.Length == 2;
-        if (angolare)
-        {
-            // Ancora = angolo opposto; la larghezza guida, l'altezza segue.
-            var ancoraX = sinistra ? x1 : x0;
-            var ancoraY = alto ? y1 : y0;
-            var spazioX = sinistra ? ancoraX : W - ancoraX;
-            var spazioY = alto ? ancoraY : H - ancoraY;
-            var larghezza = Math.Abs((sinistra ? nx0b : nx1b) - ancoraX);
-            larghezza = Math.Max(CropMinimoPx, Math.Min(larghezza, Math.Min(spazioX, spazioY * r)));
-            var altezza = larghezza / r;
-            return (
-                sinistra ? ancoraX - larghezza : ancoraX,
-                alto ? ancoraY - altezza : ancoraY,
-                sinistra ? ancoraX : ancoraX + larghezza,
-                alto ? ancoraY : ancoraY + altezza);
-        }
-
-        var cx = (x0 + x1) / 2;
-        var cy = (y0 + y1) / 2;
-        if (alto || basso)
-        {
-            var altezza = alto ? y1 - ny0b : ny1b - y0;
-            altezza = Math.Max(CropMinimoPx, Math.Min(altezza, 2 * Math.Min(cx, W - cx) / r));
-            var larghezza = altezza * r;
-            return (cx - larghezza / 2, alto ? y1 - altezza : y0, cx + larghezza / 2, alto ? y1 : y0 + altezza);
-        }
-        else
-        {
-            var larghezza = sinistra ? x1 - nx0b : nx1b - x0;
-            larghezza = Math.Max(CropMinimoPx, Math.Min(larghezza, 2 * Math.Min(cy, H - cy) * r));
-            var altezza = larghezza / r;
-            return (sinistra ? x1 - larghezza : x0, cy - altezza / 2, sinistra ? x1 : x0 + larghezza, cy + altezza / 2);
-        }
-    }
-
-    private void ViewerProporzioneToggle_Click(object sender, RoutedEventArgs e)
-    {
-        _proporzioneIndice = (_proporzioneIndice + 1) % ProporzioniDisponibili.Length;
-        ViewerProporzioneToggle.Content = $"Proporzioni: {ProporzioniDisponibili[_proporzioneIndice].Etichetta}";
-        if (!_geometriaAttiva || RapportoEffettivo() is not double r) return;
-
-        // Riadatta subito il riquadro alla nuova proporzione, a parita di area e attorno al centro.
-        var (x0, y0, x1, y1) = CropPx();
-        double W = _viewerImgW, H = _viewerImgH;
-        var cx = (x0 + x1) / 2;
-        var cy = (y0 + y1) / 2;
-        var larghezza = Math.Sqrt((x1 - x0) * (y1 - y0) * r);
-        var altezza = larghezza / r;
-        var scala = Math.Min(1.0, Math.Min(2 * Math.Min(cx, W - cx) / larghezza, 2 * Math.Min(cy, H - cy) / altezza));
-        larghezza *= scala;
-        altezza *= scala;
-
-        var (fx0, fy0, fx1, fy1) = StraightenGeometry.FitRect(W, H, ViewerStraightenSlider.Value,
-            cx - larghezza / 2, cy - altezza / 2, cx + larghezza / 2, cy + altezza / 2);
-        _cropAutoPieno = false;
-        ImpostaCropPx(fx0, fy0, fx1, fy1);
-        _cropVoluto = (_cropN0X, _cropN0Y, _cropN1X, _cropN1Y);
-    }
-
-    private void ViewerStraightenSlider_ValueChanged(object sender, RangeBaseValueChangedEventArgs e)
-    {
-        if (_aggiornandoUi) return;
-
-        ViewerAngleText.Text = $"{e.NewValue:F1}°";
-        if (!_geometriaAttiva) return;
-
-        ViewerRotateTransform.Angle = e.NewValue;
-        ProgrammaSuggerimentiRitaglio();
-
-        double W = _viewerImgW, H = _viewerImgH;
-        var (x0, y0, x1, y1) = _cropAutoPieno
-            ? (0.0, 0.0, W, H)
-            : (_cropVoluto.X0 * W, _cropVoluto.Y0 * H, _cropVoluto.X1 * W, _cropVoluto.Y1 * H);
-        var (fx0, fy0, fx1, fy1) = StraightenGeometry.FitRect(W, H, e.NewValue, x0, y0, x1, y1);
-        ImpostaCropPx(fx0, fy0, fx1, fy1);
-    }
 
     // ---------------------------------------------------------------- zoom
 
@@ -1104,15 +725,15 @@ public partial class MainWindow
 
     // Salva solo se la ricetta e cambiata rispetto a quella caricata: niente scritture inutili
     // per ogni foto semplicemente guardata.
-    private void SalvaRicettaCorrente()
+    internal void SalvaRicettaCorrente()
     {
         if (_fotoRicetta is null || _ricettaCorrente == _ricettaCaricata) return;
 
-        _selectionManager?.SaveRecipe(_fotoRicetta.Id, EditRecipeSerializer.ToJson(_ricettaCorrente), _ricettaCorrente.SchemaVersion);
+        Host.SelectionManager?.SaveRecipe(_fotoRicetta.Id, EditRecipeSerializer.ToJson(_ricettaCorrente), _ricettaCorrente.SchemaVersion);
         _ricettaCaricata = _ricettaCorrente;
     }
 
-    private void ViewerCloseButton_Click(object sender, RoutedEventArgs e) => ChiudiViewer();
+    private void ViewerCloseButton_Click(object sender, RoutedEventArgs e) => Chiudi();
 
     // ---------------------------------------------------------------- schermo intero
 
@@ -1132,7 +753,7 @@ public partial class MainWindow
 
         try
         {
-            AppWindow.SetPresenter(attivo ? AppWindowPresenterKind.FullScreen : AppWindowPresenterKind.Overlapped);
+            Host.Finestra.AppWindow.SetPresenter(attivo ? AppWindowPresenterKind.FullScreen : AppWindowPresenterKind.Overlapped);
         }
         catch
         {
@@ -1155,7 +776,7 @@ public partial class MainWindow
             ImpostaSchermoIntero(false);
     }
 
-    private void ChiudiViewer()
+    internal void Chiudi()
     {
         ImpostaSchermoIntero(false);
         _ctsLuogo?.Cancel();
@@ -1163,8 +784,7 @@ public partial class MainWindow
         _richiestaCaricamentoViewer++;
         if (_geometriaAttiva) EsciDaGeometria();
         SalvaRicettaCorrente();
-        ViewerOverlay.Visibility = Visibility.Collapsed;
-        RootSplitView.IsPaneOpen = _pannelloCartelleAperto;
+        Visibility = Visibility.Collapsed;
         _viewerAperto = false;
         _fotoViewerCorrente = null;
         _fotoRicetta = null;
@@ -1175,94 +795,21 @@ public partial class MainWindow
         _mostraOriginale = false;
         _undo.Clear();
         _redo.Clear();
-        Griglia.Focus(FocusState.Programmatic);
         ElementSoundPlayer.Play(ElementSoundKind.GoBack);
+        Chiuso?.Invoke(this, EventArgs.Empty);
     }
 
-    private async void Filmstrip_ItemClick(object sender, ItemClickEventArgs e)
-    {
-        if (e.ClickedItem is PhotoGridItem foto)
-        {
-            await CaricaFotoNelViewerAsync(foto);
-        }
-    }
-
-    private PhotoGridItem? _filmstripCorrenteEvidenziata;
-    private readonly List<PhotoGridItem> _filmstripGruppoEvidenziato = new();
-
-    private void Filmstrip_SizeChanged(object sender, SizeChangedEventArgs e)
-    {
-        // Finestra ridimensionata: cambia quante miniature stanno ai lati e dove cade il centro.
-        if (_viewerAperto && e.PreviousSize.Width != e.NewSize.Width) AggiornaFilmstrip();
-    }
-
-    /// <summary>
-    /// Mostra attorno alla foto corrente solo le miniature che stanno nella larghezza disponibile
-    /// (al massimo ±12) e la tiene esattamente al centro, anche a inizio/fine cartella: lo spazio
-    /// mancante da un lato diventa padding sinistro invece di spostare la corrente.
-    /// </summary>
-    private void AggiornaFilmstrip()
-    {
-        const int raggioMassimo = 12;
-
-        if (_filmstripCorrenteEvidenziata is not null) _filmstripCorrenteEvidenziata.IsCorrenteViewer = false;
-        foreach (var item in _filmstripGruppoEvidenziato) item.EvidenziaGruppoViewer = false;
-        _filmstripGruppoEvidenziato.Clear();
-        _filmstripCorrenteEvidenziata = null;
-
-        if (_fotoViewerCorrente is null) { Filmstrip.ItemsSource = null; return; }
-
-        var indice = _visibili.IndexOf(_fotoViewerCorrente);
-        if (indice < 0) { Filmstrip.ItemsSource = null; return; }
-
-        var larghezza = Filmstrip.ActualWidth > 0 ? Filmstrip.ActualWidth : ViewerOverlay.ActualWidth;
-        var slot = PhotoGridItem.FilmstripLato + 2 * PhotoGridItem.FilmstripMargine;
-        var slotCorrente = PhotoGridItem.FilmstripLatoCorrente + 2 * PhotoGridItem.FilmstripMargine;
-        var raggio = Math.Clamp((int)((larghezza - slotCorrente) / 2 / slot), 0, raggioMassimo);
-
-        var inizio = Math.Max(0, indice - raggio);
-        var fine = Math.Min(_visibili.Count - 1, indice + raggio);
-
-        var finestra = new List<PhotoGridItem>();
-        for (var i = inizio; i <= fine; i++) finestra.Add(_visibili[i]);
-
-        // Centro della corrente = centro della striscia, qualunque sia il numero di foto a sinistra.
-        var primaDellaCorrente = indice - inizio;
-        var paddingSinistro = larghezza / 2 - primaDellaCorrente * slot - slotCorrente / 2;
-        Filmstrip.Padding = new Thickness(Math.Max(0, paddingSinistro), 0, 0, 0);
-
-        _fotoViewerCorrente.IsCorrenteViewer = true;
-        _filmstripCorrenteEvidenziata = _fotoViewerCorrente;
-        Filmstrip.ItemsSource = finestra;
-
-        foreach (var item in finestra)
-        {
-            if (item.Thumbnail is null) _thumbnailLoader?.Priorita(item);
-        }
-
-        if (_fotoViewerCorrente.GroupId is not null)
-        {
-            foreach (var item in finestra)
-            {
-                if (item != _fotoViewerCorrente && item.GroupId == _fotoViewerCorrente.GroupId)
-                {
-                    item.EvidenziaGruppoViewer = true;
-                    _filmstripGruppoEvidenziato.Add(item);
-                }
-            }
-        }
-    }
 
     private async Task NavigaViewerAsync(int delta)
     {
         if (_fotoViewerCorrente is null) return;
-        var indice = _visibili.IndexOf(_fotoViewerCorrente);
+        var indice = Host.Visibili.IndexOf(_fotoViewerCorrente);
         if (indice < 0) return;
 
         var nuovoIndice = indice + delta;
-        if (nuovoIndice < 0 || nuovoIndice >= _visibili.Count) return;
+        if (nuovoIndice < 0 || nuovoIndice >= Host.Visibili.Count) return;
 
-        await CaricaFotoNelViewerAsync(_visibili[nuovoIndice]);
+        await CaricaFotoNelViewerAsync(Host.Visibili[nuovoIndice]);
     }
 
     // ---------------------------------------------------------------- tastiera
@@ -1308,7 +855,7 @@ public partial class MainWindow
                 // infine il viewer.
                 if (_luogoInModifica) AggiornaPannelloLuogo();
                 else if (_schermoIntero) ImpostaSchermoIntero(false);
-                else ChiudiViewer();
+                else Chiudi();
                 e.Handled = true;
                 break;
 
@@ -1356,12 +903,12 @@ public partial class MainWindow
                 e.Handled = true;
                 break;
 
-            case VirtualKey.Number0: SetRating(_fotoViewerCorrente, 0); e.Handled = true; break;
-            case VirtualKey.Number1: SetRating(_fotoViewerCorrente, 1); e.Handled = true; break;
-            case VirtualKey.Number2: SetRating(_fotoViewerCorrente, 2); e.Handled = true; break;
-            case VirtualKey.Number3: SetRating(_fotoViewerCorrente, 3); e.Handled = true; break;
-            case VirtualKey.Number4: SetRating(_fotoViewerCorrente, 4); e.Handled = true; break;
-            case VirtualKey.Number5: SetRating(_fotoViewerCorrente, 5); e.Handled = true; break;
+            case VirtualKey.Number0: Host.SetRating(_fotoViewerCorrente, 0); e.Handled = true; break;
+            case VirtualKey.Number1: Host.SetRating(_fotoViewerCorrente, 1); e.Handled = true; break;
+            case VirtualKey.Number2: Host.SetRating(_fotoViewerCorrente, 2); e.Handled = true; break;
+            case VirtualKey.Number3: Host.SetRating(_fotoViewerCorrente, 3); e.Handled = true; break;
+            case VirtualKey.Number4: Host.SetRating(_fotoViewerCorrente, 4); e.Handled = true; break;
+            case VirtualKey.Number5: Host.SetRating(_fotoViewerCorrente, 5); e.Handled = true; break;
         }
     }
 
@@ -1421,22 +968,22 @@ public partial class MainWindow
 
     private void SetStatoNelViewer(PhotoGridItem foto, string nuovoStato)
     {
-        var indice = _visibili.IndexOf(foto);
+        var indice = Host.Visibili.IndexOf(foto);
         var alternativa = indice >= 0
-            ? _visibili.ElementAtOrDefault(indice + 1) ?? _visibili.ElementAtOrDefault(indice - 1)
+            ? Host.Visibili.ElementAtOrDefault(indice + 1) ?? Host.Visibili.ElementAtOrDefault(indice - 1)
             : null;
 
-        SetStato(foto, nuovoStato);
+        Host.SetStato(foto, nuovoStato);
         ViewerSelectionBorder.Visibility = foto.IsSelected ? Visibility.Visible : Visibility.Collapsed;
 
-        if (_fotoViewerCorrente == foto && !_visibili.Contains(foto))
+        if (_fotoViewerCorrente == foto && !Host.Visibili.Contains(foto))
         {
-            if (alternativa is not null && _visibili.Contains(alternativa))
+            if (alternativa is not null && Host.Visibili.Contains(alternativa))
                 _ = CaricaFotoNelViewerAsync(alternativa);
-            else if (_visibili.Count > 0)
-                _ = CaricaFotoNelViewerAsync(_visibili[0]);
+            else if (Host.Visibili.Count > 0)
+                _ = CaricaFotoNelViewerAsync(Host.Visibili[0]);
             else
-                ChiudiViewer();
+                Chiudi();
         }
         else
         {

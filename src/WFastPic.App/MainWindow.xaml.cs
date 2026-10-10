@@ -109,7 +109,7 @@ public partial class MainWindow : Window
             Export = _impostazioniExport,
             NomiLuoghiOnline = _nomiLuoghiOnline,
             DividiPerGiorni = _dividiPerGiorni,
-            PannelloCartelleAperto = _viewerAperto ? _pannelloCartelleAperto : RootSplitView.IsPaneOpen,
+            PannelloCartelleAperto = Viewer.IsAperto ? _pannelloCartelleAperto : RootSplitView.IsPaneOpen,
             RiconoscimentoPersone = _riconoscimentoPersone,
         });
 
@@ -122,7 +122,7 @@ public partial class MainWindow : Window
         ChiudiArchivioPersone();
         // Finestra chiusa col viewer aperto: le modifiche alla foto corrente vanno in coda prima
         // che la coda venga svuotata (un ritaglio non ancora applicato si perde, come in Picasa).
-        if (_viewerAperto) SalvaRicettaCorrente();
+        if (Viewer.IsAperto) Viewer.SalvaRicettaCorrente();
 
         var selectionManager = _selectionManager;
         var db = _db;
@@ -184,7 +184,7 @@ public partial class MainWindow : Window
 
         // Si staccano subito le risorse correnti: un secondo caricamento partito mentre questo è in
         // attesa (doppio click su una recente) non deve rilasciarle una seconda volta.
-        if (_viewerAperto) ChiudiViewer(); // salva la ricetta sul sidecar della cartella che si lascia
+        if (Viewer.IsAperto) Viewer.Chiudi(); // salva la ricetta sul sidecar della cartella che si lascia
         var selectionManagerPrecedente = _selectionManager;
         var dbPrecedente = _db;
         _selectionManager = null;
@@ -451,7 +451,7 @@ public partial class MainWindow : Window
         }
 
         Griglia.SelectedItem = nuovaCorrente;
-        if (ViewerOverlay.Visibility == Visibility.Visible) return;
+        if (Viewer.IsAperto) return;
 
         // Il focus da tastiera era sul contenitore rimosso: senza riportarlo sulla nuova corrente
         // ←/→ ripartirebbero da un punto indefinito. Il contenitore esiste solo dopo il layout.

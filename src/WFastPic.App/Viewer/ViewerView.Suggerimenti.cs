@@ -21,7 +21,7 @@ public sealed class SuggerimentoRitaglioUi
 /// la si vede (raddrizzata, con le regolazioni di tono), con i volti rilevati da Windows che non vengono
 /// mai tagliati. Un clic posiziona il riquadro, che resta modificabile a mano; Invio applica.
 /// </summary>
-public partial class MainWindow
+public sealed partial class ViewerView
 {
     private const int LatoMiniaturaSuggerimento = 104;
     private int _richiestaSuggerimenti;
@@ -37,8 +37,8 @@ public partial class MainWindow
         var angolo = Math.Round(ViewerStraightenSlider.Value, 1);
         var tono = _ricettaCorrente with { CropX = 0, CropY = 0, CropWidth = 1, CropHeight = 1, StraightenAngleDegrees = 0 };
         var foto = _fotoRicetta;
-        var db = _db;
-        var manager = _selectionManager;
+        var db = Host.Database;
+        var manager = Host.SelectionManager;
 
         ViewerSuggerimentiAnello.IsActive = true;
         try

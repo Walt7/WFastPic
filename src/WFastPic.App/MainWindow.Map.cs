@@ -178,7 +178,7 @@ public sealed partial class MainWindow
         {
             if (!_mapInitialized)
             {
-                await PreparaWebViewAsync(MapWebView);
+                await MappeComuni.PreparaWebViewAsync(MapWebView);
                 MapWebView.WebMessageReceived += MapWebView_WebMessageReceived;
                 _mapInitialized = true;
             }

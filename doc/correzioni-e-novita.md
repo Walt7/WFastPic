@@ -20,7 +20,7 @@ Le scelte di architettura restano quelle di `AGENTS.md` (ADR-001).
 
 ### Space in modalità ritaglio / raddrizza
 - In geometria tutti i tasti non previsti venivano scartati. Ora Space seleziona/deseleziona la foto
-  corrente anche lì (non cambia foto, quindi non interferisce con la geometria). `MainWindow.Viewer.cs`,
+  corrente anche lì (non cambia foto, quindi non interferisce con la geometria). `Viewer/ViewerView.xaml.cs`,
   `GestisciTastoGeometria`. Navigazione e scarto restano disattivati in ritaglio.
 
 ### Miniature ritagliate
@@ -68,7 +68,7 @@ Le scelte di architettura restano quelle di `AGENTS.md` (ADR-001).
 ### Pannello cartelle nascosto nell'editor
 - Aprendo una foto nel viewer il pannello cartelle (`RootSplitView`) si chiude; alla chiusura torna
   com'era. Se era già chiuso, resta chiuso. Le impostazioni salvano lo stato reale, non quello temporaneo.
-  `MainWindow.Viewer.cs` (`ApriViewer`, `ChiudiViewer`).
+  `MainWindow.ViewerHost.cs` (`ApriViewer`, evento `Viewer.Chiuso`).
 
 ### Unione dei volti: "È la stessa persona di…" — con annulla
 Tasto destro su una persona o un gruppo nel pannello Persone → **È la stessa persona di…** → altra persona.

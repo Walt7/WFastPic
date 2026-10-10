@@ -1,0 +1,324 @@
+<UserControl
+    x:Class="WFastPic.App.ViewerView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:WFastPic.App">
+
+    <Grid
+        x:Name="ViewerOverlay"
+        Background="#F0101010"
+        IsTabStop="True"
+        RowDefinitions="Auto,*,Auto,Auto">
+
+        <StackPanel x:Name="ViewerBarraSuperiore" Grid.Row="0" Orientation="Horizontal" Spacing="10" Padding="12" Background="#1A1A1A">
+            <Button x:Name="ViewerCloseButton" Content="← Chiudi (Esc)" Click="ViewerCloseButton_Click" IsTabStop="False" AllowFocusOnInteraction="False" />
+            <Button x:Name="ViewerGrigliaToggle" Content="Griglia: terzi" Click="ViewerGrigliaToggle_Click" IsTabStop="False" AllowFocusOnInteraction="False" />
+            <TextBlock x:Name="ViewerZoomText" Text="Zoom 100%" Foreground="#AAAAAA" VerticalAlignment="Center" Width="82" />
+            <TextBlock x:Name="ViewerStatusText" Foreground="#AAAAAA" VerticalAlignment="Center" Margin="16,0,0,0" />
+            <StackPanel x:Name="ViewerVideoBadge" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center" Margin="10,0,0,0" Visibility="Collapsed">
+                <FontIcon Glyph="&#xE714;" Foreground="#FFB300" FontSize="16" />
+                <TextBlock Text="ha un video abbinato" Foreground="#FFB300" FontSize="12" VerticalAlignment="Center" />
+            </StackPanel>
+        </StackPanel>
+
+        <Grid Grid.Row="1" ColumnDefinitions="260,*">
+
+            <!-- Pannello editor stile Picasa: "Correzioni base" e "Regolazioni". -->
+            <ScrollViewer Grid.Column="0" Background="#1A1A1A" VerticalScrollBarVisibility="Auto" IsTabStop="False">
+                <StackPanel Padding="12" Spacing="8">
+                    <!-- Nel pannello e non nella barra in alto: a schermo intero la barra sparisce, il pulsante resta. -->
+                    <ToggleButton x:Name="ViewerSchermoInteroToggle" HorizontalAlignment="Stretch" Click="ViewerSchermoIntero_Click" IsTabStop="False" AllowFocusOnInteraction="False">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon Glyph="&#xE740;" FontSize="14" />
+                            <TextBlock Text="Schermo intero (F11)" />
+                        </StackPanel>
+                    </ToggleButton>
+                    <TextBlock x:Name="ViewerPosizioneSchermoInteroText" Foreground="#AAAAAA" FontSize="12" TextWrapping="Wrap" Visibility="Collapsed" />
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="6">
+                        <ToggleButton x:Name="ViewerTabBase" Grid.Column="0" Content="Correzioni base" IsChecked="True" HorizontalAlignment="Stretch" Click="ViewerTabBase_Click" IsTabStop="False" AllowFocusOnInteraction="False" />
+                        <ToggleButton x:Name="ViewerTabTuning" Grid.Column="1" Content="Regolazioni" HorizontalAlignment="Stretch" Click="ViewerTabTuning_Click" IsTabStop="False" AllowFocusOnInteraction="False" />
+                    </Grid>
+
+                    <!-- Modalita geometria: ritaglia + raddrizza con Applica/Annulla. -->
+                    <StackPanel x:Name="PannelloGeometria" Spacing="8" Visibility="Collapsed">
+                        <TextBlock Text="Ritaglia e raddrizza" Foreground="White" FontWeight="SemiBold" />
+                        <Button x:Name="ViewerProporzioneToggle" Content="Proporzioni: libera" Click="ViewerProporzioneToggle_Click" HorizontalAlignment="Stretch" IsTabStop="False" AllowFocusOnInteraction="False" />
+                        <TextBlock Text="Raddrizza (L)" Foreground="#CCCCCC" FontSize="12" />
+                        <Grid ColumnDefinitions="*,48">
+                            <Slider
+                                x:Name="ViewerStraightenSlider"
+                                Minimum="-15" Maximum="15" StepFrequency="0.1"
+                                IsTabStop="False"
+                                ValueChanged="ViewerStraightenSlider_ValueChanged" />
+                            <TextBlock x:Name="ViewerAngleText" Grid.Column="1" Text="0.0°" Foreground="White" VerticalAlignment="Center" HorizontalAlignment="Right" />
+                        </Grid>
+                        <Grid ColumnDefinitions="*,*" ColumnSpacing="6">
+                            <Button Grid.Column="0" Content="Applica (Invio)" Click="ViewerGeometriaApplica_Click" HorizontalAlignment="Stretch" Style="{StaticResource AccentButtonStyle}" IsTabStop="False" AllowFocusOnInteraction="False" />
+                            <Button Grid.Column="1" Content="Annulla (Esc)" Click="ViewerGeometriaAnnulla_Click" HorizontalAlignment="Stretch" IsTabStop="False" AllowFocusOnInteraction="False" />
+                        </Grid>
+
+                        <!-- Come Picasa: ritagli già pronti come miniature; un clic posiziona il riquadro. -->
+                        <Grid ColumnDefinitions="*,Auto" Margin="0,8,0,0">
+                            <TextBlock Text="Ritagli suggeriti" Foreground="#CCCCCC" FontSize="12" VerticalAlignment="Center" />
+                            <ProgressRing x:Name="ViewerSuggerimentiAnello" Grid.Column="1" Width="14" Height="14" IsActive="False" />
+                        </Grid>
+                        <GridView
+                            x:Name="ViewerSuggerimentiList"
+                            SelectionMode="None"
+                            IsItemClickEnabled="True"
+                            ItemClick="ViewerSuggerimento_ItemClick"
+                            IsTabStop="False"
+                            AllowFocusOnInteraction="False">
+                            <GridView.ItemTemplate>
+                                <DataTemplate x:DataType="local:SuggerimentoRitaglioUi">
+                                    <StackPanel Width="108" Spacing="2" Padding="0,2">
+                                        <Border Height="76" Background="#2A2A2A" CornerRadius="3">
+                                            <Image Source="{x:Bind Anteprima}" Stretch="Uniform" />
+                                        </Border>
+                                        <TextBlock Text="{x:Bind Etichetta}" Foreground="#CCCCCC" FontSize="11" HorizontalAlignment="Center" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </GridView.ItemTemplate>
+                        </GridView>
+                        <TextBlock x:Name="ViewerSuggerimentiVolti" Foreground="#888888" FontSize="11" TextWrapping="Wrap" Visibility="Collapsed" />
+                    </StackPanel>
+
+                    <StackPanel x:Name="PannelloBase" Spacing="8">
+                        <Button x:Name="ViewerCropButton" Content="Ritaglia (X)" Click="ViewerCropButton_Click" HorizontalAlignment="Stretch" IsTabStop="False" AllowFocusOnInteraction="False" />
+                        <Button x:Name="ViewerStraightenButton" Content="Raddrizza (L)" Click="ViewerStraightenButton_Click" HorizontalAlignment="Stretch" IsTabStop="False" AllowFocusOnInteraction="False" />
+                        <ToggleButton x:Name="ViewerLuckyToggle" Content="Ho fortuna (U)" Click="ViewerLuckyToggle_Click" HorizontalAlignment="Stretch" IsTabStop="False" AllowFocusOnInteraction="False" />
+                        <ToggleButton x:Name="ViewerAutoContrastToggle" Content="Auto contrasto" Click="ViewerAutoContrastToggle_Click" HorizontalAlignment="Stretch" IsTabStop="False" AllowFocusOnInteraction="False" />
+                        <ToggleButton x:Name="ViewerAutoColorToggle" Content="Auto colore" Click="ViewerAutoColorToggle_Click" HorizontalAlignment="Stretch" IsTabStop="False" AllowFocusOnInteraction="False" />
+                    </StackPanel>
+
+                    <StackPanel x:Name="PannelloTuning" Spacing="4" Visibility="Collapsed">
+                        <Grid ColumnDefinitions="*,44">
+                            <TextBlock Text="Luce di riempimento" Foreground="#CCCCCC" FontSize="12" />
+                            <TextBlock x:Name="ViewerFillLightText" Grid.Column="1" Text="0" Foreground="White" FontSize="12" HorizontalAlignment="Right" />
+                        </Grid>
+                        <Slider x:Name="ViewerFillLightSlider" Minimum="0" Maximum="100" StepFrequency="1" IsTabStop="False" ValueChanged="ViewerTuningSlider_ValueChanged" />
+                        <Grid ColumnDefinitions="*,44">
+                            <TextBlock Text="Evidenzia (alte luci)" Foreground="#CCCCCC" FontSize="12" />
+                            <TextBlock x:Name="ViewerHighlightsText" Grid.Column="1" Text="0" Foreground="White" FontSize="12" HorizontalAlignment="Right" />
+                        </Grid>
+                        <Slider x:Name="ViewerHighlightsSlider" Minimum="0" Maximum="100" StepFrequency="1" IsTabStop="False" ValueChanged="ViewerTuningSlider_ValueChanged" />
+                        <Grid ColumnDefinitions="*,44">
+                            <TextBlock Text="Ombre" Foreground="#CCCCCC" FontSize="12" />
+                            <TextBlock x:Name="ViewerShadowsText" Grid.Column="1" Text="0" Foreground="White" FontSize="12" HorizontalAlignment="Right" />
+                        </Grid>
+                        <Slider x:Name="ViewerShadowsSlider" Minimum="0" Maximum="100" StepFrequency="1" IsTabStop="False" ValueChanged="ViewerTuningSlider_ValueChanged" />
+                        <Grid ColumnDefinitions="*,44">
+                            <TextBlock Text="Temperatura colore" Foreground="#CCCCCC" FontSize="12" />
+                            <TextBlock x:Name="ViewerTemperatureText" Grid.Column="1" Text="0" Foreground="White" FontSize="12" HorizontalAlignment="Right" />
+                        </Grid>
+                        <Slider x:Name="ViewerTemperatureSlider" Minimum="-100" Maximum="100" StepFrequency="1" IsTabStop="False" ValueChanged="ViewerTuningSlider_ValueChanged" />
+                        <Button Content="Azzera regolazioni" Click="ViewerTuningReset_Click" HorizontalAlignment="Stretch" Margin="0,6,0,0" IsTabStop="False" AllowFocusOnInteraction="False" />
+                    </StackPanel>
+
+                    <Rectangle Height="1" Fill="#333333" Margin="0,6" />
+
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="6">
+                        <Button x:Name="ViewerUndoButton" Grid.Column="0" Content="↶ Annulla" Click="ViewerUndo_Click" HorizontalAlignment="Stretch" IsTabStop="False" AllowFocusOnInteraction="False" />
+                        <Button x:Name="ViewerRedoButton" Grid.Column="1" Content="Ripeti ↷" Click="ViewerRedo_Click" HorizontalAlignment="Stretch" IsTabStop="False" AllowFocusOnInteraction="False" />
+                    </Grid>
+                    <Button x:Name="ViewerResetButton" Content="Ripristina originale" Click="ViewerReset_Click" HorizontalAlignment="Stretch" IsTabStop="False" AllowFocusOnInteraction="False" />
+                    <TextBlock Text="Tieni premuto B per vedere l'originale" Foreground="#777777" FontSize="11" TextWrapping="Wrap" />
+
+                    <!--
+                        Luogo, come il pannello "Luoghi" di Picasa: nome del posto, dispositivo e dati
+                        di ripresa (altitudine, direzione, drone), mini-mappa con la freccia della
+                        direzione. "Correggi" sposta il segnaposto; la correzione sta solo nel sidecar.
+                    -->
+                    <StackPanel x:Name="PannelloLuogo" Spacing="6" Margin="0,6,0,0">
+                        <Rectangle Height="1" Fill="#333333" Margin="0,0,0,4" />
+                        <TextBlock Text="Luogo" Foreground="White" FontWeight="SemiBold" />
+                        <TextBlock x:Name="ViewerLuogoNome" Foreground="#DDDDDD" FontSize="12" TextWrapping="Wrap" />
+                        <TextBlock x:Name="ViewerLuogoDettagli" Foreground="#AAAAAA" FontSize="11" TextWrapping="Wrap" />
+                        <Border CornerRadius="4" Height="170" Background="#222222">
+                            <WebView2 x:Name="ViewerMiniMappa" />
+                        </Border>
+                        <TextBlock x:Name="ViewerLuogoSuggerimento" Text="Trascina il segnaposto o clicca sulla mappa nel punto giusto." Foreground="#FFB300" FontSize="11" TextWrapping="Wrap" Visibility="Collapsed" />
+                        <Grid x:Name="ViewerLuogoAzioni" ColumnDefinitions="*,*" ColumnSpacing="6">
+                            <Button x:Name="ViewerLuogoCorreggiButton" Content="Correggi" HorizontalAlignment="Stretch" Click="ViewerLuogoCorreggi_Click" IsTabStop="False" AllowFocusOnInteraction="False" />
+                            <Button x:Name="ViewerLuogoRimuoviButton" Grid.Column="1" Content="Rimuovi" HorizontalAlignment="Stretch" Click="ViewerLuogoRimuovi_Click" IsTabStop="False" AllowFocusOnInteraction="False" />
+                        </Grid>
+                        <Grid x:Name="ViewerLuogoModifica" ColumnDefinitions="*,*" ColumnSpacing="6" Visibility="Collapsed">
+                            <Button Content="Salva" HorizontalAlignment="Stretch" Style="{StaticResource AccentButtonStyle}" Click="ViewerLuogoSalva_Click" IsTabStop="False" AllowFocusOnInteraction="False" />
+                            <Button Grid.Column="1" Content="Annulla" HorizontalAlignment="Stretch" Click="ViewerLuogoAnnulla_Click" IsTabStop="False" AllowFocusOnInteraction="False" />
+                        </Grid>
+                        <Button x:Name="ViewerLuogoRipristinaButton" Content="Ripristina la posizione del file" HorizontalAlignment="Stretch" Click="ViewerLuogoRipristina_Click" Visibility="Collapsed" IsTabStop="False" AllowFocusOnInteraction="False" />
+                    </StackPanel>
+                </StackPanel>
+            </ScrollViewer>
+
+            <!-- Background trasparente: tutta l'area (anche fuori dalla foto) riceve trascinamento e rotella. -->
+            <Grid
+                x:Name="ViewerArea"
+                Grid.Column="1"
+                Background="Transparent"
+                SizeChanged="ViewerArea_SizeChanged"
+                PointerPressed="ViewerArea_PointerPressed"
+                PointerMoved="ViewerArea_PointerMoved"
+                PointerReleased="ViewerArea_PointerReleased"
+                PointerCaptureLost="ViewerArea_PointerReleased">
+                <Grid x:Name="ViewerImageContainer" HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <Grid x:Name="ViewerImageHost">
+                        <Grid.RenderTransform>
+                            <TransformGroup>
+                                <ScaleTransform x:Name="ViewerZoomTransform" ScaleX="1" ScaleY="1" />
+                                <RotateTransform x:Name="ViewerRotateTransform" Angle="0" />
+                                <!-- Trascinamento quando è zoomata (pixel schermo, applicato dopo lo zoom). -->
+                                <TranslateTransform x:Name="ViewerPanTransform" X="0" Y="0" />
+                            </TransformGroup>
+                        </Grid.RenderTransform>
+                        <Grid.RenderTransformOrigin>0.5,0.5</Grid.RenderTransformOrigin>
+                        <Image x:Name="ViewerImage" Stretch="Fill" />
+                        <Border
+                            x:Name="ViewerSelectionBorder"
+                            BorderBrush="#FFD600"
+                            BorderThickness="4"
+                            IsHitTestVisible="False"
+                            Visibility="Collapsed" />
+                    </Grid>
+                    <Canvas x:Name="ViewerCropCanvas" Background="Transparent">
+                        <Rectangle x:Name="DimTop" Fill="#99000000" IsHitTestVisible="False" Visibility="Collapsed" />
+                        <Rectangle x:Name="DimBottom" Fill="#99000000" IsHitTestVisible="False" Visibility="Collapsed" />
+                        <Rectangle x:Name="DimLeft" Fill="#99000000" IsHitTestVisible="False" Visibility="Collapsed" />
+                        <Rectangle x:Name="DimRight" Fill="#99000000" IsHitTestVisible="False" Visibility="Collapsed" />
+                        <Rectangle x:Name="ThirdsV1" Width="1" Fill="#88FFFFFF" IsHitTestVisible="False" />
+                        <Rectangle x:Name="ThirdsV2" Width="1" Fill="#88FFFFFF" IsHitTestVisible="False" />
+                        <Rectangle x:Name="ThirdsH1" Height="1" Fill="#88FFFFFF" IsHitTestVisible="False" />
+                        <Rectangle x:Name="ThirdsH2" Height="1" Fill="#88FFFFFF" IsHitTestVisible="False" />
+                        <Line x:Name="DiagLine1" Stroke="#88FFFFFF" StrokeThickness="1" IsHitTestVisible="False" />
+                        <Line x:Name="DiagLine2" Stroke="#88FFFFFF" StrokeThickness="1" IsHitTestVisible="False" />
+                        <Border x:Name="CropRectBorder" Tag="M" BorderBrush="#FFB300" BorderThickness="2" Background="#11FFB300" Visibility="Collapsed" />
+                    </Canvas>
+                    <!-- Come nella griglia: icona video sull'angolo della foto, riquadro scuro per restare leggibile. -->
+                    <Border
+                        x:Name="ViewerFotoVideoBadge"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Top"
+                        Margin="10"
+                        Padding="6,4"
+                        CornerRadius="4"
+                        Background="#B3000000"
+                        IsHitTestVisible="False"
+                        Visibility="Collapsed">
+                        <FontIcon Glyph="&#xE714;" Foreground="White" FontSize="18" />
+                    </Border>
+                </Grid>
+            </Grid>
+
+            <!--
+                Correzione della posizione a mappa grande (al posto della foto): mappa o satellite,
+                zoom da strada, segnaposto trascinabile o clic nel punto giusto. Salva/Annulla in alto.
+            -->
+            <Grid x:Name="ViewerMappaGrandeOverlay" Grid.Column="1" Background="#101010" RowDefinitions="Auto,*" Visibility="Collapsed">
+                <Grid Background="#1A1A1A" Padding="12,8" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                    <StackPanel VerticalAlignment="Center" Spacing="2">
+                        <TextBlock Text="Correggi la posizione" Foreground="White" FontWeight="SemiBold" />
+                        <TextBlock x:Name="ViewerMappaGrandeInfo" Text="Trascina il segnaposto o clicca nel punto giusto. In alto a destra: mappa o satellite." Foreground="#AAAAAA" FontSize="12" TextTrimming="CharacterEllipsis" />
+                    </StackPanel>
+                    <Button Grid.Column="1" Content="Salva posizione" Style="{StaticResource AccentButtonStyle}" Click="ViewerLuogoSalva_Click" IsTabStop="False" AllowFocusOnInteraction="False" />
+                    <Button Grid.Column="2" Content="Annulla (Esc)" Click="ViewerLuogoAnnulla_Click" IsTabStop="False" AllowFocusOnInteraction="False" />
+                </Grid>
+                <WebView2 x:Name="ViewerMappaGrande" Grid.Row="1" />
+            </Grid>
+        </Grid>
+
+        <!--
+            Filmstrip stile Picasa: la foto in osservazione è sempre al centro (Padding calcolato in
+            AggiornaFilmstrip), più grande, a piena opacità, con bordo bianco e la stessa linea verde
+            "corrente" della griglia; le altre sono attenuate. Colori coerenti con la griglia:
+            giallo = selezionata, azzurro a sinistra = stessa raffica, verde sotto = corrente.
+            Niente scroll e niente focus: le frecce restano al viewer.
+        -->
+        <ListView
+            x:Name="Filmstrip"
+            Grid.Row="2"
+            Height="136"
+            Background="#141414"
+            SelectionMode="None"
+            IsTabStop="False"
+            AllowFocusOnInteraction="False"
+            ScrollViewer.VerticalScrollBarVisibility="Disabled"
+            ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+            ScrollViewer.HorizontalScrollMode="Disabled"
+            IsItemClickEnabled="True"
+            ItemClick="Filmstrip_ItemClick"
+            SizeChanged="Filmstrip_SizeChanged">
+            <ListView.ItemContainerStyle>
+                <!-- Contenitore senza padding/larghezza minima: il calcolo del centro usa le misure esatte. -->
+                <Style TargetType="ListViewItem">
+                    <Setter Property="Padding" Value="0" />
+                    <Setter Property="Margin" Value="0" />
+                    <Setter Property="MinWidth" Value="0" />
+                    <Setter Property="MinHeight" Value="0" />
+                    <Setter Property="VerticalContentAlignment" Value="Bottom" />
+                </Style>
+            </ListView.ItemContainerStyle>
+            <ListView.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Bottom" Margin="0,0,0,6" />
+                </ItemsPanelTemplate>
+            </ListView.ItemsPanel>
+            <ListView.ItemTemplate>
+                <DataTemplate x:DataType="local:PhotoGridItem">
+                    <StackPanel Margin="4,0" Spacing="3" VerticalAlignment="Bottom">
+                        <Grid
+                            Width="{x:Bind DimensioneFilmstrip, Mode=OneWay}"
+                            Height="{x:Bind DimensioneFilmstrip, Mode=OneWay}"
+                            Opacity="{x:Bind OpacitaFilmstrip, Mode=OneWay}">
+                            <Border Background="#2A2A2A" CornerRadius="3">
+                                <Image Source="{x:Bind Thumbnail, Mode=OneWay}" Stretch="Uniform" />
+                            </Border>
+                            <Border BorderBrush="#FFD600" BorderThickness="3" CornerRadius="3" Visibility="{x:Bind IsSelected, Mode=OneWay}" />
+                            <Border Width="4" HorizontalAlignment="Left" CornerRadius="3,0,0,3" Background="#00B0FF" Visibility="{x:Bind EvidenziaGruppoViewer, Mode=OneWay}" />
+                            <Border BorderBrush="White" BorderThickness="3" CornerRadius="3" Visibility="{x:Bind IsCorrenteViewer, Mode=OneWay}" />
+                            <FontIcon Glyph="&#xE73E;" Foreground="LimeGreen" FontSize="14" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="4" Visibility="{x:Bind IsSelected, Mode=OneWay}" />
+                            <FontIcon Glyph="&#xE711;" Foreground="OrangeRed" FontSize="14" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="4" Visibility="{x:Bind IsReject, Mode=OneWay}" />
+                            <Border
+                                Background="#B3000000"
+                                CornerRadius="3"
+                                Padding="2,1"
+                                HorizontalAlignment="Left"
+                                VerticalAlignment="Bottom"
+                                Margin="6,0,0,4"
+                                Visibility="{x:Bind HasVideo, Mode=OneWay}">
+                                <FontIcon Glyph="&#xE714;" Foreground="White" FontSize="10" />
+                            </Border>
+                            <!-- Modifiche: si aggiornano subito mentre si lavora sulla foto nell'editor. -->
+                            <Border
+                                Background="#B3000000"
+                                CornerRadius="3"
+                                Padding="2,1"
+                                HorizontalAlignment="Right"
+                                VerticalAlignment="Bottom"
+                                Margin="0,0,6,4"
+                                Visibility="{x:Bind HaModifiche, Mode=OneWay}">
+                                <StackPanel Orientation="Horizontal" Spacing="3">
+                                    <FontIcon Glyph="&#xE7A8;" Foreground="#FFB300" FontSize="10" Visibility="{x:Bind HaRitaglio, Mode=OneWay}" />
+                                    <FontIcon Glyph="&#xE7AD;" Foreground="#FFB300" FontSize="10" Visibility="{x:Bind HaRaddrizzamento, Mode=OneWay}" />
+                                    <FontIcon Glyph="&#xE790;" Foreground="#FF80AB" FontSize="10" Visibility="{x:Bind HaTono, Mode=OneWay}" />
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+                        <!-- Spazio sempre riservato: le miniature restano allineate in basso con o senza linea. -->
+                        <Grid Height="4">
+                            <Border CornerRadius="2" Background="LimeGreen" Visibility="{x:Bind IsCorrenteViewer, Mode=OneWay}" />
+                        </Grid>
+                    </StackPanel>
+                </DataTemplate>
+            </ListView.ItemTemplate>
+        </ListView>
+
+        <TextBlock
+            x:Name="ViewerHintText"
+            Grid.Row="3"
+            Foreground="#888888"
+            FontSize="12"
+            Padding="12,6"
+            Text="←/→ foto · Space seleziona · Delete scarta · 0-5 rating · rotella zoom, trascina per spostare · X ritaglia · L raddrizza · U ho fortuna · Ctrl+Z/Y annulla/ripeti · B originale · Esc chiudi" />
+    </Grid>
+
+</UserControl>

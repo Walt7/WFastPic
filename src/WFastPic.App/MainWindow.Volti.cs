@@ -169,7 +169,7 @@ public partial class MainWindow
                 using var analizzatore = new AnalizzatorePersone(ModelliPersone.CartellaPredefinita);
                 for (var i = 0; i < daAnalizzare.Count && !token.IsCancellationRequested; i++)
                 {
-                    while (_viewerAperto && !token.IsCancellationRequested) await Task.Delay(500);
+                    while (Viewer.IsAperto && !token.IsCancellationRequested) await Task.Delay(500);
                     if (token.IsCancellationRequested) break;
 
                     var foto = daAnalizzare[i];
@@ -262,7 +262,7 @@ public partial class MainWindow
         {
             for (var i = 0; i < daAnalizzare.Count && !token.IsCancellationRequested; i++)
             {
-                while (_viewerAperto && !token.IsCancellationRequested) await Task.Delay(500);
+                while (Viewer.IsAperto && !token.IsCancellationRequested) await Task.Delay(500);
                 if (token.IsCancellationRequested) break;
 
                 var foto = daAnalizzare[i];
