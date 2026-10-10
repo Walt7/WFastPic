@@ -24,6 +24,10 @@ The app interface is in Italian: names of buttons and menus below are given as t
 - **"Report the problem"** in the unexpected error dialog: opens GitHub in the browser with the report
   already written, which you check and send yourself. Photo paths and names, user name and PC name are
   removed from the text shown, copied or sent; the full report stays only on your PC.
+- **Installer**: besides the portable zip, every release has a setup (`WFastPic-<version>-win-x64-setup.exe`).
+  It needs no administrator rights, puts WFastPic in the Start menu (and on the desktop if you want),
+  updates by installing the new version over it and uninstalls from "Installed apps", keeping photos,
+  sidecars and settings.
 
 ## [0.9.2] — 2026-10-10
 

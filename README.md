@@ -89,6 +89,18 @@ fotoritocco avanzato (esposizione a curve, maschere). WFastPic non carica le tue
 - JPEG alle dimensioni originali o ridimensionati, qualità a scelta, filigrana, tag.
 - Data di scatto e posizione GPS conservate (o rimosse, se preferisci).
 
+## Installare
+
+Dalla [pagina delle release](https://github.com/Walt7/WFastPic/releases/latest):
+- **`WFastPic-<versione>-win-x64-setup.exe`** (consigliato): doppio clic e avanti. Non servono permessi
+  di amministratore, crea il collegamento nel menu Start e si disinstalla da "App installate" di Windows
+  (foto, sidecar e impostazioni restano). Per aggiornare basta installare la versione nuova sopra.
+- **`WFastPic-<versione>-win-x64.zip`**: versione portatile, si scompatta dove vuoi e si avvia
+  `WFastPic.App.exe`.
+
+Il programma non è firmato digitalmente: al primo avvio Windows può mostrare "Windows ha protetto il PC";
+si prosegue con "Ulteriori informazioni" → "Esegui comunque".
+
 ## Requisiti
 
 - Windows 10 (1809 o successivo) o Windows 11, x64 o ARM64.
@@ -166,8 +178,9 @@ photos in one click and export. Everything is keyboard-driven and never makes yo
 - **Export:** JPEG at original or reduced size, watermark, tags, EXIF date and GPS preserved (or removed).
 - **Private:** everything runs on your PC; your photos never leave it.
 
-**Download:** [latest release](https://github.com/Walt7/WFastPic/releases/latest) — unzip and run
-`WFastPic.App.exe` (Windows 10 1809+ or Windows 11, x64). HEIC photos need the HEIF and HEVC extensions
+**Download:** [latest release](https://github.com/Walt7/WFastPic/releases/latest) — run the setup
+(`…-win-x64-setup.exe`, no admin rights needed) or unzip the portable `.zip` and run `WFastPic.App.exe`
+(Windows 10 1809+ or Windows 11, x64). HEIC photos need the HEIF and HEVC extensions
 from the Microsoft Store if Windows does not already have them. The interface is in Italian and English.
 
 Built with C# and WinUI 3 (Windows App SDK). MIT licensed. Not affiliated with Google: Picasa is a trademark of Google LLC, mentioned only to say

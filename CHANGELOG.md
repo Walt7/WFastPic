@@ -23,6 +23,10 @@ I dettagli tecnici (cause dei bug, file toccati) sono in [`doc/correzioni-e-novi
 - **"Segnala il problema"** nel dialogo degli errori inattesi: apre GitHub nel browser con la
   segnalazione già scritta, che controlli e invii tu. Dal testo mostrato, copiato o inviato vengono tolti
   percorsi e nomi delle foto, nome utente e nome del PC; il report completo resta solo sul tuo PC.
+- **Programma di installazione**: oltre allo zip portatile, ogni release ha un setup
+  (`WFastPic-<versione>-win-x64-setup.exe`). Non chiede permessi di amministratore, mette WFastPic nel
+  menu Start (e sul desktop se vuoi), si aggiorna installando la versione nuova sopra e si disinstalla da
+  "App installate" lasciando foto, sidecar e impostazioni.
 
 ## [0.9.2] — 2026-10-10
 

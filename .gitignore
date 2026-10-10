@@ -10,3 +10,6 @@ Scarti/
 # Dati di test locali con foto reali (non redistribuibili)
 tools/HeicSmokeTest/samples/
 tools/HeicSmokeTest/out/
+
+# Pacchetti di release (tools\release.ps1)
+artifacts/

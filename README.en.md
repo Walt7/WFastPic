@@ -92,6 +92,17 @@ advanced photo editing (curves, masks). WFastPic does not upload your photos any
 - JPEG at original or reduced size, chosen quality, watermark, tags.
 - Shooting date and GPS position preserved (or removed, if you prefer).
 
+## Install
+
+From the [releases page](https://github.com/Walt7/WFastPic/releases/latest):
+- **`WFastPic-<version>-win-x64-setup.exe`** (recommended): double-click and next. No administrator rights
+  needed, it adds a Start menu shortcut and uninstalls from Windows "Installed apps" (photos, sidecars and
+  settings stay). To update, just install the new version over it.
+- **`WFastPic-<version>-win-x64.zip`**: portable version, unzip it anywhere and run `WFastPic.App.exe`.
+
+The program is not digitally signed: on first start Windows may show "Windows protected your PC"; go on
+with "More info" → "Run anyway".
+
 ## Requirements
 
 - Windows 10 (1809 or later) or Windows 11, x64 or ARM64.

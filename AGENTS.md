@@ -208,7 +208,10 @@ tests/
 └─ WFastPic.Core.Tests/         (xUnit, 188 test — Library/Selection/Processing/Metadata/Export)
 tools/
 ├─ HeicSmokeTest/                (Fase 0, smoke test decoding)
-└─ ScanSmokeTest/
+├─ ScanSmokeTest/
+└─ release.ps1                   (publish + prova di avvio + zip + setup → artifacts/<versione>/)
+installer/
+└─ WFastPic.iss                  (setup Inno Setup 6, compilato da tools/release.ps1)
 assets/                          (icon.ico, logo.png)
 ```
 
@@ -250,10 +253,12 @@ Nota: `Z`/`F` zoom, `M` riproduci video, `Ctrl+C/V` copia ricetta — presenti n
   cambia mentre l'app gira. I test non vanno in parallelo (la lingua è uno stato globale).
 - Icone e logo: `assets/sorgenti/` (`python assets/sorgenti/genera-icone.py` rigenera `icon-*.png`,
   `icon.ico`, `logo.png`).
-- Pacchetto per la release: `dotnet publish src/WFastPic.App/WFastPic.App.csproj -c Release -r win-x64
-  -p:Platform=x64 -p:DebugType=None -p:DebugSymbols=false -o <cartella>`, poi zip. **Prima di pubblicarlo
-  si avvia l'exe del pacchetto** (non quello di Debug): il target `IncludiRisorseXamlNelPublish` del csproj
-  aggiunge `*.xbf` e `WFastPic.App.pri`, senza i quali l'app muore all'avvio (0xC000027B). Variabile
+- Pacchetto per la release: `powershell -ExecutionPolicy Bypass -File tools\release.ps1` (serve Inno
+  Setup 6: `winget install JRSoftware.InnoSetup`). Fa `dotnet publish` win-x64, **avvia l'exe del
+  pacchetto** (non quello di Debug: il target `IncludiRisorseXamlNelPublish` del csproj aggiunge `*.xbf` e
+  `WFastPic.App.pri`, senza i quali l'app muore all'avvio con 0xC000027B), poi in `artifacts\<versione>\`
+  lo zip portatile `WFastPic-<v>-win-x64.zip` e il setup `WFastPic-<v>-win-x64-setup.exe`
+  (`installer\WFastPic.iss`: per utente senza admin, `AppId` da non cambiare mai). Variabile
   `WFASTPIC_LANG=it|en` per provare le due lingue senza toccare le impostazioni.
 - Il viewer (`Viewer/ViewerView*`) non tocca i campi di `MainWindow`: quello che gli serve dalla
   finestra (elenco visibile, sidecar, selezione, miniature, stato/rating, nomi dei luoghi) passa da
