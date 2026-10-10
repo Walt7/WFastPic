@@ -52,6 +52,9 @@ public sealed class SelectionManager : IAsyncDisposable
     public void RipristinaPosizioneOriginale(long photoId, WFastPic.Core.Metadata.GeoCoordinate? gpsDelFile) =>
         _codaScritture.Writer.TryWrite(() => _db.RipristinaPosizioneOriginale(photoId, gpsDelFile));
 
+    public void SalvaVolti(long photoId, IReadOnlyList<(double X0, double Y0, double X1, double Y1)> volti) =>
+        _codaScritture.Writer.TryWrite(() => _db.SalvaVolti(photoId, volti));
+
     public string? GetRecipeJson(long photoId) =>
         _ricettePendenti.TryGetValue(photoId, out var json) ? json : _db.GetRecipeJson(photoId);
 

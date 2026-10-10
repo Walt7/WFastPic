@@ -379,6 +379,8 @@ public partial class MainWindow
 
     private void MostraBuffer(byte[] bgra, int larghezza, int altezza)
     {
+        // I simboli delle modifiche sulla miniatura (filmstrip e griglia) seguono l'editing dal vivo.
+        _fotoRicetta?.AggiornaModifiche(_ricettaCorrente);
         _viewerPixelCorrenti = bgra;
         _displayWidth = larghezza;
         _displayHeight = altezza;
@@ -443,13 +445,17 @@ public partial class MainWindow
         if (_viewerAperto && _viewerPixelOriginali is not null) AggiornaBitmap();
     }
 
-    // Griglia di composizione: sempre riferita all'intera immagine (non al riquadro di crop), sola
-    // trasparenza sulle linee — deve restare leggibile per inquadrare il soggetto indipendentemente
-    // dal fatto che il crop sia in modifica o meno.
+    // Griglia di composizione: come Picasa, durante il ritaglio segue il riquadro (terzi del taglio che
+    // si sta scegliendo, non della foto intera); fuori dal ritaglio copre l'immagine.
     private void AggiornaGriglia()
     {
         var x0 = 0.0; var y0 = 0.0;
         var w = _viewerImgW; var h = _viewerImgH;
+        if (_geometriaAttiva)
+        {
+            var (cx0, cy0, cx1, cy1) = CropPx();
+            (x0, y0, w, h) = (cx0, cy0, Math.Max(1, cx1 - cx0), Math.Max(1, cy1 - cy0));
+        }
 
         var mostraTerzi = _grigliaModo == GrigliaComposizione.Terzi;
         var mostraMeta = _grigliaModo == GrigliaComposizione.Meta;
@@ -750,6 +756,7 @@ public partial class MainWindow
         SvuotaSuggerimentiRitaglio();
         ViewerRotateTransform.Angle = 0;
         ImpostaVisibilitaGeometria(false);
+        AggiornaGriglia(); // torna sull'intera foto
         SincronizzaPannello();
     }
 
@@ -828,6 +835,8 @@ public partial class MainWindow
         PosizionaManiglia("TL", x0, y0); PosizionaManiglia("T", mx, y0); PosizionaManiglia("TR", x1, y0);
         PosizionaManiglia("R", x1, my); PosizionaManiglia("BR", x1, y1); PosizionaManiglia("B", mx, y1);
         PosizionaManiglia("BL", x0, y1); PosizionaManiglia("L", x0, my);
+
+        AggiornaGriglia();
     }
 
     private static void PosizionaRettangolo(Rectangle r, double x, double y, double w, double h)
@@ -1278,8 +1287,11 @@ public partial class MainWindow
         switch (e.Key)
         {
             case VirtualKey.Escape:
-                // Come Picasa: Esc prima esce dallo schermo intero, poi chiude il viewer.
-                if (_schermoIntero) ImpostaSchermoIntero(false); else ChiudiViewer();
+                // Come Picasa: Esc chiude prima la correzione della posizione, poi lo schermo intero,
+                // infine il viewer.
+                if (_luogoInModifica) AggiornaPannelloLuogo();
+                else if (_schermoIntero) ImpostaSchermoIntero(false);
+                else ChiudiViewer();
                 e.Handled = true;
                 break;
 

@@ -4,66 +4,121 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="using:WFastPic.App">
 
+    <!--
+        Pannello cartelle stile Picasa: fisso accanto alla griglia (Inline), "le mie cartelle" per anno
+        con numero di foto e periodo; "Sfoglia il PC" è secondario e si carica solo se aperto.
+    -->
     <SplitView
         x:Name="RootSplitView"
-        DisplayMode="Overlay"
-        OpenPaneLength="300"
-        IsPaneOpen="False"
-        PanePlacement="Left">
+        DisplayMode="Inline"
+        OpenPaneLength="290"
+        IsPaneOpen="True"
+        PanePlacement="Left"
+        PaneBackground="#1E1E1E">
 
         <SplitView.Pane>
-            <Grid Background="#1E1E1E" Padding="12" RowDefinitions="Auto,*,Auto,160">
-                <Grid Grid.Row="0" ColumnDefinitions="Auto,*" Margin="0,0,0,12">
+            <Grid RowDefinitions="Auto,*,Auto" Padding="0,10,0,0">
+                <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Padding="14,0,8,6">
+                    <TextBlock Text="Cartelle" Foreground="White" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" />
                     <Button
-                        Width="40"
-                        Height="36"
-                        Padding="0"
-                        Click="ToggleSidebarButton_Click"
-                        ToolTipService.ToolTip="Nascondi cartelle recenti"
-                        AutomationProperties.Name="Nascondi cartelle recenti">
-                        <FontIcon Glyph="&#xE700;" FontSize="18" />
-                    </Button>
-                    <TextBlock
                         Grid.Column="1"
-                        Text="Esplora cartelle"
-                        Foreground="White"
-                        FontSize="16"
-                        VerticalAlignment="Center"
-                        Margin="10,0,0,0" />
+                        Width="32"
+                        Height="32"
+                        Padding="0"
+                        Click="AggiungiCartellaButton_Click"
+                        ToolTipService.ToolTip="Aggiungi una cartella di foto"
+                        AutomationProperties.Name="Aggiungi una cartella di foto">
+                        <FontIcon Glyph="&#xE710;" FontSize="14" />
+                    </Button>
                 </Grid>
-                <TreeView
-                    x:Name="DirectoryTree"
-                    Grid.Row="1"
-                    SelectionMode="None"
-                    Expanding="DirectoryTree_Expanding"
-                    ItemInvoked="DirectoryTree_ItemInvoked">
-                    <TreeView.ItemTemplate>
-                        <DataTemplate x:DataType="TreeViewNode">
-                            <StackPanel Orientation="Horizontal" Spacing="8" Padding="2,5">
-                                <FontIcon Glyph="{x:Bind ((local:DirectoryTreeEntry)Content).Icona}" Foreground="#B8D8F5" FontSize="15" />
-                                <TextBlock Text="{x:Bind ((local:DirectoryTreeEntry)Content).Nome}" Foreground="#DDDDDD" TextTrimming="CharacterEllipsis" />
-                            </StackPanel>
-                        </DataTemplate>
-                    </TreeView.ItemTemplate>
-                </TreeView>
-                <TextBlock
+
+                <Grid Grid.Row="1">
+                    <ListView
+                        x:Name="ElencoCartelle"
+                        SelectionMode="None"
+                        IsItemClickEnabled="True"
+                        ItemClick="ElencoCartelle_ItemClick"
+                        Padding="0,0,0,8">
+                        <ListView.ItemContainerStyle>
+                            <Style TargetType="ListViewItem">
+                                <Setter Property="Padding" Value="6,0" />
+                                <Setter Property="MinHeight" Value="0" />
+                                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                            </Style>
+                        </ListView.ItemContainerStyle>
+                        <ListView.GroupStyle>
+                            <GroupStyle>
+                                <GroupStyle.HeaderTemplate>
+                                    <DataTemplate x:DataType="local:GruppoAnno">
+                                        <TextBlock Text="{x:Bind Titolo}" Foreground="#9FC3E7" FontSize="18" FontWeight="SemiBold" Margin="2,6,0,0" />
+                                    </DataTemplate>
+                                </GroupStyle.HeaderTemplate>
+                            </GroupStyle>
+                        </ListView.GroupStyle>
+                        <ListView.ItemTemplate>
+                            <DataTemplate x:DataType="local:VoceCartella">
+                                <Grid Padding="6,6" CornerRadius="4" Opacity="{x:Bind Opacita}" ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                                    <!-- Cartella aperta adesso: fondo evidenziato, come la selezione di Picasa. -->
+                                    <Border Grid.ColumnSpan="2" Margin="-6,-6" CornerRadius="4" Background="#2E4A66" Visibility="{x:Bind IsCorrente, Mode=OneWay}" />
+                                    <FontIcon Glyph="&#xE8B7;" Foreground="#F2C14E" FontSize="20" VerticalAlignment="Top" Margin="0,2,0,0" />
+                                    <StackPanel Grid.Column="1" Spacing="1">
+                                        <TextBlock Text="{x:Bind Nome}" Foreground="White" FontSize="14" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Text="{x:Bind Dettaglio}" Foreground="#AAAAAA" FontSize="12" TextTrimming="CharacterEllipsis" />
+                                    </StackPanel>
+                                    <Grid.ContextFlyout>
+                                        <MenuFlyout Opening="MenuCartella_Opening">
+                                            <MenuFlyoutItem Text="Apri in Esplora file" Click="CartellaApriInEsplora_Click">
+                                                <MenuFlyoutItem.Icon>
+                                                    <FontIcon Glyph="&#xEC50;" />
+                                                </MenuFlyoutItem.Icon>
+                                            </MenuFlyoutItem>
+                                            <MenuFlyoutItem Text="Togli dall'elenco" Click="CartellaRimuoviDallElenco_Click">
+                                                <MenuFlyoutItem.Icon>
+                                                    <FontIcon Glyph="&#xE711;" />
+                                                </MenuFlyoutItem.Icon>
+                                            </MenuFlyoutItem>
+                                        </MenuFlyout>
+                                    </Grid.ContextFlyout>
+                                    <ToolTipService.ToolTip>
+                                        <TextBlock Text="{x:Bind Percorso}" />
+                                    </ToolTipService.ToolTip>
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                    <TextBlock
+                        x:Name="PannelloCartelleVuotoText"
+                        Text="Nessuna cartella ancora. Usa + oppure &quot;Sfoglia il PC&quot; per aprirne una: comparirà qui, divisa per anno."
+                        Foreground="#888888"
+                        FontSize="12"
+                        TextWrapping="Wrap"
+                        Margin="16,8"
+                        Visibility="Collapsed" />
+                </Grid>
+
+                <Expander
+                    x:Name="SfogliaPcExpander"
                     Grid.Row="2"
-                    Text="Cartelle recenti"
-                    Foreground="#AAAAAA"
-                    FontSize="12"
-                    Margin="4,12,0,4" />
-                <ListView
-                    x:Name="CartelleRecentiList"
-                    Grid.Row="3"
-                    SelectionMode="None"
-                    IsItemClickEnabled="True"
-                    ItemClick="CartellaRecente_ItemClick">
-                    <ListView.ItemTemplate>
-                        <DataTemplate x:DataType="x:String">
-                            <TextBlock Text="{x:Bind}" Foreground="#DDDDDD" TextTrimming="CharacterEllipsis" Padding="6,8" FontSize="13" />
-                        </DataTemplate>
-                    </ListView.ItemTemplate>
-                </ListView>
+                    Header="Sfoglia il PC"
+                    HorizontalAlignment="Stretch"
+                    HorizontalContentAlignment="Stretch"
+                    Expanding="SfogliaPcExpander_Expanding">
+                    <TreeView
+                        x:Name="DirectoryTree"
+                        Height="280"
+                        SelectionMode="None"
+                        Expanding="DirectoryTree_Expanding"
+                        ItemInvoked="DirectoryTree_ItemInvoked">
+                        <TreeView.ItemTemplate>
+                            <DataTemplate x:DataType="TreeViewNode">
+                                <StackPanel Orientation="Horizontal" Spacing="8" Padding="2,4">
+                                    <FontIcon Glyph="{x:Bind ((local:DirectoryTreeEntry)Content).Icona}" Foreground="#B8D8F5" FontSize="15" />
+                                    <TextBlock Text="{x:Bind ((local:DirectoryTreeEntry)Content).Nome}" Foreground="#DDDDDD" TextTrimming="CharacterEllipsis" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </TreeView.ItemTemplate>
+                    </TreeView>
+                </Expander>
             </Grid>
         </SplitView.Pane>
 
@@ -76,8 +131,8 @@
                     Height="36"
                     Padding="0"
                     Click="ToggleSidebarButton_Click"
-                    ToolTipService.ToolTip="Mostra cartelle recenti"
-                    AutomationProperties.Name="Mostra cartelle recenti">
+                    ToolTipService.ToolTip="Mostra/nascondi il pannello cartelle"
+                    AutomationProperties.Name="Mostra o nascondi il pannello cartelle">
                     <FontIcon Glyph="&#xE700;" FontSize="18" />
                 </Button>
                 <Button x:Name="ApriCartellaButton" Content="Apri cartella…" Click="ApriCartellaButton_Click" />
@@ -100,6 +155,7 @@
                         <ComboBoxItem Content="Selezionate" />
                         <ComboBoxItem Content="Scarti" />
                         <ComboBoxItem Content="Geolocalizzate" />
+                        <ComboBoxItem Content="Con volti" />
                     </ComboBox>
                     <ToggleButton
                         x:Name="DividiPerGiorniToggle"
@@ -209,7 +265,8 @@
                             CornerRadius="4,0,0,4"
                             Background="#00B0FF"
                             Visibility="{x:Bind HasGroup, Mode=OneWay}" />
-                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="6" Spacing="4">
+                        <!-- Orientamento dalla miniatura: badge nelle bande vuote, non sopra la foto. -->
+                        <StackPanel Orientation="{x:Bind OrientamentoBadge, Mode=OneWay}" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="2" Spacing="3">
                             <!-- Stesso riquadro scuro del badge GPS: un'icona bianca nuda sparisce su cieli e spiagge. -->
                             <Border
                                 Background="#B3000000"
@@ -226,6 +283,19 @@
                                 Visibility="{x:Bind HasGps, Mode=OneWay}"
                                 ToolTipService.ToolTip="Foto con coordinate GPS">
                                 <FontIcon Glyph="&#xE707;" Foreground="#4FC3F7" FontSize="12" />
+                            </Border>
+                            <!-- Modifiche fatte nell'editor: ritaglio, raddrizzamento, colore/tono. -->
+                            <Border
+                                Background="#B3000000"
+                                CornerRadius="3"
+                                Padding="3,2"
+                                Visibility="{x:Bind HaModifiche, Mode=OneWay}"
+                                ToolTipService.ToolTip="Foto modificata (ritaglio, raddrizzamento, colore)">
+                                <StackPanel Orientation="{x:Bind OrientamentoBadge, Mode=OneWay}" Spacing="4">
+                                    <FontIcon Glyph="&#xE7A8;" Foreground="#FFB300" FontSize="12" Visibility="{x:Bind HaRitaglio, Mode=OneWay}" />
+                                    <FontIcon Glyph="&#xE7AD;" Foreground="#FFB300" FontSize="12" Visibility="{x:Bind HaRaddrizzamento, Mode=OneWay}" />
+                                    <FontIcon Glyph="&#xE790;" Foreground="#FF80AB" FontSize="12" Visibility="{x:Bind HaTono, Mode=OneWay}" />
+                                </StackPanel>
                             </Border>
                         </StackPanel>
                         <Border
@@ -470,6 +540,22 @@
                         </Border>
                     </Grid>
                 </Grid>
+
+                <!--
+                    Correzione della posizione a mappa grande (al posto della foto): mappa o satellite,
+                    zoom da strada, segnaposto trascinabile o clic nel punto giusto. Salva/Annulla in alto.
+                -->
+                <Grid x:Name="ViewerMappaGrandeOverlay" Grid.Column="1" Background="#101010" RowDefinitions="Auto,*" Visibility="Collapsed">
+                    <Grid Background="#1A1A1A" Padding="12,8" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                        <StackPanel VerticalAlignment="Center" Spacing="2">
+                            <TextBlock Text="Correggi la posizione" Foreground="White" FontWeight="SemiBold" />
+                            <TextBlock x:Name="ViewerMappaGrandeInfo" Text="Trascina il segnaposto o clicca nel punto giusto. In alto a destra: mappa o satellite." Foreground="#AAAAAA" FontSize="12" TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                        <Button Grid.Column="1" Content="Salva posizione" Style="{StaticResource AccentButtonStyle}" Click="ViewerLuogoSalva_Click" IsTabStop="False" AllowFocusOnInteraction="False" />
+                        <Button Grid.Column="2" Content="Annulla (Esc)" Click="ViewerLuogoAnnulla_Click" IsTabStop="False" AllowFocusOnInteraction="False" />
+                    </Grid>
+                    <WebView2 x:Name="ViewerMappaGrande" Grid.Row="1" />
+                </Grid>
             </Grid>
 
             <!--
@@ -532,6 +618,21 @@
                                     Margin="6,0,0,4"
                                     Visibility="{x:Bind HasVideo, Mode=OneWay}">
                                     <FontIcon Glyph="&#xE714;" Foreground="White" FontSize="10" />
+                                </Border>
+                                <!-- Modifiche: si aggiornano subito mentre si lavora sulla foto nell'editor. -->
+                                <Border
+                                    Background="#B3000000"
+                                    CornerRadius="3"
+                                    Padding="2,1"
+                                    HorizontalAlignment="Right"
+                                    VerticalAlignment="Bottom"
+                                    Margin="0,0,6,4"
+                                    Visibility="{x:Bind HaModifiche, Mode=OneWay}">
+                                    <StackPanel Orientation="Horizontal" Spacing="3">
+                                        <FontIcon Glyph="&#xE7A8;" Foreground="#FFB300" FontSize="10" Visibility="{x:Bind HaRitaglio, Mode=OneWay}" />
+                                        <FontIcon Glyph="&#xE7AD;" Foreground="#FFB300" FontSize="10" Visibility="{x:Bind HaRaddrizzamento, Mode=OneWay}" />
+                                        <FontIcon Glyph="&#xE790;" Foreground="#FF80AB" FontSize="10" Visibility="{x:Bind HaTono, Mode=OneWay}" />
+                                    </StackPanel>
                                 </Border>
                             </Grid>
                             <!-- Spazio sempre riservato: le miniature restano allineate in basso con o senza linea. -->

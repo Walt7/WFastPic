@@ -11,7 +11,9 @@ namespace WFastPic.Core.Decoding;
 /// </summary>
 public static class RilevatoreVolti
 {
-    private const int LatoAnalisi = 1024;
+    public const int LatoAnalisi = 1024;
+
+    public static bool Disponibile => FaceDetector.IsSupported;
 
     /// <summary>Volti come rettangoli normalizzati (0..1); vuoto se non supportato o nessun volto.</summary>
     public static async Task<IReadOnlyList<(double X0, double Y0, double X1, double Y1)>> RilevaAsync(

@@ -21,6 +21,36 @@ public static class StraightenGeometry
         return Math.Abs(sx) <= larghezza / 2 + Tolleranza && Math.Abs(sy) <= altezza / 2 + Tolleranza;
     }
 
+    /// <summary>
+    /// Dove finisce un rettangolo della foto originale dopo il raddrizzamento (stessa rotazione di
+    /// <see cref="PixelOps.Rotate"/>): riquadro che contiene i 4 angoli ruotati, entro la tela.
+    /// Serve ai volti, salvati sulla foto non raddrizzata e usati sulla tela raddrizzata.
+    /// </summary>
+    public static (double X0, double Y0, double X1, double Y1) RuotaRettangolo(
+        double larghezza, double altezza, double angoloGradi, double x0, double y0, double x1, double y1)
+    {
+        if (angoloGradi == 0) return (x0, y0, x1, y1);
+
+        var rad = angoloGradi * Math.PI / 180.0;
+        var cos = Math.Cos(rad);
+        var sin = Math.Sin(rad);
+        var cx = larghezza / 2;
+        var cy = altezza / 2;
+
+        double minX = double.MaxValue, minY = double.MaxValue, maxX = double.MinValue, maxY = double.MinValue;
+        foreach (var (px, py) in new[] { (x0, y0), (x1, y0), (x0, y1), (x1, y1) })
+        {
+            var dx = px - cx;
+            var dy = py - cy;
+            var rx = cos * dx - sin * dy + cx;
+            var ry = sin * dx + cos * dy + cy;
+            minX = Math.Min(minX, rx); maxX = Math.Max(maxX, rx);
+            minY = Math.Min(minY, ry); maxY = Math.Max(maxY, ry);
+        }
+
+        return (Math.Clamp(minX, 0, larghezza), Math.Clamp(minY, 0, altezza), Math.Clamp(maxX, 0, larghezza), Math.Clamp(maxY, 0, altezza));
+    }
+
     /// <summary>Il rettangolo sta nella tela e i suoi 4 angoli cadono dentro l'immagine ruotata.</summary>
     public static bool ContainsRect(double larghezza, double altezza, double angoloGradi, double x0, double y0, double x1, double y1)
     {

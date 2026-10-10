@@ -10,6 +10,7 @@ using Windows.System;
 using Windows.UI.Core;
 using WFastPic.Core.Library;
 using WFastPic.Core.Persistence;
+using WFastPic.Core.Processing;
 using WFastPic.Core.Selection;
 using WinRT.Interop;
 
@@ -21,7 +22,7 @@ public partial class MainWindow : Window
     private const int CellSizeMax = 400;
     private const int CellSizeStep = 20;
 
-    private static readonly string[] Filtri = ["Tutte", "Selezionate", "Scarti", "Geolocalizzate"];
+    private static readonly string[] Filtri = ["Tutte", "Selezionate", "Scarti", "Geolocalizzate", "Con volti"];
 
     private readonly ObservableCollection<PhotoGridItem> _visibili = new();
     private readonly List<PhotoGridItem> _tutte = new();
@@ -46,10 +47,21 @@ public partial class MainWindow : Window
     private int _miniatureTotali;
     private int _richiestaCaricamentoCartella;
 
+    /// <summary>"v0.8" dalla &lt;Version&gt; del progetto (0.8.0): basta cambiarla lì.</summary>
+    private static string VersioneApp
+    {
+        get
+        {
+            var versione = typeof(MainWindow).Assembly.GetName().Version;
+            if (versione is null) return "";
+            return versione.Build > 0 ? $"v{versione.Major}.{versione.Minor}.{versione.Build}" : $"v{versione.Major}.{versione.Minor}";
+        }
+    }
+
     public MainWindow()
     {
         InitializeComponent();
-        Title = "WFastPic";
+        Title = $"WFastPic {VersioneApp}";
         AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "icon.ico"));
         var impostazioni = ImpostazioniStore.Carica();
         _cellSize = Math.Clamp(impostazioni.DimensioneCellaGriglia, CellSizeMin, CellSizeMax);
@@ -62,8 +74,7 @@ public partial class MainWindow : Window
         AggiornaFiltroUI();
 
         _cartelleRecenti = RecentFoldersStore.Carica();
-        CartelleRecentiList.ItemsSource = _cartelleRecenti;
-        InizializzaAlberoCartelle();
+        InizializzaPannelloCartelle(impostazioni.PannelloCartelleAperto);
 
         // handledEventsToo: la ScrollViewer interna della ListView consuma la rotella per lo
         // scroll e marca l'evento Handled prima che arrivi al gestore dichiarato in XAML.
@@ -93,9 +104,10 @@ public partial class MainWindow : Window
     /// </summary>
     private void ChiudiSessione()
     {
-        ImpostazioniStore.Salva(new Impostazioni(_cellSize) { Export = _impostazioniExport, NomiLuoghiOnline = _nomiLuoghiOnline, DividiPerGiorni = _dividiPerGiorni });
+        ImpostazioniStore.Salva(new Impostazioni(_cellSize) { Export = _impostazioniExport, NomiLuoghiOnline = _nomiLuoghiOnline, DividiPerGiorni = _dividiPerGiorni, PannelloCartelleAperto = RootSplitView.IsPaneOpen });
         _thumbnailLoader?.Annulla();
         _exportCts?.Cancel();
+        FermaRicercaVolti();
         // Finestra chiusa col viewer aperto: le modifiche alla foto corrente vanno in coda prima
         // che la coda venga svuotata (un ritaglio non ancora applicato si perde, come in Picasa).
         if (_viewerAperto) SalvaRicettaCorrente();
@@ -130,100 +142,6 @@ public partial class MainWindow : Window
         }
     }
 
-    private void ToggleSidebarButton_Click(object sender, RoutedEventArgs e) =>
-        RootSplitView.IsPaneOpen = !RootSplitView.IsPaneOpen;
-
-    private void InizializzaAlberoCartelle()
-    {
-        foreach (var cartellaCloud in CartelleCloudDisponibili())
-            DirectoryTree.RootNodes.Add(CreaNodoCartella(cartellaCloud, "\uE753"));
-
-        var questoPc = new TreeViewNode
-        {
-            Content = new DirectoryTreeEntry("Questo PC", null, "\uE770"),
-            IsExpanded = true,
-        };
-        foreach (var drive in DriveInfo.GetDrives().Where(d => d.IsReady))
-        {
-            var nome = string.IsNullOrWhiteSpace(drive.VolumeLabel)
-                ? drive.Name.TrimEnd(Path.DirectorySeparatorChar)
-                : $"{drive.VolumeLabel} ({drive.Name.TrimEnd(Path.DirectorySeparatorChar)})";
-            questoPc.Children.Add(CreaNodoCartella(drive.RootDirectory.FullName, "\uE8B7", nome));
-        }
-        DirectoryTree.RootNodes.Add(questoPc);
-    }
-
-    private static IEnumerable<string> CartelleCloudDisponibili()
-    {
-        var profilo = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        var candidate = new[] { Path.Combine(profilo, "Dropbox") }
-            .Concat(Directory.Exists(profilo)
-                ? Directory.EnumerateDirectories(profilo, "OneDrive*", SearchOption.TopDirectoryOnly)
-                : Enumerable.Empty<string>());
-
-        return candidate.Where(Directory.Exists).Distinct(StringComparer.OrdinalIgnoreCase);
-    }
-
-    private static TreeViewNode CreaNodoCartella(string percorso, string icona, string? nome = null) => new()
-    {
-        Content = new DirectoryTreeEntry(nome ?? Path.GetFileName(percorso.TrimEnd(Path.DirectorySeparatorChar)), percorso, icona),
-        HasUnrealizedChildren = HaSottocartelle(percorso),
-    };
-
-    private static bool HaSottocartelle(string percorso)
-    {
-        try { return Directory.EnumerateDirectories(percorso).Any(); }
-        catch (UnauthorizedAccessException) { return false; }
-        catch (IOException) { return false; }
-    }
-
-    private static void CaricaFigli(TreeViewNode nodo, string percorso)
-    {
-        nodo.Children.Clear();
-        try
-        {
-            foreach (var figlio in Directory.EnumerateDirectories(percorso)
-                         .OrderBy(p => Path.GetFileName(p), StringComparer.CurrentCultureIgnoreCase))
-            {
-                nodo.Children.Add(CreaNodoCartella(figlio, "\uE8B7"));
-            }
-        }
-        catch (UnauthorizedAccessException)
-        {
-            // Cartella protetta: il ramo resta vuoto, come in Explorer senza autorizzazione.
-        }
-        catch (IOException)
-        {
-            // Un'unità rimovibile può sparire mentre il ramo viene espanso.
-        }
-    }
-
-    private void DirectoryTree_Expanding(TreeView sender, TreeViewExpandingEventArgs args)
-    {
-        if (args.Node.HasUnrealizedChildren && args.Node.Content is DirectoryTreeEntry { Percorso: not null } voce)
-        {
-            CaricaFigli(args.Node, voce.Percorso);
-            args.Node.HasUnrealizedChildren = false;
-        }
-    }
-
-    private async void DirectoryTree_ItemInvoked(TreeView sender, TreeViewItemInvokedEventArgs args)
-    {
-        if (args.InvokedItem is not DirectoryTreeEntry { Percorso: not null } voce) return;
-
-        RootSplitView.IsPaneOpen = false;
-        await CaricaCartellaAsync(voce.Percorso);
-    }
-
-    private async void CartellaRecente_ItemClick(object sender, ItemClickEventArgs e)
-    {
-        if (e.ClickedItem is string percorso)
-        {
-            RootSplitView.IsPaneOpen = false;
-            await CaricaCartellaAsync(percorso);
-        }
-    }
-
     private async void PercorsoTextBox_KeyDown(object sender, KeyRoutedEventArgs e)
     {
         if (e.Key != VirtualKey.Enter) return;
@@ -242,6 +160,7 @@ public partial class MainWindow : Window
     private async Task CaricaCartellaAsync(string cartella)
     {
         var richiesta = ++_richiestaCaricamentoCartella;
+        FermaRicercaVolti();
         if (_thumbnailLoader is not null)
         {
             _thumbnailLoader.ProgressoCambiato -= ThumbnailLoader_ProgressoCambiato;
@@ -297,9 +216,10 @@ public partial class MainWindow : Window
         LibrarySidecarDatabase db;
         IReadOnlyList<PhotoRecord> records;
         HashSet<long> conVideo;
+        Dictionary<long, EditRecipe> ricette;
         try
         {
-            (db, records, conVideo) = await Task.Run(() =>
+            (db, records, conVideo, ricette) = await Task.Run(() =>
             {
                 var database = LibrarySidecarDatabase.OpenOrCreate(cartella);
                 try
@@ -313,7 +233,10 @@ public partial class MainWindow : Window
                         .Where(r => CompanionVideoDetector.TrovaVideoAbbinato(Path.Combine(cartella, r.PathRelativo)) is not null)
                         .Select(r => r.Id)
                         .ToHashSet();
-                    return (database, foto, video);
+                    // Per i simboli delle modifiche sulle miniature (ritaglio, raddrizzamento, colore).
+                    var modifiche = database.GetAllRecipeJson()
+                        .ToDictionary(r => r.Key, r => EditRecipeSerializer.FromJson(r.Value));
+                    return (database, foto, video, modifiche);
                 }
                 catch
                 {
@@ -360,11 +283,13 @@ public partial class MainWindow : Window
                 Altitude = record.Altitude,
                 Direction = record.Direction,
                 GpsManuale = record.GpsManuale,
+                NumeroVolti = record.NumeroVolti,
                 HasVideo = conVideo.Contains(record.Id),
                 Stato = record.Stato,
                 Rating = record.Rating,
             };
 
+            if (ricette.TryGetValue(item.Id, out var ricetta)) item.AggiornaModifiche(ricetta);
             _tutte.Add(item);
             _perId[item.Id] = item;
 
@@ -380,10 +305,7 @@ public partial class MainWindow : Window
         _thumbnailLoader.AvviaCaricamento(_tutte);
 
         PercorsoTextBox.Text = cartella;
-        _cartelleRecenti = RecentFoldersStore.AggiungiRecente(_cartelleRecenti, cartella);
-        RecentFoldersStore.Salva(_cartelleRecenti);
-        CartelleRecentiList.ItemsSource = null;
-        CartelleRecentiList.ItemsSource = _cartelleRecenti;
+        RegistraCartellaAperta(cartella);
     }
 
     // --- Raffiche: foto scattate a pochi secondi di distanza ---
@@ -577,6 +499,7 @@ public partial class MainWindow : Window
         "Selezionate" => item.Stato == StatoSelezione.Selected,
         "Scarti" => item.Stato == StatoSelezione.Reject,
         "Geolocalizzate" => item.HasGps,
+        "Con volti" => item.NumeroVolti > 0,
         _ => true,
     };
 
@@ -619,6 +542,9 @@ public partial class MainWindow : Window
         _miniatureCompletate = completate;
         _miniatureTotali = totale;
         AggiornaAvanzamentoMiniature();
+
+        // Come Picasa: a griglia pronta parte la ricerca dei volti, senza rubare tempo alle miniature.
+        if (totale > 0 && completate >= totale) AvviaRicercaVolti();
     }
 
     /// <summary>Barra in basso, visibile solo finché mancano miniature: la griglia resta usabile.</summary>

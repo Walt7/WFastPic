@@ -76,6 +76,24 @@ Aggiunte fuori piano, su richiesta esplicita durante lo sviluppo:
   dentro l'immagine raddrizzata. Volti rilevati offline con il `FaceDetector` di Windows
   (`RilevatoreVolti`): mai tagliati, con aria sopra la testa, composizione sul terzo superiore.
   Miniature cliccabili, calcolo in background, ricalcolo a slider di raddrizzamento fermo.
+- Pannello cartelle stile Picasa (`MainWindow.Cartelle.cs`): fisso accanto alla griglia (SplitView
+  Inline, stato ricordato), "le mie cartelle" raggruppate per anno di scatto con numero di foto e
+  periodo letti dal sidecar in sola lettura (`LibrarySidecarDatabase.LeggiRiepilogo`, non crea mai
+  il sidecar), cartella aperta evidenziata, menu "Apri in Esplora file"/"Togli dall'elenco".
+  "Sfoglia il PC" è secondario: dischi e sottocartelle letti in background, cartelle nascoste, di
+  sistema e `.wfastpic` escluse (`ArchivioCartelle`, testata).
+- Volti: ricerca in background a griglia pronta (miniature finite), una foto alla volta, in pausa
+  col viewer aperto; risultato nel sidecar (tabella `volti`, `photos.volti_cercati`, azzerati se il
+  file cambia); filtro griglia "Con volti"; i ritagli suggeriti riusano i volti salvati
+  (`StraightenGeometry.RuotaRettangolo` li porta sulla tela raddrizzata). Solo rilevamento: il
+  riconoscimento delle persone (chi è chi) richiederebbe un modello a parte.
+- Correzione posizione a mappa grande al posto della foto (mappa/satellite + nomi, zoom da strada,
+  partenza vicino alle altre foto della cartella); Esc annulla.
+- Durante il ritaglio la griglia di composizione segue il riquadro di ritaglio.
+- Simboli delle modifiche sulle miniature (griglia e filmstrip): ritaglio, raddrizzamento,
+  colore/tono (`EditRecipe.HasCrop/HasStraighten/HasTone`); ricette lette tutte insieme all'apertura
+  della cartella (`GetAllRecipeJson`), aggiornati dal vivo durante l'editing (`MostraBuffer`).
+- Versione dell'app nel `<Version>` del csproj, mostrata nel titolo della finestra (v0.8).
 - Griglia divisa per giorni (opzionale, "Per giorni"): vista raggruppata allineata a `_visibili`,
   che resta l'unico elenco di riferimento.
 
@@ -118,7 +136,7 @@ src/
 ├─ WFastPic.Core.Persistence/   (sidecar SQLite)
 └─ WFastPic.Core.Export/        (bake ricetta + watermark + tag EXIF + encode JPEG — Windows-targeted)
 tests/
-└─ WFastPic.Core.Tests/         (xUnit, 108 test — Library/Selection/Processing/Metadata/Export)
+└─ WFastPic.Core.Tests/         (xUnit, 123 test — Library/Selection/Processing/Metadata/Export)
 tools/
 ├─ HeicSmokeTest/                (Fase 0, smoke test decoding)
 └─ ScanSmokeTest/
@@ -151,7 +169,7 @@ Nota: `Z`/`F` zoom, `R` ruota rigida, `M` riproduci video, `Ctrl+C/V` copia rice
 
 ## Convenzioni per chi implementa
 
-- Test prima o insieme al codice per la logica in `Core.*` (xUnit) — 108 test attuali coprono
+- Test prima o insieme al codice per la logica in `Core.*` (xUnit) — 123 test attuali coprono
   scan/identità, raffiche, selezione, ricetta/crop/rotate/tono/geometria raddrizzamento, ordinamento
   cronologico, riapertura veloce, scarti, concorrenza sidecar, stima avanzamento, zoom/trascinamento viewer.
 - `LibrarySidecarDatabase` è condiviso tra thread UI e coda di scrittura: ogni metodo pubblico nuovo

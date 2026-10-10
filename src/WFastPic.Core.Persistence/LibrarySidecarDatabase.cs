@@ -16,9 +16,13 @@ public sealed record PhotoRecord(
     double? Longitude = null,
     bool GpsManuale = false,
     double? Altitude = null,
-    double? Direction = null);
+    double? Direction = null,
+    int? NumeroVolti = null);
 
 public sealed record SyncResult(int Nuove, int Aggiornate, int Invariate);
+
+/// <summary>Per il pannello cartelle: quante foto e in che periodo, dall'ultima apertura della cartella.</summary>
+public sealed record RiepilogoCartella(int NumeroFoto, DateTime? PrimoScatto, DateTime? UltimoScatto);
 
 /// <summary>
 /// Sidecar SQLite per cartella (.wfastpic/library.db). Nessuna libreria fotografica centrale:
@@ -70,6 +74,42 @@ public sealed class LibrarySidecarDatabase : IDisposable
         return db;
     }
 
+    /// <summary>
+    /// Riepilogo di una cartella già aperta in passato, in sola lettura: non crea mai il sidecar (una
+    /// cartella mai aperta resta intatta) e non tocca lo schema. null se non c'è un sidecar leggibile.
+    /// </summary>
+    public static RiepilogoCartella? LeggiRiepilogo(string cartellaFoto)
+    {
+        var percorsoDb = Path.Combine(cartellaFoto, CartellaSidecar, NomeFileDatabase);
+        if (!File.Exists(percorsoDb)) return null;
+
+        try
+        {
+            var connectionString = new SqliteConnectionStringBuilder
+            {
+                DataSource = percorsoDb,
+                Mode = SqliteOpenMode.ReadOnly,
+                Pooling = false,
+            }.ToString();
+
+            using var connection = new SqliteConnection(connectionString);
+            connection.Open();
+            using var cmd = connection.CreateCommand();
+            cmd.CommandText = "SELECT COUNT(*), MIN(capture_date), MAX(capture_date) FROM photos;";
+            using var reader = cmd.ExecuteReader();
+            if (!reader.Read()) return null;
+
+            return new RiepilogoCartella(
+                reader.GetInt32(0),
+                reader.IsDBNull(1) ? null : DateTime.Parse(reader.GetString(1)),
+                reader.IsDBNull(2) ? null : DateTime.Parse(reader.GetString(2)));
+        }
+        catch (Exception ex) when (ex is SqliteException or IOException or UnauthorizedAccessException or FormatException)
+        {
+            return null; // sidecar di un'altra versione, bloccato o su un disco scollegato
+        }
+    }
+
     private void EnsureSchema()
     {
         using var cmd = _connection.CreateCommand();
@@ -84,8 +124,16 @@ public sealed class LibrarySidecarDatabase : IDisposable
                 longitude REAL NULL,
                 gps_manuale INTEGER NOT NULL DEFAULT 0,
                 altitude REAL NULL,
-                direction REAL NULL
+                direction REAL NULL,
+                volti_cercati INTEGER NOT NULL DEFAULT 0
             );
+
+            -- Volti trovati dal rilevatore di Windows, normalizzati (0..1) sulla foto non raddrizzata.
+            CREATE TABLE IF NOT EXISTS volti (
+                photo_id INTEGER NOT NULL REFERENCES photos(id) ON DELETE CASCADE,
+                x0 REAL NOT NULL, y0 REAL NOT NULL, x1 REAL NOT NULL, y1 REAL NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS ix_volti_photo ON volti(photo_id);
 
             -- Nomi dei luoghi (geocodifica inversa) per cella di ~100 m: ogni punto si chiede una volta sola.
             CREATE TABLE IF NOT EXISTS luoghi (
@@ -131,6 +179,13 @@ public sealed class LibrarySidecarDatabase : IDisposable
         {
             using var alterCmd = _connection.CreateCommand();
             alterCmd.CommandText = "ALTER TABLE photos ADD COLUMN longitude REAL NULL;";
+            alterCmd.ExecuteNonQuery();
+        }
+
+        if (!colonneEsistenti.Contains("volti_cercati"))
+        {
+            using var alterCmd = _connection.CreateCommand();
+            alterCmd.CommandText = "ALTER TABLE photos ADD COLUMN volti_cercati INTEGER NOT NULL DEFAULT 0;";
             alterCmd.ExecuteNonQuery();
         }
 
@@ -209,8 +264,13 @@ public sealed class LibrarySidecarDatabase : IDisposable
                                       altitude = CASE WHEN gps_manuale = 1 THEN altitude ELSE $alt END,
                                       direction = CASE WHEN gps_manuale = 1 THEN direction ELSE $dir END
                     WHERE id = $id;
+                    -- Contenuto del file cambiato: i volti trovati prima non valgono più.
+                    UPDATE photos SET volti_cercati = 0 WHERE id = $id AND $fileCambiato = 1;
+                    DELETE FROM volti WHERE photo_id = $id AND $fileCambiato = 1;
                     """;
                 update.Parameters.AddWithValue("$alt", (object?)foto.Gps?.Altitude ?? DBNull.Value);
+                update.Parameters.AddWithValue("$fileCambiato",
+                    sizeEsistente != foto.Identity.Size || lastWriteEsistente != foto.Identity.LastWriteUtc ? 1 : 0);
                 update.Parameters.AddWithValue("$dir", (object?)foto.Gps?.Direction ?? DBNull.Value);
                 update.Parameters.AddWithValue("$size", foto.Identity.Size);
                 update.Parameters.AddWithValue("$lastWrite", foto.Identity.LastWriteUtc.ToString("O"));
@@ -332,7 +392,8 @@ public sealed class LibrarySidecarDatabase : IDisposable
         using var cmd = _connection.CreateCommand();
         cmd.CommandText = """
             SELECT p.id, p.path_relativo, p.size, p.last_write_utc, p.capture_date,
-                   s.stato, s.rating, p.latitude, p.longitude, p.gps_manuale, p.altitude, p.direction
+                   s.stato, s.rating, p.latitude, p.longitude, p.gps_manuale, p.altitude, p.direction,
+                   CASE WHEN p.volti_cercati = 1 THEN (SELECT COUNT(*) FROM volti v WHERE v.photo_id = p.id) END
             FROM photos p
             JOIN selection_state s ON s.photo_id = p.id
             ORDER BY p.capture_date IS NULL, p.capture_date, p.path_relativo;
@@ -354,7 +415,8 @@ public sealed class LibrarySidecarDatabase : IDisposable
                 Longitude: reader.IsDBNull(8) ? null : reader.GetDouble(8),
                 GpsManuale: reader.GetInt64(9) != 0,
                 Altitude: reader.IsDBNull(10) ? null : reader.GetDouble(10),
-                Direction: reader.IsDBNull(11) ? null : reader.GetDouble(11)));
+                Direction: reader.IsDBNull(11) ? null : reader.GetDouble(11),
+                NumeroVolti: reader.IsDBNull(12) ? null : reader.GetInt32(12)));
         }
 
         return risultato;
@@ -396,7 +458,8 @@ public sealed class LibrarySidecarDatabase : IDisposable
         using var cmd = _connection.CreateCommand();
         cmd.CommandText = """
             SELECT p.id, p.path_relativo, p.size, p.last_write_utc, p.capture_date,
-                   s.stato, s.rating, p.latitude, p.longitude, p.gps_manuale, p.altitude, p.direction
+                   s.stato, s.rating, p.latitude, p.longitude, p.gps_manuale, p.altitude, p.direction,
+                   CASE WHEN p.volti_cercati = 1 THEN (SELECT COUNT(*) FROM volti v WHERE v.photo_id = p.id) END
             FROM photos p
             JOIN selection_state s ON s.photo_id = p.id
             WHERE s.stato = $stato
@@ -420,7 +483,8 @@ public sealed class LibrarySidecarDatabase : IDisposable
                 Longitude: reader.IsDBNull(8) ? null : reader.GetDouble(8),
                 GpsManuale: reader.GetInt64(9) != 0,
                 Altitude: reader.IsDBNull(10) ? null : reader.GetDouble(10),
-                Direction: reader.IsDBNull(11) ? null : reader.GetDouble(11)));
+                Direction: reader.IsDBNull(11) ? null : reader.GetDouble(11),
+                NumeroVolti: reader.IsDBNull(12) ? null : reader.GetInt32(12)));
         }
 
         return risultato;
@@ -447,6 +511,18 @@ public sealed class LibrarySidecarDatabase : IDisposable
         cmd.CommandText = "SELECT recipe_json FROM edits WHERE photo_id = $id;";
         cmd.Parameters.AddWithValue("$id", photoId);
         return cmd.ExecuteScalar() as string;
+    }
+
+    /// <summary>Tutte le ricette della cartella in una query: per i simboli delle modifiche sulle miniature.</summary>
+    public IReadOnlyDictionary<long, string> GetAllRecipeJson()
+    {
+        using var scope = _lock.EnterScope();
+        using var cmd = _connection.CreateCommand();
+        cmd.CommandText = "SELECT photo_id, recipe_json FROM edits;";
+        using var reader = cmd.ExecuteReader();
+        var ricette = new Dictionary<long, string>();
+        while (reader.Read()) ricette[reader.GetInt64(0)] = reader.GetString(1);
+        return ricette;
     }
 
     public void SaveRecipe(long photoId, string recipeJson, int schemaVersion)
@@ -527,6 +603,55 @@ public sealed class LibrarySidecarDatabase : IDisposable
         cmd.Parameters.AddWithValue("$dir", (object?)gpsDelFile?.Direction ?? DBNull.Value);
         cmd.Parameters.AddWithValue("$id", photoId);
         cmd.ExecuteNonQuery();
+    }
+
+    /// <summary>Volti trovati nella foto (normalizzati, foto non raddrizzata); null se non è ancora stata analizzata.</summary>
+    public IReadOnlyList<(double X0, double Y0, double X1, double Y1)>? GetVolti(long photoId)
+    {
+        using var scope = _lock.EnterScope();
+        using var cercati = _connection.CreateCommand();
+        cercati.CommandText = "SELECT volti_cercati FROM photos WHERE id = $id;";
+        cercati.Parameters.AddWithValue("$id", photoId);
+        if (cercati.ExecuteScalar() is not long analizzata || analizzata == 0) return null;
+
+        using var cmd = _connection.CreateCommand();
+        cmd.CommandText = "SELECT x0, y0, x1, y1 FROM volti WHERE photo_id = $id;";
+        cmd.Parameters.AddWithValue("$id", photoId);
+        using var reader = cmd.ExecuteReader();
+        var volti = new List<(double, double, double, double)>();
+        while (reader.Read()) volti.Add((reader.GetDouble(0), reader.GetDouble(1), reader.GetDouble(2), reader.GetDouble(3)));
+        return volti;
+    }
+
+    /// <summary>Salva il risultato dell'analisi (anche "nessun volto"): la foto non verrà riesaminata.</summary>
+    public void SalvaVolti(long photoId, IReadOnlyList<(double X0, double Y0, double X1, double Y1)> volti)
+    {
+        using var scope = _lock.EnterScope();
+        using var transaction = _connection.BeginTransaction();
+
+        using (var cancella = _connection.CreateCommand())
+        {
+            cancella.Transaction = transaction;
+            cancella.CommandText = "DELETE FROM volti WHERE photo_id = $id; UPDATE photos SET volti_cercati = 1 WHERE id = $id;";
+            cancella.Parameters.AddWithValue("$id", photoId);
+            cancella.ExecuteNonQuery();
+        }
+
+        using var inserisci = _connection.CreateCommand();
+        inserisci.Transaction = transaction;
+        inserisci.CommandText = "INSERT INTO volti (photo_id, x0, y0, x1, y1) VALUES ($id, $x0, $y0, $x1, $y1);";
+        var pId = inserisci.Parameters.Add("$id", SqliteType.Integer);
+        var px0 = inserisci.Parameters.Add("$x0", SqliteType.Real);
+        var py0 = inserisci.Parameters.Add("$y0", SqliteType.Real);
+        var px1 = inserisci.Parameters.Add("$x1", SqliteType.Real);
+        var py1 = inserisci.Parameters.Add("$y1", SqliteType.Real);
+        foreach (var (x0, y0, x1, y1) in volti)
+        {
+            pId.Value = photoId; px0.Value = x0; py0.Value = y0; px1.Value = x1; py1.Value = y1;
+            inserisci.ExecuteNonQuery();
+        }
+
+        transaction.Commit();
     }
 
     /// <summary>Nome del luogo già risolto per questa cella (vedi NomeLuogo.Chiave), o null.</summary>

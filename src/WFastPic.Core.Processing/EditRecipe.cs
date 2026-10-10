@@ -47,4 +47,9 @@ public sealed record EditRecipe
 
     public bool HasGeometry =>
         StraightenAngleDegrees != 0 || CropX != 0 || CropY != 0 || CropWidth != 1 || CropHeight != 1;
+
+    /// <summary>Per i simboli sulle miniature: ritaglio vero e proprio (non il solo raddrizzamento).</summary>
+    public bool HasCrop => CropX != 0 || CropY != 0 || CropWidth != 1 || CropHeight != 1;
+
+    public bool HasStraighten => StraightenAngleDegrees != 0;
 }

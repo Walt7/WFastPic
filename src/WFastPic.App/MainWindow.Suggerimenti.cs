@@ -36,6 +36,9 @@ public partial class MainWindow
         var (w, h) = (_viewerPixelWidth, _viewerPixelHeight);
         var angolo = Math.Round(ViewerStraightenSlider.Value, 1);
         var tono = _ricettaCorrente with { CropX = 0, CropY = 0, CropWidth = 1, CropHeight = 1, StraightenAngleDegrees = 0 };
+        var foto = _fotoRicetta;
+        var db = _db;
+        var manager = _selectionManager;
 
         ViewerSuggerimentiAnello.IsActive = true;
         try
@@ -49,14 +52,31 @@ public partial class MainWindow
                     ToneProcessor.ApplyInPlace(tela, w, h, tono);
                 }
 
-                var volti = await RilevatoreVolti.RilevaAsync(tela, w, h);
-                var zone = volti.Select(v => new ZonaImportante(v.X0, v.Y0, v.X1, v.Y1)).ToList();
+                // Volti già trovati dalla ricerca in background (sulla foto non raddrizzata); se la foto
+                // non è ancora stata analizzata si cercano adesso e si salvano per le prossime volte.
+                IReadOnlyList<(double X0, double Y0, double X1, double Y1)>? volti = null;
+                if (foto is not null && db is not null)
+                {
+                    try { volti = db.GetVolti(foto.Id); } catch (ObjectDisposedException) { }
+                }
+                if (volti is null)
+                {
+                    volti = await RilevatoreVolti.RilevaAsync(originale, w, h);
+                    if (foto is not null) manager?.SalvaVolti(foto.Id, volti);
+                }
+
+                var zone = volti
+                    .Select(v => StraightenGeometry.RuotaRettangolo(w, h, angolo, v.X0 * w, v.Y0 * h, v.X1 * w, v.Y1 * h))
+                    .Select(r => new ZonaImportante(r.X0 / w, r.Y0 / h, r.X1 / w, r.Y1 / h))
+                    .ToList();
                 var proposte = SuggerimentiRitaglio.Calcola(tela, w, h, angolo, zone);
                 var miniature = proposte
                     .Select(p => (Proposta: p, Miniatura: SuggerimentiRitaglio.Miniatura(tela, w, h, p, LatoMiniaturaSuggerimento)))
                     .ToList();
                 return (Miniature: miniature, Volti: zone.Count);
             });
+
+            if (foto is not null) foto.NumeroVolti = risultato.Volti;
 
             // Foto cambiata, ritaglio chiuso o angolo cambiato nel frattempo: risultato vecchio.
             if (richiesta != _richiestaSuggerimenti || !_geometriaAttiva || !ReferenceEquals(originale, _viewerPixelOriginali)) return;

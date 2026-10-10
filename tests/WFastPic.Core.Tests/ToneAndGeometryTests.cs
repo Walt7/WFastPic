@@ -179,6 +179,24 @@ public class ToneAndGeometryTests
     }
 
     [Fact]
+    public void Simboli_modifiche_distinguono_ritaglio_raddrizzamento_e_tono()
+    {
+        var soloRaddrizzata = new EditRecipe { StraightenAngleDegrees = 2.5 };
+        Assert.True(soloRaddrizzata.HasStraighten);
+        Assert.False(soloRaddrizzata.HasCrop);
+        Assert.False(soloRaddrizzata.HasTone);
+
+        var ritagliataEColore = new EditRecipe { CropX = 0.1, CropWidth = 0.8, AutoColor = true };
+        Assert.True(ritagliataEColore.HasCrop);
+        Assert.False(ritagliataEColore.HasStraighten);
+        Assert.True(ritagliataEColore.HasTone);
+
+        // La ricetta salvata e riletta conserva i simboli.
+        var riletta = EditRecipeSerializer.FromJson(EditRecipeSerializer.ToJson(ritagliataEColore));
+        Assert.True(riletta.HasCrop && riletta.HasTone);
+    }
+
+    [Fact]
     public void FitRect_non_tocca_un_rettangolo_gia_valido()
     {
         var (x0, y0, x1, y1) = StraightenGeometry.FitRect(1000, 800, 5, 400, 300, 600, 500);

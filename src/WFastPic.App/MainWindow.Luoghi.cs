@@ -182,18 +182,32 @@ public partial class MainWindow
         }
     }
 
+    private Task<bool>? _preparazioneMappaGrande;
+    private bool _mappaGrandePronta;
+
     private async Task<bool> PreparaMiniMappaAsync()
     {
         if (_miniMappaPronta) return true;
-        return await (_preparazioneMiniMappa ??= CreaMiniMappaAsync());
+        _miniMappaPronta = await (_preparazioneMiniMappa ??= CaricaPaginaMappaAsync(ViewerMiniMappa, grande: false));
+        if (!_miniMappaPronta) _preparazioneMiniMappa = null;
+        return _miniMappaPronta;
     }
 
-    private async Task<bool> CreaMiniMappaAsync()
+    private async Task<bool> PreparaMappaGrandeAsync()
+    {
+        if (_mappaGrandePronta) return true;
+        _mappaGrandePronta = await (_preparazioneMappaGrande ??= CaricaPaginaMappaAsync(ViewerMappaGrande, grande: true));
+        if (!_mappaGrandePronta) _preparazioneMappaGrande = null;
+        return _mappaGrandePronta;
+    }
+
+    /// <summary>Stessa pagina per mini-mappa e mappa grande di correzione ("?grande" mostra lo zoom e avvicina).</summary>
+    private async Task<bool> CaricaPaginaMappaAsync(WebView2 webView, bool grande)
     {
         try
         {
-            await PreparaWebViewAsync(ViewerMiniMappa);
-            ViewerMiniMappa.CoreWebView2.WebMessageReceived += MiniMappa_WebMessageReceived;
+            await PreparaWebViewAsync(webView);
+            webView.CoreWebView2.WebMessageReceived += MiniMappa_WebMessageReceived;
 
             var caricata = new TaskCompletionSource();
             void Completata(CoreWebView2 s, CoreWebView2NavigationCompletedEventArgs a)
@@ -201,27 +215,26 @@ public partial class MainWindow
                 s.NavigationCompleted -= Completata;
                 caricata.TrySetResult();
             }
-            ViewerMiniMappa.CoreWebView2.NavigationCompleted += Completata;
+            webView.CoreWebView2.NavigationCompleted += Completata;
 
             // Da un host virtuale e non con NavigateToString: senza un'origine vera le richieste dei
             // riquadri non hanno Referer e i server di OpenStreetMap possono rifiutarle.
             var cartellaWeb = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "WFastPic", "web");
             Directory.CreateDirectory(cartellaWeb);
             await File.WriteAllTextAsync(Path.Combine(cartellaWeb, "minimappa.html"), HtmlMiniMappa);
-            ViewerMiniMappa.CoreWebView2.SetVirtualHostNameToFolderMapping("app.wfastpic", cartellaWeb, CoreWebView2HostResourceAccessKind.Allow);
-            ViewerMiniMappa.CoreWebView2.Navigate("https://app.wfastpic/minimappa.html");
+            webView.CoreWebView2.SetVirtualHostNameToFolderMapping("app.wfastpic", cartellaWeb, CoreWebView2HostResourceAccessKind.Allow);
+            webView.CoreWebView2.Navigate(grande ? "https://app.wfastpic/minimappa.html?grande" : "https://app.wfastpic/minimappa.html");
             await caricata.Task;
-
-            _miniMappaPronta = true;
             return true;
         }
         catch
         {
             // WebView2 non disponibile: il pannello mostra comunque testo e pulsanti.
-            _preparazioneMiniMappa = null;
             return false;
         }
     }
+
+    private static string Js(double? valore) => valore?.ToString("R", CultureInfo.InvariantCulture) ?? "null";
 
     /// <summary>Sempre la foto corrente (non quella che ha chiesto): la mappa può essere pronta dopo un ←/→.</summary>
     private async Task MostraSuMiniMappaAsync(bool modifica)
@@ -230,12 +243,31 @@ public partial class MainWindow
         var foto = _fotoViewerCorrente;
         if (foto is null) return;
 
-        static string Js(double? valore) => valore?.ToString("R", CultureInfo.InvariantCulture) ?? "null";
-
         var (lat, lon) = modifica && _posizioneProposta is { } p ? (p.Lat, p.Lon) : (foto.Latitude, foto.Longitude);
         var direzione = foto.GpsManuale || modifica ? null : foto.Direction;
         await ViewerMiniMappa.CoreWebView2.ExecuteScriptAsync(
             $"mostra({Js(lat)}, {Js(lon)}, {Js(direzione)}, {(modifica ? "true" : "false")})");
+    }
+
+    /// <summary>
+    /// Mappa grande di correzione al posto della foto. Senza posizione si parte dall'ultima posizione
+    /// usata nella cartella (le foto di una vacanza sono quasi sempre vicine), altrimenti dall'Italia.
+    /// </summary>
+    private async Task ApriMappaGrandeAsync()
+    {
+        ViewerMappaGrandeOverlay.Visibility = Visibility.Visible;
+        if (!await PreparaMappaGrandeAsync() || !_luogoInModifica) return;
+
+        var foto = _fotoViewerCorrente;
+        if (foto is null) return;
+
+        var vicina = _posizioneProposta is null
+            ? _tutte.Where(f => f.HasGps).MinBy(f => Math.Abs(((f.CaptureDate ?? DateTime.MaxValue) - (foto.CaptureDate ?? DateTime.MaxValue)).TotalSeconds))
+            : null;
+        var centro = vicina is { Latitude: double vlat, Longitude: double vlon } ? $"centra({Js(vlat)}, {Js(vlon)});" : "";
+
+        var (lat, lon) = _posizioneProposta is { } p ? ((double?)p.Lat, (double?)p.Lon) : (null, null);
+        await ViewerMappaGrande.CoreWebView2.ExecuteScriptAsync($"{centro} mostra({Js(lat)}, {Js(lon)}, null, true)");
     }
 
     private void MiniMappa_WebMessageReceived(CoreWebView2 sender, CoreWebView2WebMessageReceivedEventArgs args)
@@ -250,7 +282,9 @@ public partial class MainWindow
             var lat = radice.GetProperty("lat").GetDouble();
             var lon = radice.GetProperty("lon").GetDouble();
             _posizioneProposta = (lat, lon);
-            ViewerLuogoDettagli.Text = $"Nuova posizione:\n{TestoCoordinate(lat, lon)}";
+            var testo = TestoCoordinate(lat, lon);
+            ViewerLuogoDettagli.Text = $"Nuova posizione:\n{testo}";
+            ViewerMappaGrandeInfo.Text = $"Nuova posizione {testo} · Salva per confermare";
         }
         catch
         {
@@ -264,7 +298,12 @@ public partial class MainWindow
         ViewerLuogoAzioni.Visibility = attiva ? Visibility.Collapsed : Visibility.Visible;
         ViewerLuogoModifica.Visibility = attiva ? Visibility.Visible : Visibility.Collapsed;
         ViewerLuogoSuggerimento.Visibility = attiva ? Visibility.Visible : Visibility.Collapsed;
-        if (!attiva) _posizioneProposta = null;
+        if (!attiva)
+        {
+            _posizioneProposta = null;
+            ViewerMappaGrandeOverlay.Visibility = Visibility.Collapsed;
+            ViewerMappaGrandeInfo.Text = "Trascina il segnaposto o clicca nel punto giusto. In alto a destra: mappa o satellite.";
+        }
     }
 
     private void ViewerLuogoCorreggi_Click(object sender, RoutedEventArgs e)
@@ -275,6 +314,7 @@ public partial class MainWindow
         ImpostaModificaLuogo(true);
         _posizioneProposta = foto is { Latitude: double lat, Longitude: double lon } ? (lat, lon) : null;
         _ = MostraSuMiniMappaAsync(modifica: true);
+        _ = ApriMappaGrandeAsync();
     }
 
     private void ViewerLuogoSalva_Click(object sender, RoutedEventArgs e)
@@ -351,10 +391,24 @@ public partial class MainWindow
         <body>
             <div id="m"></div>
             <script>
-                const map = L.map('m', { zoomControl: false }).setView([41.9, 12.5], 5);
-                L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                // "?grande" = mappa di correzione: zoom visibile e vista ravvicinata per piazzare il punto.
+                const grande = location.search.includes('grande');
+                const map = L.map('m', { zoomControl: grande }).setView([41.9, 12.5], 5);
+                const stradale = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
                     maxZoom: 19, attribution: '&copy; OpenStreetMap'
-                }).addTo(map);
+                });
+                const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                    maxZoom: 19, attribution: 'Immagini &copy; Esri'
+                });
+                const nomi = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
+                    maxZoom: 19
+                });
+                stradale.addTo(map);
+                L.control.layers({ 'Mappa': stradale, 'Satellite': satellite }, { 'Nomi dei luoghi': nomi },
+                    { position: 'topright', collapsed: !grande }).addTo(map);
+
+                // Senza posizione: si parte vicino alle altre foto della cartella, già ingranditi.
+                function centra(lat, lon) { map.setView([lat, lon], 15); }
 
                 let marker = null;
                 let modifica = false;
@@ -384,7 +438,7 @@ public partial class MainWindow
                     if (lat === null) return;
                     marker = L.marker([lat, lon], { icon: icona(dir), draggable: mod }).addTo(map);
                     marker.on('dragend', () => invia(marker.getLatLng()));
-                    map.setView([lat, lon], map.getZoom() < 10 ? 14 : map.getZoom());
+                    map.setView([lat, lon], map.getZoom() < 10 ? (grande ? 17 : 14) : map.getZoom());
                 }
 
                 map.on('click', e => {

@@ -40,7 +40,8 @@ public static class RecentFoldersStore
         }
     }
 
-    public static List<string> AggiungiRecente(List<string> attuali, string nuovaCartella, int max = 10)
+    // È l'elenco "le mie cartelle" del pannello (come le cartelle di Picasa), non solo gli ultimi accessi.
+    public static List<string> AggiungiRecente(List<string> attuali, string nuovaCartella, int max = 200)
     {
         var lista = attuali.Where(c => !string.Equals(c, nuovaCartella, StringComparison.OrdinalIgnoreCase)).ToList();
         lista.Insert(0, nuovaCartella);

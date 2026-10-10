@@ -54,8 +54,37 @@ public sealed class PhotoGridItem : INotifyPropertyChanged
     /// <summary>Verso dove guardava la camera (gradi da nord, orario): la freccia sulla mappa.</summary>
     public double? Direction { get; set; }
 
+    /// <summary>Volti trovati dalla ricerca in background; null = foto non ancora analizzata.</summary>
+    public int? NumeroVolti { get; set; }
+
     /// <summary>Posizione scelta/corretta dall'utente nell'editor: la riscansione GPS non la tocca.</summary>
     public bool GpsManuale { get; set; }
+
+    // ---- Simboli delle modifiche sulla miniatura (ritaglio, raddrizzamento, colore/tono)
+
+    private bool _haRitaglio;
+    public bool HaRitaglio => _haRitaglio;
+
+    private bool _haRaddrizzamento;
+    public bool HaRaddrizzamento => _haRaddrizzamento;
+
+    private bool _haTono;
+    public bool HaTono => _haTono;
+
+    public bool HaModifiche => _haRitaglio || _haRaddrizzamento || _haTono;
+
+    /// <summary>Allinea i simboli alla ricetta (all'apertura della cartella e mentre si modifica nell'editor).</summary>
+    public void AggiornaModifiche(WFastPic.Core.Processing.EditRecipe ricetta)
+    {
+        var (ritaglio, raddrizzamento, tono) = (ricetta.HasCrop, ricetta.HasStraighten, ricetta.HasTone);
+        if (ritaglio == _haRitaglio && raddrizzamento == _haRaddrizzamento && tono == _haTono) return;
+
+        (_haRitaglio, _haRaddrizzamento, _haTono) = (ritaglio, raddrizzamento, tono);
+        OnPropertyChanged(nameof(HaRitaglio));
+        OnPropertyChanged(nameof(HaRaddrizzamento));
+        OnPropertyChanged(nameof(HaTono));
+        OnPropertyChanged(nameof(HaModifiche));
+    }
 
     private int? _groupId;
     public int? GroupId
@@ -85,8 +114,26 @@ public sealed class PhotoGridItem : INotifyPropertyChanged
     public BitmapImage? Thumbnail
     {
         get => _thumbnail;
-        set { _thumbnail = value; OnPropertyChanged(); }
+        set
+        {
+            _thumbnail = value;
+            OnPropertyChanged();
+
+            var verticale = value is not null && value.PixelHeight > value.PixelWidth;
+            if (verticale == _verticale) return;
+            _verticale = verticale;
+            OnPropertyChanged(nameof(OrientamentoBadge));
+        }
     }
+
+    private bool _verticale;
+
+    /// <summary>
+    /// Badge in griglia (video, GPS, modifiche) fuori dalla foto: in colonna nella banda vuota a sinistra
+    /// di una foto verticale, in riga nella banda in alto di una orizzontale.
+    /// </summary>
+    public Microsoft.UI.Xaml.Controls.Orientation OrientamentoBadge =>
+        _verticale ? Microsoft.UI.Xaml.Controls.Orientation.Vertical : Microsoft.UI.Xaml.Controls.Orientation.Horizontal;
 
     private string _stato = StatoSelezione.None;
     public string Stato

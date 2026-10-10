@@ -96,6 +96,37 @@ public class SuggerimentiRitaglioTests
     }
 
     [Fact]
+    public void RuotaRettangolo_segue_la_stessa_rotazione_dei_pixel()
+    {
+        const int w = 200, h = 120;
+        const double angolo = 9;
+        // Un solo quadratino bianco su nero: dopo PixelOps.Rotate deve cadere nel rettangolo previsto.
+        var bgra = new byte[w * h * 4];
+        for (var y = 30; y < 36; y++)
+            for (var x = 150; x < 156; x++)
+            {
+                var o = (y * w + x) * 4;
+                bgra[o] = bgra[o + 1] = bgra[o + 2] = bgra[o + 3] = 255;
+            }
+
+        var ruotata = PixelOps.Rotate(bgra, w, h, angolo);
+        var (x0, y0, x1, y1) = StraightenGeometry.RuotaRettangolo(w, h, angolo, 150, 30, 156, 36);
+
+        double sx = 0, sy = 0, n = 0;
+        for (var y = 0; y < h; y++)
+            for (var x = 0; x < w; x++)
+            {
+                var v = ruotata[(y * w + x) * 4];
+                if (v < 128) continue;
+                sx += x + 0.5; sy += y + 0.5; n++;
+            }
+
+        Assert.True(n > 0);
+        Assert.InRange(sx / n, x0, x1);
+        Assert.InRange(sy / n, y0, y1);
+    }
+
+    [Fact]
     public void Miniatura_rispetta_lato_massimo_e_proporzioni()
     {
         var bgra = FotoConSoggetto(600, 400, 0, 0, 1, 1);

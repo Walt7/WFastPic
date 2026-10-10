@@ -44,6 +44,40 @@ public class PosizioneManualeTests
     }
 
     [Fact]
+    public void Volti_salvati_restano_finche_il_file_non_cambia()
+    {
+        var (cartella, db, identita) = CreaDbConUnaFoto(null);
+        try
+        {
+            var id = db.GetAllPhotos().Single().Id;
+            Assert.Null(db.GetVolti(id));
+            Assert.Null(db.GetAllPhotos().Single().NumeroVolti);
+
+            db.SalvaVolti(id, [(0.1, 0.2, 0.3, 0.4), (0.5, 0.5, 0.6, 0.7)]);
+            Assert.Equal(2, db.GetVolti(id)!.Count);
+            Assert.Equal(2, db.GetAllPhotos().Single().NumeroVolti);
+
+            // Riapertura senza modifiche: i volti restano.
+            db.SyncScan([new ScannedPhoto(identita, null)]);
+            Assert.Equal(2, db.GetAllPhotos().Single().NumeroVolti);
+
+            // File modificato: va rianalizzato.
+            db.SyncScan([new ScannedPhoto(identita with { LastWriteUtc = identita.LastWriteUtc.AddMinutes(5) }, null)]);
+            Assert.Null(db.GetVolti(id));
+            Assert.Null(db.GetAllPhotos().Single().NumeroVolti);
+
+            // "Nessun volto" è un risultato, non "da analizzare".
+            db.SalvaVolti(id, []);
+            Assert.Equal(0, db.GetAllPhotos().Single().NumeroVolti);
+        }
+        finally
+        {
+            db.Dispose();
+            Directory.Delete(cartella, recursive: true);
+        }
+    }
+
+    [Fact]
     public void Rimuovere_la_posizione_e_una_scelta_che_resta()
     {
         var (cartella, db, identita) = CreaDbConUnaFoto(new GeoCoordinate(40.0, 17.0));
