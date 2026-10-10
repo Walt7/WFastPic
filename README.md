@@ -4,15 +4,33 @@
 
 # WFastPic
 
-**Scegliere e sistemare in fretta centinaia di foto, su Windows.** Versione attuale: **0.9.1**
-([novità](CHANGELOG.md)).
+**L'erede open source di Picasa per Windows: scegliere e sistemare in fretta centinaia di foto.**
+Versione attuale: **0.9.1** · [Scarica](https://github.com/Walt7/WFastPic/releases/latest) ·
+[novità](CHANGELOG.md) · [English below](#english)
 
-WFastPic è il successore open source di Picasa, pensato per le grandi raccolte di foto HEIC (iPhone,
-droni, fotocamere): apri la cartella della vacanza, tieni le migliori con la barra spaziatrice,
+Google ha smesso di sviluppare Picasa nel 2016 e non legge le foto HEIC dei telefoni di oggi. WFastPic ne riprende il modo di lavorare — cartelle per anno, la barra spaziatrice
+per tenere le foto buone, ritocchi con un clic, persone, mappa, export — ed è pensato per le grandi
+raccolte di foto HEIC (iPhone, droni, fotocamere): apri la cartella della vacanza, tieni le migliori,
 scarti le altre, dai una sistemata veloce ed esporti. Tutto da tastiera, senza mai aspettare.
 
 Non è un Lightroom e non è un gestore di file: è lo strumento per passare da 1300 scatti alle 80
 foto da tenere, nel minor numero di gesti possibile.
+
+## Da Picasa a WFastPic
+
+| In Picasa | In WFastPic |
+|---|---|
+| Cartelle raggruppate per anno | Pannello cartelle per anno, con numero di foto e periodo |
+| Stelle e foto "tenute" | `Space` seleziona, `0`–`5` stelle, `Canc` scarta (mai cancellazione irreversibile) |
+| "Ho fortuna" | `U`: contrasto e colore automatici in un colpo |
+| Ritaglia e raddrizza | Ritaglio con proporzioni e ritagli suggeriti, raddrizzamento insieme al ritaglio |
+| Persone (volti con nome) | Riconoscimento dei volti sul tuo PC, nomi validi in tutte le cartelle, "È la stessa persona di…" |
+| Foto sulla mappa | Mappa delle foto e nomi dei luoghi |
+| Esporta | JPEG ridimensionati, filigrana, tag, data e GPS conservati |
+| — | Raffiche riconosciute da sole, foto HEIC, Live Photo, dati dei droni DJI |
+
+**Cosa non c'è (per scelta o non ancora):** collage e proiezioni, album web, riproduzione dei video,
+fotoritocco avanzato (esposizione a curve, maschere). WFastPic non carica le tue foto da nessuna parte.
 
 ## Cosa fa
 
@@ -93,3 +111,32 @@ L'elenco completo è nell'app, sotto "Scorciatoie" nella barra in basso.
 ## Licenza
 
 [MIT](LICENSE): puoi usarlo, modificarlo e ridistribuirlo liberamente, mantenendo l'avviso di copyright.
+
+---
+
+## English
+
+**WFastPic is an open source successor to Google Picasa for Windows** — a fast photo viewer,
+organizer and quick editor for large photo collections, especially **HEIC** photos from iPhones,
+drones and cameras. If you are looking for a **Picasa alternative** or **Picasa replacement** that
+runs on Windows 10/11, this is it.
+
+Open a vacation folder, press `Space` to keep the good shots, `Delete` to reject the rest, fix a few
+photos in one click and export. Everything is keyboard-driven and never makes you wait.
+
+- **Culling:** fast grid with thousands of photos, star ratings, burst detection ("keep this one,
+  reject the rest of the burst"), rejects go to the Recycle Bin or a `Scarti/` folder — never deleted
+  for good by mistake.
+- **Quick fixes (non-destructive):** crop with suggested crops that avoid cutting faces, straighten,
+  rotate/flip, *I'm Feeling Lucky* auto contrast and color, fill light, highlights, shadows, temperature.
+  Originals are never modified.
+- **Finding photos:** folders grouped by year like Picasa, photo map with place names, optional
+  on-device face recognition with names shared across folders.
+- **Export:** JPEG at original or reduced size, watermark, tags, EXIF date and GPS preserved (or removed).
+- **Private:** everything runs on your PC; your photos never leave it.
+
+**Download:** [latest release](https://github.com/Walt7/WFastPic/releases/latest) — unzip and run
+`WFastPic.App.exe` (Windows 10 1809+ or Windows 11, x64). HEIC photos need the HEIF and HEVC extensions
+from the Microsoft Store if Windows does not already have them. The interface is in Italian.
+
+Built with C# and WinUI 3 (Windows App SDK). MIT licensed. Not affiliated with Google.
