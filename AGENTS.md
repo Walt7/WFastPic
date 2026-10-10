@@ -49,6 +49,35 @@ Aggiunte fuori piano, su richiesta esplicita durante lo sviluppo:
   niente navigazione/selezione/scarto, frecce = raddrizza ±0,1° (Shift ±1°); il riquadro trascinato
   si ferma esattamente sul bordo dell'immagine ruotata (`StraightenGeometry.AvvicinaRect`) e
   raddrizzando si adatta sempre al riquadro voluto, quindi tornando verso 0° si riallarga.
+- Viewer a schermo intero (`F11` o pulsante nel pannello): spariscono barra in alto, filmstrip e
+  suggerimenti, restano foto e pannello di modifica; `Esc` esce prima dallo schermo intero.
+- Export stile Picasa: posizione + nome cartella, "dimensioni originali" o "ridimensiona a" N px
+  (slider + valore esatto), qualità a preset, filigrana; opzioni ricordate in `ImpostazioniStore`.
+  Gira in background, annullabile, "Esporta N foto", errori elencati, a fine export apre la cartella.
+  Mai gli scarti; riesportando sostituisce (mai nella cartella delle foto: lì numera `_2`). Decode
+  convertito in sRGB (le HEIC iPhone sono Display P3). **Metadati scritti con query WIC dirette**
+  (`/app1/ifd/...`, rational = UInt64 con numeratore nei 32 bit bassi): i nomi `System.GPS.*`
+  vengono ignorati in silenzio dall'encoder JPEG. Scrive data scatto, GPS (+ altitudine, direzione),
+  tag come XPKeywords; opzione "Rimuovi la posizione GPS".
+- Luoghi: posizione corretta a mano nell'editor (pannello "Luogo" con mini-mappa Leaflet) salvata
+  solo nel sidecar (`gps_manuale`): riscansioni ed EXIF non la sovrascrivono, l'export la usa.
+  Nomi dei luoghi via Nominatim/OpenStreetMap (`RisolutoreLuoghi`: 1 richiesta/s, cache `luoghi`
+  per cella di ~100 m, disattivabile dalla mappa). Dati di ripresa letti su richiesta
+  (`DatiRipresa`): dispositivo e tipo (telefono/drone/fotocamera), altitudine, direzione, per i
+  droni DJI altezza dal decollo e inclinazione gimbal dall'XMP. Altitudine e direzione stanno anche
+  nel sidecar (colonne `altitude`, `direction`).
+- Mappa: raggruppamento automatico (Leaflet.markercluster) in segnaposto a goccia con il numero,
+  miniatura dentro il segnaposto per le foto isolate (pagina servita da host virtuale sulla cartella
+  `.wfastpic`, miniature da `thumbcache/`), freccia della direzione della camera, popup con luogo e
+  dati di ripresa. Riquadri OpenStreetMap / satellite Esri (le basemap CARTO ora chiedono una chiave).
+- Ritagli suggeriti stile Picasa nel pannello di ritaglio (`SuggerimentiRitaglio`, testata): una
+  proposta per proporzione (come la foto, 3:2/4:3, 16:9, 1:1, orientate come la foto) dalla mappa di
+  interesse (gradiente + contrasto colore, immagini integrali su ~128 px) con premio per i terzi;
+  dentro l'immagine raddrizzata. Volti rilevati offline con il `FaceDetector` di Windows
+  (`RilevatoreVolti`): mai tagliati, con aria sopra la testa, composizione sul terzo superiore.
+  Miniature cliccabili, calcolo in background, ricalcolo a slider di raddrizzamento fermo.
+- Griglia divisa per giorni (opzionale, "Per giorni"): vista raggruppata allineata a `_visibili`,
+  che resta l'unico elenco di riferimento.
 
 Non ancora implementato / verificato: nessuna fase residua del piano. Resta da fare solo verifica
 manuale interattiva utente su una cartella reale (drag crop, straighten, export end-to-end) — un
@@ -89,7 +118,7 @@ src/
 ├─ WFastPic.Core.Persistence/   (sidecar SQLite)
 └─ WFastPic.Core.Export/        (bake ricetta + watermark + tag EXIF + encode JPEG — Windows-targeted)
 tests/
-└─ WFastPic.Core.Tests/         (xUnit, 70 test — Library/Selection/Processing)
+└─ WFastPic.Core.Tests/         (xUnit, 108 test — Library/Selection/Processing/Metadata/Export)
 tools/
 ├─ HeicSmokeTest/                (Fase 0, smoke test decoding)
 └─ ScanSmokeTest/
@@ -115,14 +144,14 @@ tutte/selezionate/scarti · `Ctrl+A` seleziona tutte visibili · `Shift+rotella`
 griglia · `Enter` / doppio click apri viewer. Nel Viewer: `←/→` naviga · `Space` seleziona ·
 `Delete` scarta · `0-5` rating · `X` ritaglia (di nuovo = applica) · `L` raddrizza (in ritaglio
 frecce = ±0,1°, Shift ±1°) · `Invio` applica / `Esc` annulla ritaglio · `U` "Ho fortuna" (auto contrasto+colore) ·
-`Ctrl+Z`/`Ctrl+Y` annulla/ripeti · `B` (tenuto premuto) mostra l'originale · `Esc` chiudi. Non introdurre nuovi shortcut senza verificarne il conflitto
+`Ctrl+Z`/`Ctrl+Y` annulla/ripeti · `B` (tenuto premuto) mostra l'originale · `F11` schermo intero · `Esc` chiudi. Non introdurre nuovi shortcut senza verificarne il conflitto
 con questa mappa.
 
 Nota: `Z`/`F` zoom, `R` ruota rigida, `M` riproduci video, `Ctrl+C/V` copia ricetta — presenti nella mappa di design originale ma **non ancora implementati**.
 
 ## Convenzioni per chi implementa
 
-- Test prima o insieme al codice per la logica in `Core.*` (xUnit) — 70 test attuali coprono
+- Test prima o insieme al codice per la logica in `Core.*` (xUnit) — 108 test attuali coprono
   scan/identità, raffiche, selezione, ricetta/crop/rotate/tono/geometria raddrizzamento, ordinamento
   cronologico, riapertura veloce, scarti, concorrenza sidecar, stima avanzamento, zoom/trascinamento viewer.
 - `LibrarySidecarDatabase` è condiviso tra thread UI e coda di scrittura: ogni metodo pubblico nuovo
@@ -132,4 +161,5 @@ Nota: `Z`/`F` zoom, `R` ruota rigida, `M` riproduci video, `Ctrl+C/V` copia rice
 - Pattern ricorrente WinUI: se un evento (wheel, keydown) sparisce perché un controllo figlio
   (ScrollViewer, Slider) lo marca `Handled` prima che arrivi al gestore voluto, usare
   `AddHandler(..., handledEventsToo: true)` sull'antenato giusto invece di attributi XAML.
-- Build: `dotnet build WFastPic.slnx`. Test: `dotnet test tests/WFastPic.Core.Tests`.
+- Build: `dotnet build WFastPic.slnx`. Test: `dotnet test tests/WFastPic.Core.Tests` (progetto test
+  Windows-targeted per provare `Core.Export` end-to-end con WIC).
