@@ -29,8 +29,12 @@ Non è un Lightroom e non è un gestore di file: è lo strumento per passare da 
 foto da tenere, nel minor numero di gesti possibile.
 
 <p align="center">
-  <img src="assets/social-preview.png" width="760" alt="WFastPic: la griglia con le foto selezionate in giallo, le stelle e i filtri">
+  <img src="assets/screenshot-it-griglia.png" width="880" alt="WFastPic: la griglia con le foto selezionate col bordo giallo, le stelle e il pannello cartelle per anno">
 </p>
+<p align="center">
+  <img src="assets/screenshot-it-editor.png" width="880" alt="WFastPic: l'editor con il pannello delle modifiche a sinistra, i dettagli della foto a destra e la striscia delle miniature">
+</p>
+<p align="center"><sub>Foto di esempio con licenza CC0 da Wikimedia Commons (<a href="assets/crediti-foto-screenshot.md">crediti</a>).</sub></p>
 
 ## Perché esiste
 

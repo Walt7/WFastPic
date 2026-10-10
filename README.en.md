@@ -33,8 +33,12 @@ worth keeping, in as few gestures as possible.
 > This page and the changelog are available in both languages.
 
 <p align="center">
-  <img src="assets/social-preview.png" width="760" alt="WFastPic: the grid with selected photos in yellow, star ratings and filters">
+  <img src="assets/screenshot-en-griglia.png" width="880" alt="WFastPic: the grid with selected photos outlined in yellow, star ratings and the folders panel grouped by year">
 </p>
+<p align="center">
+  <img src="assets/screenshot-en-editor.png" width="880" alt="WFastPic: the editor with the edits panel on the left, the photo details on the right and the thumbnail strip">
+</p>
+<p align="center"><sub>Sample photos under CC0 from Wikimedia Commons (<a href="assets/crediti-foto-screenshot.md">credits</a>).</sub></p>
 
 ## Why it exists
 
