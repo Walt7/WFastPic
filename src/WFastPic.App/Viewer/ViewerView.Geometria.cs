@@ -103,7 +103,8 @@ public sealed partial class ViewerView
                 MostraBuffer(tela.Bgra, tela.Larghezza, tela.Altezza);
             }
 
-            ViewerProporzioneToggle.Content = $"Proporzioni: {ProporzioniDisponibili[_proporzioneIndice].Etichetta}";
+            _riquadroVerticale = null; // ogni ritaglio parte orientato come la foto
+            AggiornaEtichettaProporzione();
             ImpostaVisibilitaGeometria(true);
             SincronizzaPannello();
             RichiediRender();
@@ -148,7 +149,7 @@ public sealed partial class ViewerView
     private const string HintViewer =
         "←/→ foto · Space seleziona · Delete scarta · 0-5 rating · rotella zoom, trascina per spostare · X ritaglia · L raddrizza · U ho fortuna · Ctrl+Z/Y annulla/ripeti · B originale · F11 schermo intero · Esc chiudi";
     private const string HintGeometria =
-        "Trascina gli angoli o i lati per ritagliare, trascina dentro per spostare · L / frecce raddrizza · Invio o X applica · Esc annulla";
+        "Trascina gli angoli o i lati per ritagliare, trascina dentro per spostare · L / frecce raddrizza · O riquadro orizzontale/verticale · Invio o X applica · Esc annulla";
 
     private void EsciDaGeometria()
     {
@@ -255,12 +256,38 @@ public sealed partial class ViewerView
         Canvas.SetTop(m, y - DimensioneManiglia / 2);
     }
 
-    // Proporzione scelta, orientata come la foto (4:3 su una foto verticale diventa 3:4).
+    // Riquadro verticale (3:4) o orizzontale (4:3): null = come la foto. Si riparte da null a ogni ritaglio.
+    private bool? _riquadroVerticale;
+
+    private bool RiquadroVerticale => _riquadroVerticale ?? _viewerImgH > _viewerImgW;
+
+    // Proporzione scelta, orientata come il riquadro (4:3 su una foto verticale diventa 3:4).
     private double? RapportoEffettivo()
     {
         var r = ProporzioneCorrente;
         if (r is not double rapporto) return null;
-        return _viewerImgH > _viewerImgW ? 1 / rapporto : rapporto;
+        return RiquadroVerticale ? 1 / rapporto : rapporto;
+    }
+
+    /// <summary>"Proporzioni: 3:4" quando il riquadro è verticale; il pulsante per girarlo serve solo se non è quadrato.</summary>
+    private void AggiornaEtichettaProporzione()
+    {
+        var etichetta = ProporzioniDisponibili[_proporzioneIndice].Etichetta;
+        var parti = etichetta.Split(':');
+        if (RiquadroVerticale && parti.Length == 2) etichetta = $"{parti[1]}:{parti[0]}";
+        else if (etichetta == "originale" && RiquadroVerticale != _viewerImgH > _viewerImgW) etichetta = "originale, girata";
+
+        ViewerProporzioneToggle.Content = $"Proporzioni: {etichetta}";
+        ViewerOrientamentoRiquadroButton.IsEnabled = ProporzioneCorrente is double rapporto && Math.Abs(rapporto - 1) > 0.001;
+    }
+
+    private void ViewerOrientamentoRiquadro_Click(object sender, RoutedEventArgs e)
+    {
+        if (!_geometriaAttiva || ProporzioneCorrente is null) return;
+        _riquadroVerticale = !RiquadroVerticale;
+        AggiornaEtichettaProporzione();
+        RiadattaRiquadroAllaProporzione();
+        ViewerOverlay.Focus(FocusState.Programmatic);
     }
 
     private void Crop_PointerPressed(object sender, PointerRoutedEventArgs e)
@@ -368,10 +395,15 @@ public sealed partial class ViewerView
     private void ViewerProporzioneToggle_Click(object sender, RoutedEventArgs e)
     {
         _proporzioneIndice = (_proporzioneIndice + 1) % ProporzioniDisponibili.Length;
-        ViewerProporzioneToggle.Content = $"Proporzioni: {ProporzioniDisponibili[_proporzioneIndice].Etichetta}";
+        AggiornaEtichettaProporzione();
+        RiadattaRiquadroAllaProporzione();
+    }
+
+    // Riadatta subito il riquadro alla proporzione (e all'orientamento) scelti, a parità di area e attorno al centro.
+    private void RiadattaRiquadroAllaProporzione()
+    {
         if (!_geometriaAttiva || RapportoEffettivo() is not double r) return;
 
-        // Riadatta subito il riquadro alla nuova proporzione, a parita di area e attorno al centro.
         var (x0, y0, x1, y1) = CropPx();
         double W = _viewerImgW, H = _viewerImgH;
         var cx = (x0 + x1) / 2;

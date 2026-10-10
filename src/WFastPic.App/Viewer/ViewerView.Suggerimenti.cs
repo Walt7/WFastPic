@@ -152,7 +152,9 @@ public sealed partial class ViewerView
         var indice = Enumerable.Range(0, ProporzioniDisponibili.Length)
             .FirstOrDefault(i => RapportoProporzione(i) is double v && Math.Abs(v - orizzontale) < 0.01, 0);
         _proporzioneIndice = indice;
-        ViewerProporzioneToggle.Content = $"Proporzioni: {ProporzioniDisponibili[_proporzioneIndice].Etichetta}";
+        // Il riquadro prende l'orientamento del suggerimento (es. 3:4 proposto su una foto orizzontale).
+        _riquadroVerticale = Math.Abs(r.Rapporto - 1) < 0.01 ? null : r.Rapporto < 1;
+        AggiornaEtichettaProporzione();
 
         AggiornaOverlayCrop();
         ViewerOverlay.Focus(FocusState.Programmatic);

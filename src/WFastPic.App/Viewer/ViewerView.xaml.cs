@@ -1037,6 +1037,12 @@ public sealed partial class ViewerView : UserControl
                 ViewerStraightenSlider.Focus(FocusState.Programmatic);
                 break;
 
+            case VirtualKey.O:
+                // Riquadro orizzontale ↔ verticale (4:3 ↔ 3:4), come il pulsante accanto a Proporzioni.
+                ViewerOrientamentoRiquadro_Click(this, new RoutedEventArgs());
+                e.Handled = true;
+                break;
+
             case VirtualKey.Space:
                 // Seleziona/deseleziona resta disponibile anche in ritaglio: non cambia foto, quindi non
                 // interferisce con la geometria in corso (a differenza di navigazione e scarto).

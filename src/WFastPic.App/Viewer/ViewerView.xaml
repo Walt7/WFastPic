@@ -129,7 +129,27 @@
                     <!-- Modalita geometria: ritaglia + raddrizza con Applica/Annulla. -->
                     <StackPanel x:Name="PannelloGeometria" Spacing="8" Visibility="Collapsed">
                         <TextBlock Text="Ritaglia e raddrizza" FontWeight="SemiBold" />
-                        <Button x:Name="ViewerProporzioneToggle" Content="Proporzioni: libera" Click="ViewerProporzioneToggle_Click" HorizontalAlignment="Stretch" IsTabStop="False" AllowFocusOnInteraction="False" />
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                            <Button x:Name="ViewerProporzioneToggle" Content="Proporzioni: libera" Click="ViewerProporzioneToggle_Click" HorizontalAlignment="Stretch" IsTabStop="False" AllowFocusOnInteraction="False" />
+                            <!-- 4:3 ↔ 3:4: il riquadro si orienta da solo come la foto, qui lo si gira a mano. -->
+                            <Button
+                                x:Name="ViewerOrientamentoRiquadroButton"
+                                Grid.Column="1"
+                                Padding="10,0"
+                                VerticalAlignment="Stretch"
+                                Click="ViewerOrientamentoRiquadro_Click"
+                                IsEnabled="False"
+                                IsTabStop="False"
+                                AllowFocusOnInteraction="False"
+                                ToolTipService.ToolTip="Orizzontale ↔ verticale, es. 4:3 ↔ 3:4 (O)"
+                                AutomationProperties.Name="Gira il riquadro: orizzontale o verticale">
+                                <FontIcon Glyph="&#xE8AB;" FontSize="14" RenderTransformOrigin="0.5,0.5">
+                                    <FontIcon.RenderTransform>
+                                        <RotateTransform Angle="90" />
+                                    </FontIcon.RenderTransform>
+                                </FontIcon>
+                            </Button>
+                        </Grid>
                         <TextBlock Text="Raddrizza (L)" Foreground="{StaticResource TestoSecondarioBrush}" FontSize="12" Margin="0,4,0,0" />
                         <Grid ColumnDefinitions="*,48">
                             <Slider

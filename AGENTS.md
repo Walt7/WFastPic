@@ -214,7 +214,7 @@ assets/                          (icon.ico, logo.png)
 tutte/selezionate/scarti · `Ctrl+A` seleziona tutte visibili · `Shift+rotella` dimensione cella
 griglia · `Enter` / doppio click apri viewer. Nel Viewer: `←/→` naviga · `Space` seleziona ·
 `Delete` scarta · `0-5` rating · `X` ritaglia (di nuovo = applica) · `L` raddrizza (in ritaglio
-frecce = ±0,1°, Shift ±1°) · `Invio` applica / `Esc` annulla ritaglio · `U` "Ho fortuna" (auto contrasto+colore) · `R` / `Shift+R` gira di 90° a destra / sinistra ·
+frecce = ±0,1°, Shift ±1°) · `Invio` applica / `Esc` annulla ritaglio · `U` "Ho fortuna" (auto contrasto+colore) · `R` / `Shift+R` gira di 90° a destra / sinistra · in ritaglio `O` riquadro orizzontale ↔ verticale ·
 `Ctrl+Z`/`Ctrl+Y` annulla/ripeti · `B` (tenuto premuto) mostra l'originale · `F11` schermo intero · `Esc` chiudi. Non introdurre nuovi shortcut senza verificarne il conflitto
 con questa mappa.
 
