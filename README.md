@@ -4,7 +4,7 @@
 
 # WFastPic
 
-**Scegliere e sistemare in fretta centinaia di foto, su Windows.** Versione attuale: **0.9**
+**Scegliere e sistemare in fretta centinaia di foto, su Windows.** Versione attuale: **0.9.1**
 ([novità](CHANGELOG.md)).
 
 WFastPic è il successore open source di Picasa, pensato per le grandi raccolte di foto HEIC (iPhone,

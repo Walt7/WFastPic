@@ -3,6 +3,29 @@
 Le novità di WFastPic, versione per versione. La più recente è in cima.
 I dettagli tecnici (cause dei bug, file toccati) sono in [`doc/correzioni-e-novita.md`](doc/correzioni-e-novita.md).
 
+## [0.9.1] — 2026-10-10
+
+### Novità
+- **Export più veloce**: le foto si elaborano 4 alla volta (3 alle dimensioni originali) invece che una
+  per volta: circa il doppio più veloce a 2048 px e fino a 3 volte alle dimensioni originali.
+- **Tempo previsto nell'export**: "N di M · circa X rimanenti", e a fine export quanto ci è voluto.
+- **Persone, "È la stessa persona di…"** con le faccine: avatar tondo grande, nome e numero di foto per
+  ogni persona, al posto di un menu di sole parole. Dopo l'unione, l'elenco e le foto sotto si
+  aggiornano: se stavi guardando quel gruppo, vedi la persona che resta con tutte le sue foto.
+- **Ritaglio e raddrizzamento insieme**, come in Picasa: durante il ritaglio il cursore per raddrizzare
+  sta sotto la foto (più largo e preciso, con le tacche ogni 5° e "0°" per toglierlo).
+- **Ritaglio orizzontale/verticale**: il riquadro si gira (4:3 ↔ 3:4, 16:9 ↔ 9:16) col pulsante
+  accanto a "Proporzioni" o col tasto `O`.
+- **Informazioni su WFastPic** (in basso a destra): versione, licenza, link al progetto e alle novità,
+  crediti, cartella dei dati dell'app.
+- Licenza MIT inclusa nel repository.
+
+### Correzioni
+- **Foto verticali stirate**: le foto con orientamento EXIF a 90° (tipiche dei telefoni, in JPEG)
+  comparivano allargate nel viewer, nell'editor e nell'export. Ora hanno le proporzioni giuste.
+- Persone: l'analisi dei volti lavorava su quelle stesse immagini stirate; per riconoscimenti più
+  fedeli su foto così, usa "Rianalizza le persone".
+
 ## [0.9] — 2026-10-10
 
 ### Novità
@@ -31,8 +54,6 @@ I dettagli tecnici (cause dei bug, file toccati) sono in [`doc/correzioni-e-novi
   il filtro non trova niente.
 - Conteggi (foto, selezionate, scarti) nella barra in basso; tutte le scorciatoie in un riquadro
   "Scorciatoie".
-- **Informazioni su WFastPic** (in basso a destra): versione, licenza, link al progetto e alle novità,
-  crediti, cartella dei dati dell'app.
 - **Si riprende da dove si era rimasti**: al riavvio si torna sull'ultima foto guardata, nel viewer
   se era aperto.
 
@@ -44,10 +65,6 @@ I dettagli tecnici (cause dei bug, file toccati) sono in [`doc/correzioni-e-novi
 
 **Altro**
 - Proporzione "originale" (quelle della foto) tra i ritagli.
-- Ritaglio e raddrizzamento insieme, come in Picasa: durante il ritaglio il cursore per raddrizzare
-  sta sotto la foto (più largo e preciso, con le tacche ogni 5° e "0°" per toglierlo).
-- Ritaglio: il riquadro si può girare da orizzontale a verticale (4:3 ↔ 3:4, 16:9 ↔ 9:16) col
-  pulsante accanto a "Proporzioni" o col tasto `O`.
 - Pannello cartelle nascosto mentre si usa l'editor, ripristinato all'uscita.
 
 ### Correzioni

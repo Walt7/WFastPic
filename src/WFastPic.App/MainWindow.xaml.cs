@@ -49,7 +49,7 @@ public partial class MainWindow : Window
     private int _miniatureTotali;
     private int _richiestaCaricamentoCartella;
 
-    /// <summary>"v. 0.9" dalla &lt;Version&gt; del progetto (0.9.0): basta cambiarla lì (e aggiungere la voce in CHANGELOG.md).</summary>
+    /// <summary>"v. 0.9.1" dalla &lt;Version&gt; del progetto (0.9.1): basta cambiarla lì (e aggiungere la voce in CHANGELOG.md).</summary>
     private static string VersioneApp
     {
         get

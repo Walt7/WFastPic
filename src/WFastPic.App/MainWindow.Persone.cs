@@ -1,5 +1,6 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
@@ -54,6 +55,7 @@ public partial class MainWindow
 {
     private ArchivioPersone? _archivioPersone;
     private (string Nome, HashSet<long> Foto)? _filtroPersona;
+    private long? _filtroPersonaId; // null = gruppo senza nome
     private int _richiestaPersone;
     private List<PersonaUi> _personeCorrenti = [];
     private (LibrarySidecarDatabase Db, Func<Task> Azione)? _annullaPersone;
@@ -141,6 +143,7 @@ public partial class MainWindow
 
         _personeCorrenti = elenco.Select(e => e.Persona).ToList();
         PersoneList.ItemsSource = _personeCorrenti;
+        RiallineaFiltroPersona();
         var analizzate = _tutte.Count(f => f.PersoneAnalizzate);
         var quiQualcuno = elenco.Any(e => e.Persona.Foto.Count > 0);
         PersoneStatoText.Text = analizzate < _tutte.Count
@@ -297,6 +300,7 @@ public partial class MainWindow
     private void FiltraPersona(PersonaUi persona)
     {
         _filtroPersona = (persona.SenzaNome ? "Senza nome" : persona.Nome, persona.Foto);
+        _filtroPersonaId = persona.PersonaId;
         FiltroPersonaText.Text = _filtroPersona.Value.Nome;
         FiltroPersonaButton.Visibility = Visibility.Visible;
         ApplicaFiltro();
@@ -308,8 +312,36 @@ public partial class MainWindow
     private void TogliFiltroPersona()
     {
         _filtroPersona = null;
+        _filtroPersonaId = null;
         FiltroPersonaButton.Visibility = Visibility.Collapsed;
         ApplicaFiltro();
+    }
+
+    /// <summary>
+    /// Dopo una riassegnazione (unione, nome dato, annulla) le foto sotto restano quelle della persona che
+    /// si stava guardando, con l'elenco aggiornato: il filtro segue la persona, non l'insieme di foto di prima.
+    /// Se la persona non esiste più il filtro si toglie.
+    /// </summary>
+    private void RiallineaFiltroPersona()
+    {
+        if (_filtroPersona is null || _filtroPersonaId is not long id) return;
+
+        var persona = _personeCorrenti.FirstOrDefault(p => p.PersonaId == id);
+        if (persona is null) { TogliFiltroPersona(); return; }
+
+        _filtroPersona = (persona.Nome, persona.Foto);
+        FiltroPersonaText.Text = persona.Nome;
+        ApplicaFiltro();
+    }
+
+    /// <summary>Il filtro mostrava questo gruppo (stesse foto, o stessa persona): da ora segue la persona che lo ha assorbito.</summary>
+    private void SeguiFiltroSe(PersonaUi gruppo, long nuovaPersonaId, string nuovoNome)
+    {
+        if (_filtroPersona is not { } f) return;
+        var eraQuesto = _filtroPersonaId is null ? gruppo.SenzaNome && f.Foto.SetEquals(gruppo.Foto) : _filtroPersonaId == gruppo.PersonaId;
+        if (!eraQuesto) return;
+        _filtroPersonaId = nuovaPersonaId;
+        _filtroPersona = (nuovoNome, f.Foto);
     }
 
     private bool CorrispondeAllaPersona(PhotoGridItem foto) => _filtroPersona is not { } f || f.Foto.Contains(foto.Id);
@@ -345,28 +377,69 @@ public partial class MainWindow
         var altre = _personeCorrenti.Where(p => p != persona).ToList();
         if (altre.Count > 0)
         {
-            var unisci = new MenuFlyoutSubItem { Text = "È la stessa persona di…", Icon = new FontIcon { Glyph = "" } };
-            foreach (var altra in altre) Voce(unisci.Items, $"{altra.Nome} · {altra.Dettaglio}", "", () => _ = UnisciPersoneAsync(persona, altra));
-            menu.Items.Add(unisci);
-        }
-
-        if (!persona.SenzaNome)
-        {
-            if (persona.AltreCartelle.Count > 0)
-            {
-                var apri = new MenuFlyoutSubItem { Text = "Apri la cartella", Icon = new FontIcon { Glyph = "" } };
-                foreach (var voce in VociCartelleDellaPersona(persona)) apri.Items.Add(voce);
-                menu.Items.Add(apri);
-            }
-
             menu.Items.Add(new MenuFlyoutSeparator());
-            if (persona.Volti.Count > 0)
-                Voce(menu.Items, "Togli il nome da questi volti", "", () => _ = AssegnaEAggiornaAsync(persona.Volti, null, StatoPersona.Nessuno));
-            Voce(menu.Items, "Elimina la persona…", "", () => _ = EliminaPersonaAsync(persona));
+            // Posizione relativa alla lista (l'elemento cliccato può essere riciclato a menu chiuso).
+            var posizione = e.GetPosition(PersoneList);
+            Voce(menu.Items, "È la stessa persona di…", "\uE71B", () => MostraSelettoreUnione(persona, altre, posizione));
         }
 
         menu.ShowAt(e.OriginalSource as FrameworkElement, e.GetPosition(e.OriginalSource as UIElement));
         e.Handled = true;
+    }
+
+    /// <summary>
+    /// Elenco con le faccine (avatar tondo, nome, dettaglio) per scegliere con chi unire: nel sottomenu
+    /// la voce può avere solo un'icona 16 px, troppo piccola per riconoscere un volto.
+    /// </summary>
+    private void MostraSelettoreUnione(PersonaUi persona, List<PersonaUi> altre, Windows.Foundation.Point posizione)
+    {
+        var flyout = new Flyout();
+        var elenco = new ListView
+        {
+            SelectionMode = ListViewSelectionMode.None,
+            IsItemClickEnabled = true,
+            MaxHeight = 380,
+            MinWidth = 280,
+        };
+
+        foreach (var altra in altre)
+        {
+            var avatar = new Border
+            {
+                Width = 44, Height = 44, CornerRadius = new CornerRadius(22),
+                Background = new SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(255, 0x2A, 0x2A, 0x2A)),
+                Child = new Image { Source = altra.Avatar, Stretch = Stretch.UniformToFill },
+            };
+            var testi = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Spacing = 1 };
+            testi.Children.Add(new TextBlock { Text = altra.Nome, FontSize = 14 });
+            testi.Children.Add(new TextBlock
+            {
+                Text = altra.Dettaglio, FontSize = 12,
+                Foreground = new SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(255, 0x99, 0x99, 0x99)),
+            });
+
+            var riga = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12, Padding = new Thickness(0, 2, 0, 2), Tag = altra };
+            riga.Children.Add(avatar);
+            riga.Children.Add(testi);
+            elenco.Items.Add(riga);
+        }
+
+        elenco.ItemClick += (_, args) =>
+        {
+            if (args.ClickedItem is not FrameworkElement { Tag: PersonaUi scelta }) return;
+            flyout.Hide();
+            _ = UnisciPersoneAsync(persona, scelta);
+        };
+
+        var contenuto = new StackPanel { Spacing = 8 };
+        contenuto.Children.Add(new TextBlock
+        {
+            Text = persona.SenzaNome ? "Questo gruppo è la stessa persona di…" : $"«{persona.Nome}» è la stessa persona di…",
+            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+        });
+        contenuto.Children.Add(elenco);
+        flyout.Content = contenuto;
+        flyout.ShowAt(PersoneList, new FlyoutShowOptions { Position = posizione });
     }
 
     private async Task DaiNomeAsync(PersonaUi persona, string? nomeAttuale)
@@ -433,6 +506,7 @@ public partial class MainWindow
         if (_selectionManager is not null) await _selectionManager.SvuotaAsync();
         var voltiPrima = await Task.Run(() => FotografaVolti(dbCorrente));
         AggiungiCampioni(nuovaId, persona.Impronte);
+        SeguiFiltroSe(persona, nuovaId, nome);
         await AssegnaEAggiornaAsync(persona.Volti, nuovaId, StatoPersona.Confermato);
 
         ImpostaAnnulla(dbCorrente, $"Nome «{nome}» dato a {persona.Volti.Count} volti", async () =>
@@ -530,6 +604,7 @@ public partial class MainWindow
             var voltiPrima = await Task.Run(() => FotografaVolti(db));
 
             AggiungiCampioni(id, senzaNome.Impronte);
+            SeguiFiltroSe(senzaNome, id, conNome.Nome);
             await AssegnaEAggiornaAsync(senzaNome.Volti, id, StatoPersona.Confermato);
             ImpostaAnnulla(db, $"Gruppo senza nome unito a «{conNome.Nome}»", async () =>
             {
@@ -575,7 +650,7 @@ public partial class MainWindow
             campioniTieni.Select(Impronte.DaByte).ToList(), campioniAssorbita.Concat(assorbita.Impronte));
         Archivio.ImpostaCampioni(tieniId, uniti.Select(Impronte.InByte).ToList());
         Archivio.Unisci(assorbitaId, tieniId);
-        if (_filtroPersona is { } f && f.Nome == assorbita.Nome) TogliFiltroPersona();
+        SeguiFiltroSe(assorbita, tieniId, tieniNome);
 
         ImpostaAnnulla(db, $"«{assorbita.Nome}» unita a «{tieniNome}»", () =>
         {

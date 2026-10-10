@@ -123,6 +123,14 @@ Tasto destro su una persona o un gruppo nel pannello Persone → **È la stessa 
 - I volti nei sidecar delle cartelle non vengono riscritti: l'alias si risolve in lettura
   (`CostruisciElencoPersone`), quindi l'unione vale subito ovunque e si annulla con una sola scrittura.
 - Test: `Archivio_persone_unione_reversibile` (catene, circolarità, annulla). Suite: 152 test.
+- **Selettore con le faccine:** la voce non apre più un sottomenu (un `MenuFlyoutItem` ha solo un'icona
+  16 px, troppo piccola per riconoscere un volto) ma un riquadro con avatar tondo (44 px), nome e dettaglio
+  di ogni altra persona. `MostraSelettoreUnione`.
+- **Le foto sotto seguono la riassegnazione:** il filtro per persona ora ricorda la persona (`_filtroPersonaId`),
+  non solo l'insieme di foto. Dopo un'unione, un nome dato a un gruppo senza nome o un Annulla,
+  `RiallineaFiltroPersona` aggiorna elenco e griglia: se si stava guardando il gruppo assorbito, il filtro
+  passa alla persona che resta, con le foto riunite (prima il filtro veniva tolto); se la persona non esiste
+  più, si toglie.
 
 ### Integrazione con l'elenco Persone a righe (sviluppato in parallelo)
 Due sessioni hanno sviluppato insieme il pannello Persone; nell'integrazione:
