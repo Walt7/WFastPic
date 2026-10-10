@@ -17,6 +17,21 @@ public sealed record Impostazioni(int DimensioneCellaGriglia = 160)
 
     /// <summary>Pannello cartelle a sinistra: aperto di default, come in Picasa.</summary>
     public bool PannelloCartelleAperto { get; init; } = true;
+
+    /// <summary>Colonne del viewer: modifiche (sinistra) e dettagli (destra).</summary>
+    public bool ViewerPannelloModifiche { get; init; } = true;
+
+    public bool ViewerPannelloDettagli { get; init; } = true;
+
+    /// <summary>
+    /// Dove si era rimasti: all'avvio si riapre l'ultima cartella (la prima delle recenti) e, se è la
+    /// stessa, si torna su questa foto, nel viewer se era aperto.
+    /// </summary>
+    public string? UltimaCartella { get; init; }
+
+    public string? UltimaFoto { get; init; }
+
+    public bool UltimaFotoNelViewer { get; init; }
 }
 
 /// <summary>

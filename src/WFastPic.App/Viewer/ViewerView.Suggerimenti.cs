@@ -33,7 +33,7 @@ public sealed partial class ViewerView
         var originale = _viewerPixelOriginali;
         if (originale is null || !_geometriaAttiva) return;
 
-        var (w, h) = (_viewerPixelWidth, _viewerPixelHeight);
+        var (wo, ho) = (_viewerPixelWidth, _viewerPixelHeight);
         var angolo = Math.Round(ViewerStraightenSlider.Value, 1);
         var tono = _ricettaCorrente with { CropX = 0, CropY = 0, CropWidth = 1, CropHeight = 1, StraightenAngleDegrees = 0 };
         var foto = _fotoRicetta;
@@ -45,7 +45,9 @@ public sealed partial class ViewerView
         {
             var risultato = await Task.Run(async () =>
             {
-                var tela = angolo != 0 ? PixelOps.Rotate(originale, w, h, angolo) : originale;
+                // Ritagli proposti sulla foto già girata/specchiata, come quelli fatti a mano.
+                var (orientata, w, h) = Orientamento.Applica(originale, wo, ho, tono);
+                var tela = angolo != 0 ? PixelOps.Rotate(orientata, w, h, angolo) : orientata;
                 if (tono.HasTone)
                 {
                     if (ReferenceEquals(tela, originale)) tela = (byte[])originale.Clone();
@@ -61,11 +63,13 @@ public sealed partial class ViewerView
                 }
                 if (volti is null)
                 {
-                    volti = await RilevatoreVolti.RilevaAsync(originale, w, h);
+                    // Sull'originale: i volti salvati nel sidecar sono sempre in coordinate del file.
+                    volti = await RilevatoreVolti.RilevaAsync(originale, wo, ho);
                     if (foto is not null) manager?.SalvaVolti(foto.Id, volti);
                 }
 
                 var zone = volti
+                    .Select(v => Orientamento.TrasformaRettangolo(v.X0, v.Y0, v.X1, v.Y1, tono))
                     .Select(v => StraightenGeometry.RuotaRettangolo(w, h, angolo, v.X0 * w, v.Y0 * h, v.X1 * w, v.Y1 * h))
                     .Select(r => new ZonaImportante(r.X0 / w, r.Y0 / h, r.X1 / w, r.Y1 / h))
                     .ToList();

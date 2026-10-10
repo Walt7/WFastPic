@@ -112,7 +112,9 @@ Aggiunte fuori piano, su richiesta esplicita durante lo sviluppo:
   nome o un'unione il pannello offre "Annulla". Solo i volti di persone eliminate tornano senza nome
   nel sidecar all'apertura della cartella (`SostituisciPersona`). Dettagli in `doc/correzioni-e-novita.md`.
   Senza l'opzione resta il rilevatore di Windows (solo volti, per ritagli e filtro "Con volti").
-- Proporzioni del ritaglio: anche "originale" (quelle della foto).- Versione dell'app nel `<Version>` del csproj, mostrata nel titolo della finestra (v0.8).
+- Proporzioni del ritaglio: anche "originale" (quelle della foto).
+- Versione dell'app nel `<Version>` del csproj, mostrata nel titolo della finestra ("v. 0.9");
+  novità di ogni versione in `CHANGELOG.md`.
 - Griglia divisa per giorni (opzionale, "Per giorni"): vista raggruppata allineata a `_visibili`,
   che resta l'unico elenco di riferimento.
 - Aspetto Windows 11: tema scuro fisso (`App.xaml`, palette e stili `BarraButtonStyle` condivisi),
@@ -123,6 +125,28 @@ Aggiunte fuori piano, su richiesta esplicita durante lo sviluppo:
   scorciatoie in un flyout nella barra in basso. Viewer: barra "← Griglia · nome N di M · zoom/griglia",
   editor su card alta quanto il viewer (schede a segmenti, pulsanti con icona e scorciatoia), filmstrip
   e suggerimenti nella colonna della foto, così la miniatura corrente sta sotto il centro della foto.
+- Gira di 90° e specchia (`Orientamento`, testato): `RotationDegrees` + `FlipHorizontal` nella ricetta,
+  primo passo di `RecipeApplier` (ritaglio e raddrizzamento sono sulla foto già girata); girando una
+  foto già ritagliata il riquadro gira con lei, specchiando si inverte anche il raddrizzamento.
+  Miniature girate con RenderTransform. Pulsanti nel pannello, `R` / `Shift+R`.
+- Viewer a tre colonne: modifiche a sinistra, dettagli a destra (giorno della settimana, data, ora,
+  file, raffica, luogo e mini-mappa), entrambe comprimibili e ricordate. Foto della stessa raffica in
+  piccolo sopra la foto se orizzontale, a fianco se verticale (`ViewerView.Dettagli.cs`).
+- Scorrimento veloce nel viewer: miniatura ingrandita come segnaposto finché la preview non è pronta;
+  precaricamento di 5 foto nella direzione di marcia + 1 dietro (max 2 decode in parallelo, cache 10);
+  un decode in corso non viene mai ripetuto per la stessa foto (`_decodeInCorso`).
+- All'avvio si torna sull'ultima foto guardata, nel viewer se era aperto (`UltimaCartella`/`UltimaFoto`).
+- Gira di 90° e specchia (`Orientamento`, testato): `RotationDegrees` + `FlipHorizontal` nella ricetta,
+  primo passo di `RecipeApplier` (ritaglio e raddrizzamento sono sulla foto già girata); girando una
+  foto già ritagliata il riquadro gira con lei, specchiando si inverte anche il raddrizzamento.
+  Miniature girate con RenderTransform. Pulsanti nel pannello, `R` / `Shift+R`.
+- Viewer a tre colonne: modifiche a sinistra, dettagli a destra (giorno della settimana, data, ora,
+  file, raffica, luogo e mini-mappa), entrambe comprimibili e ricordate. Foto della stessa raffica in
+  piccolo sopra la foto se orizzontale, a fianco se verticale (`ViewerView.Dettagli.cs`).
+- Scorrimento veloce nel viewer: miniatura ingrandita come segnaposto finché la preview non è pronta;
+  precaricamento di 5 foto nella direzione di marcia + 1 dietro (max 2 decode in parallelo, cache 10);
+  un decode in corso non viene mai ripetuto per la stessa foto (`_decodeInCorso`).
+- Allavvio
 
 Non ancora implementato / verificato: nessuna fase residua del piano. Resta da fare solo verifica
 manuale interattiva utente su una cartella reale (drag crop, straighten, export end-to-end) — un
@@ -165,7 +189,7 @@ src/
 ├─ WFastPic.Core.Persistence/   (sidecar SQLite)
 └─ WFastPic.Core.Export/        (bake ricetta + watermark + tag EXIF + encode JPEG — Windows-targeted)
 tests/
-└─ WFastPic.Core.Tests/         (xUnit, 138 test — Library/Selection/Processing/Metadata/Export)
+└─ WFastPic.Core.Tests/         (xUnit, 147 test — Library/Selection/Processing/Metadata/Export)
 tools/
 ├─ HeicSmokeTest/                (Fase 0, smoke test decoding)
 └─ ScanSmokeTest/
@@ -190,11 +214,11 @@ assets/                          (icon.ico, logo.png)
 tutte/selezionate/scarti · `Ctrl+A` seleziona tutte visibili · `Shift+rotella` dimensione cella
 griglia · `Enter` / doppio click apri viewer. Nel Viewer: `←/→` naviga · `Space` seleziona ·
 `Delete` scarta · `0-5` rating · `X` ritaglia (di nuovo = applica) · `L` raddrizza (in ritaglio
-frecce = ±0,1°, Shift ±1°) · `Invio` applica / `Esc` annulla ritaglio · `U` "Ho fortuna" (auto contrasto+colore) ·
+frecce = ±0,1°, Shift ±1°) · `Invio` applica / `Esc` annulla ritaglio · `U` "Ho fortuna" (auto contrasto+colore) · `R` / `Shift+R` gira di 90° a destra / sinistra ·
 `Ctrl+Z`/`Ctrl+Y` annulla/ripeti · `B` (tenuto premuto) mostra l'originale · `F11` schermo intero · `Esc` chiudi. Non introdurre nuovi shortcut senza verificarne il conflitto
 con questa mappa.
 
-Nota: `Z`/`F` zoom, `R` ruota rigida, `M` riproduci video, `Ctrl+C/V` copia ricetta — presenti nella mappa di design originale ma **non ancora implementati**.
+Nota: `Z`/`F` zoom, `M` riproduci video, `Ctrl+C/V` copia ricetta — presenti nella mappa di design originale ma **non ancora implementati**.
 
 ## Convenzioni per chi implementa
 
@@ -203,7 +227,7 @@ Nota: `Z`/`F` zoom, `R` ruota rigida, `M` riproduci video, `Ctrl+C/V` copia rice
   `IViewerHost`; la finestra lo usa con `Viewer.Apri/Chiudi/IsAperto/SalvaRicettaCorrente` e l'evento
   `Chiuso`. Una nuova dipendenza va aggiunta all'interfaccia, non aggirata.
 
-- Test prima o insieme al codice per la logica in `Core.*` (xUnit) — 138 test attuali coprono
+- Test prima o insieme al codice per la logica in `Core.*` (xUnit) — 147 test attuali coprono
   scan/identità, raffiche, selezione, ricetta/crop/rotate/tono/geometria raddrizzamento, ordinamento
   cronologico, riapertura veloce, scarti, concorrenza sidecar, stima avanzamento, zoom/trascinamento viewer.
 - `LibrarySidecarDatabase` è condiviso tra thread UI e coda di scrittura: ogni metodo pubblico nuovo

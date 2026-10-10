@@ -33,6 +33,9 @@ public sealed partial class ViewerView : UserControl
 
     internal bool IsAperto => _viewerAperto;
 
+    /// <summary>Foto in osservazione (per riprendere da qui al prossimo avvio).</summary>
+    internal PhotoGridItem? FotoCorrente => _fotoViewerCorrente;
+
     public ViewerView()
     {
         InitializeComponent();
@@ -71,8 +74,16 @@ public sealed partial class ViewerView : UserControl
     // aspetta il decode HEIC ogni volta: il vicino e' gia' pronto quando ci si arriva.
     private readonly Dictionary<string, (byte[] Pixel, int Larghezza, int Altezza)> _previewCache = new();
     private readonly List<string> _previewCacheOrdine = new();
-    private readonly HashSet<string> _prefetchInCorso = new();
-    private const int PreviewCacheMax = 6;
+    private readonly Dictionary<string, Task<(byte[] Pixel, int Larghezza, int Altezza)>> _decodeInCorso = new();
+    private readonly List<string> _codaPrecarica = new();
+    private int _precaricheAttive;
+    private int _direzioneNavigazione = 1;
+
+    // 5 avanti + 1 indietro + corrente stanno comodi in 10 (~12 MB l'una a 2048 px).
+    private const int PreviewCacheMax = 10;
+    private const int PrecaricaAvanti = 5;
+    private const int PrecaricaIndietro = 1;
+    private const int PrecaricheParallele = 2;
 
     internal void Inizializza(IViewerHost host)
     {
@@ -153,6 +164,12 @@ public sealed partial class ViewerView : UserControl
         if (_geometriaAttiva) EsciDaGeometria();
         SalvaRicettaCorrente();
 
+        // Direzione di marcia (frecce, filmstrip o raffica): il precaricamento guarda avanti da quella parte.
+        if (_fotoViewerCorrente is { } precedente && precedente != foto)
+        {
+            var (da, a) = (Host.Visibili.IndexOf(precedente), Host.Visibili.IndexOf(foto));
+            if (da >= 0 && a >= 0) _direzioneNavigazione = Math.Sign(a - da);
+        }
         _fotoViewerCorrente = foto;
         _mostraOriginale = false;
         _gestoInCorso = false;
@@ -161,7 +178,16 @@ public sealed partial class ViewerView : UserControl
         // l'evidenziazione segue il tasto invece di inseguire l'immagine grande.
         AggiornaFilmstrip();
         AggiornaPannelloLuogo();
+        AggiornaDettagli(foto);
+        AggiornaRaffica(foto);
         ViewerStatusText.Text = $"{TestoPosizioneViewer(foto)} · caricamento…";
+
+        // Preview già pronta (precaricata): niente segnaposto, si eviterebbe solo un lampo sfocato.
+        if (!_previewCache.ContainsKey(foto.PercorsoCompleto)) MostraSegnaposto(foto);
+
+        // Il precaricamento parte subito, non a foto finita: tenendo premuta → le prossime si
+        // decodificano mentre questa arriva.
+        PrecaricaVicini(foto);
 
         (byte[] Pixel, int Larghezza, int Altezza) preview;
         try
@@ -200,10 +226,9 @@ public sealed partial class ViewerView : UserControl
 
         ViewerStatusText.Text = TestoPosizioneViewer(foto);
         AggiornaBadgeFoto(foto);
+        AggiornaRaffica(foto); // orientamento vero della foto mostrata (gira/ritaglio compresi)
 
         ViewerOverlay.Focus(FocusState.Programmatic);
-
-        _ = PrecaricaViciniAsync(foto);
     }
 
     private void AggiornaBadgeFoto(PhotoGridItem? foto)
@@ -227,6 +252,7 @@ public sealed partial class ViewerView : UserControl
         _undo.Clear();
         _redo.Clear();
         ViewerImage.Source = null;
+        NascondiSegnaposto();
         SincronizzaPannello();
         ViewerStatusText.Text = $"{TestoPosizioneViewer(foto)} · impossibile leggere la foto";
         AggiornaBadgeFoto(foto);
@@ -241,6 +267,11 @@ public sealed partial class ViewerView : UserControl
         return indice < 0 ? foto.PathRelativo : $"{foto.PathRelativo} · {indice + 1} di {Host.Visibili.Count}";
     }
 
+    /// <summary>
+    /// Dalla cache, oppure dal decode già in corso (precaricamento) per la stessa foto: arrivando su
+    /// una foto mentre la si sta precaricando non parte un secondo decode, si aspetta il primo.
+    /// Tutto sul thread UI: cache e decode in corso non hanno bisogno di lock.
+    /// </summary>
     private async Task<(byte[] Pixel, int Larghezza, int Altezza)> OttieniPreviewAsync(string percorso)
     {
         if (_previewCache.TryGetValue(percorso, out var cache))
@@ -250,9 +281,26 @@ public sealed partial class ViewerView : UserControl
             return cache;
         }
 
-        var risultato = await PreviewDecoder.DecodePreviewBgraAsync(percorso);
-        MemorizzaInCache(percorso, risultato);
-        return risultato;
+        if (!_decodeInCorso.TryGetValue(percorso, out var decode))
+        {
+            decode = DecodificaEMemorizzaAsync(percorso);
+            _decodeInCorso[percorso] = decode;
+        }
+        return await decode;
+    }
+
+    private async Task<(byte[] Pixel, int Larghezza, int Altezza)> DecodificaEMemorizzaAsync(string percorso)
+    {
+        try
+        {
+            var risultato = await PreviewDecoder.DecodePreviewBgraAsync(percorso);
+            MemorizzaInCache(percorso, risultato);
+            return risultato;
+        }
+        finally
+        {
+            _decodeInCorso.Remove(percorso);
+        }
     }
 
     private void MemorizzaInCache(string percorso, (byte[] Pixel, int Larghezza, int Altezza) valore)
@@ -269,32 +317,56 @@ public sealed partial class ViewerView : UserControl
         }
     }
 
-    private async Task PrecaricaViciniAsync(PhotoGridItem corrente)
+    /// <summary>
+    /// Precarica le prossime <see cref="PrecaricaAvanti"/> foto nella direzione in cui si sta scorrendo
+    /// (e <see cref="PrecaricaIndietro"/> alle spalle), dalla più vicina. La coda si rifà a ogni foto:
+    /// quelle già superate non si decodificano più; al massimo <see cref="PrecaricheParallele"/> decode
+    /// insieme, per non togliere CPU alla foto che si sta guardando.
+    /// </summary>
+    private void PrecaricaVicini(PhotoGridItem corrente)
     {
         var indice = Host.Visibili.IndexOf(corrente);
         if (indice < 0) return;
 
-        var percorsi = new List<string>();
-        if (indice > 0) percorsi.Add(Host.Visibili[indice - 1].PercorsoCompleto);
-        if (indice < Host.Visibili.Count - 1) percorsi.Add(Host.Visibili[indice + 1].PercorsoCompleto);
+        var direzione = _direzioneNavigazione >= 0 ? 1 : -1;
+        var indici = Enumerable.Range(1, PrecaricaAvanti).Select(k => indice + direzione * k)
+            .Concat(Enumerable.Range(1, PrecaricaIndietro).Select(k => indice - direzione * k));
 
-        foreach (var percorso in percorsi)
+        _codaPrecarica.Clear();
+        foreach (var i in indici)
         {
-            if (_previewCache.ContainsKey(percorso) || !_prefetchInCorso.Add(percorso)) continue;
+            if (i >= 0 && i < Host.Visibili.Count) _codaPrecarica.Add(Host.Visibili[i].PercorsoCompleto);
+        }
+        PompaPrecarica();
+    }
 
-            try
-            {
-                var risultato = await PreviewDecoder.DecodePreviewBgraAsync(percorso);
-                MemorizzaInCache(percorso, risultato);
-            }
-            catch
-            {
-                // Ignora: se il prefetch fallisce, il decode verra' ritentato al caricamento effettivo.
-            }
-            finally
-            {
-                _prefetchInCorso.Remove(percorso);
-            }
+    private void PompaPrecarica()
+    {
+        while (_viewerAperto && _precaricheAttive < PrecaricheParallele && _codaPrecarica.Count > 0)
+        {
+            var percorso = _codaPrecarica[0];
+            _codaPrecarica.RemoveAt(0);
+            if (_previewCache.ContainsKey(percorso) || _decodeInCorso.ContainsKey(percorso)) continue;
+
+            _precaricheAttive++;
+            _ = PrecaricaUnaAsync(percorso);
+        }
+    }
+
+    private async Task PrecaricaUnaAsync(string percorso)
+    {
+        try
+        {
+            await OttieniPreviewAsync(percorso);
+        }
+        catch
+        {
+            // Ignora: se il precaricamento fallisce, il decode viene ritentato quando si arriva sulla foto.
+        }
+        finally
+        {
+            _precaricheAttive--;
+            PompaPrecarica();
         }
     }
 
@@ -355,9 +427,14 @@ public sealed partial class ViewerView : UserControl
     {
         // I simboli delle modifiche sulla miniatura (filmstrip e griglia) seguono l'editing dal vivo.
         _fotoRicetta?.AggiornaModifiche(_ricettaCorrente);
+        // Risultato della foto corrente (non di quella lasciata mentre si scorreva): via il segnaposto.
+        if (_fotoRicetta is not null && _fotoRicetta == _fotoViewerCorrente) NascondiSegnaposto();
         _viewerPixelCorrenti = bgra;
         _displayWidth = larghezza;
         _displayHeight = altezza;
+        // Girata o ritagliata da orizzontale a verticale (o viceversa): la raffica cambia lato.
+        var rafficaVerticale = ViewerRafficaVerticale.Visibility == Visibility.Visible;
+        if (_rafficaMostrataPer is { } inRaffica && rafficaVerticale != (altezza > larghezza)) AggiornaRaffica(inRaffica);
         AggiornaBitmap();
     }
 
@@ -591,6 +668,23 @@ public sealed partial class ViewerView : UserControl
 
     private void ViewerLuckyToggle_Click(object sender, RoutedEventArgs e) => ToggleLucky();
 
+    private void ViewerRuotaAntiorario_Click(object sender, RoutedEventArgs e) => Orienta(Orientamento.RuotaAntiorario);
+
+    private void ViewerRuotaOrario_Click(object sender, RoutedEventArgs e) => Orienta(Orientamento.RuotaOrario);
+
+    private void ViewerSpecchia_Click(object sender, RoutedEventArgs e) => Orienta(Orientamento.Specchia);
+
+    /// <summary>
+    /// Gira di 90° / specchia come Picasa: un passo di ricetta (annullabile), il ritaglio già fatto
+    /// gira con la foto. Lo zoom torna al 100%: la foto cambia proporzioni.
+    /// </summary>
+    private void Orienta(Func<EditRecipe, EditRecipe> operazione)
+    {
+        if (!EditingPronto || _geometriaAttiva) return;
+        ImpostaZoomViewer(1);
+        ModificaRicetta(operazione(_ricettaCorrente));
+    }
+
     private void ToggleLucky()
     {
         if (!EditingPronto || _geometriaAttiva) { SincronizzaPannello(); return; }
@@ -795,6 +889,11 @@ public sealed partial class ViewerView : UserControl
         _mostraOriginale = false;
         _undo.Clear();
         _redo.Clear();
+        NascondiSegnaposto();
+        _rafficaMostrataPer = null;
+        _codaPrecarica.Clear();
+        ViewerRafficaOrizzontale.ItemsSource = null;
+        ViewerRafficaVerticale.ItemsSource = null;
         ElementSoundPlayer.Play(ElementSoundKind.GoBack);
         Chiuso?.Invoke(this, EventArgs.Empty);
     }
@@ -891,6 +990,11 @@ public sealed partial class ViewerView : UserControl
 
             case VirtualKey.U:
                 ToggleLucky();
+                e.Handled = true;
+                break;
+
+            case VirtualKey.R:
+                Orienta(TastoPremuto(VirtualKey.Shift) ? Orientamento.RuotaAntiorario : Orientamento.RuotaOrario);
                 e.Handled = true;
                 break;
 

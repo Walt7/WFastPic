@@ -4,6 +4,33 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="using:WFastPic.App">
 
+    <UserControl.Resources>
+        <!-- Miniature della raffica: stessi colori di griglia e filmstrip (giallo, X rossa, bordo bianco = corrente). -->
+        <Style x:Key="RafficaItemStyle" TargetType="ListViewItem">
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="3" />
+            <Setter Property="MinWidth" Value="0" />
+            <Setter Property="MinHeight" Value="0" />
+        </Style>
+        <DataTemplate x:Key="RafficaItemTemplate" x:DataType="local:PhotoGridItem">
+            <Grid Width="104" Height="78" Opacity="{x:Bind OpacitaRaffica, Mode=OneWay}" ToolTipService.ToolTip="{x:Bind PathRelativo}">
+                <Border Background="{StaticResource SfondoCellaBrush}" CornerRadius="4">
+                    <Image Source="{x:Bind Thumbnail, Mode=OneWay}" Stretch="Uniform" RenderTransformOrigin="0.5,0.5">
+                        <Image.RenderTransform>
+                            <CompositeTransform Rotation="{x:Bind RotazioneMiniatura, Mode=OneWay}" ScaleX="{x:Bind ScalaXMiniatura, Mode=OneWay}" />
+                        </Image.RenderTransform>
+                    </Image>
+                </Border>
+                <Border Background="#8C000000" CornerRadius="4" Visibility="{x:Bind IsReject, Mode=OneWay}" />
+                <Border BorderBrush="#FFD600" BorderThickness="3" CornerRadius="4" Visibility="{x:Bind IsSelected, Mode=OneWay}" />
+                <Border BorderBrush="White" BorderThickness="2" CornerRadius="4" Visibility="{x:Bind IsCorrenteViewer, Mode=OneWay}" />
+                <FontIcon Glyph="&#xE73E;" Foreground="LimeGreen" FontSize="13" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="4" Visibility="{x:Bind IsSelected, Mode=OneWay}" />
+                <FontIcon Glyph="&#xE711;" Foreground="OrangeRed" FontSize="13" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="4" Visibility="{x:Bind IsReject, Mode=OneWay}" />
+                <TextBlock Text="{x:Bind RatingTesto, Mode=OneWay}" Foreground="Gold" FontSize="11" HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="4,0,0,2" Visibility="{x:Bind HasRating, Mode=OneWay}" />
+            </Grid>
+        </DataTemplate>
+    </UserControl.Resources>
+
     <Grid
         x:Name="ViewerOverlay"
         Background="{StaticResource SfondoViewerBrush}"
@@ -12,18 +39,34 @@
 
         <!-- Barra in alto: indietro a sinistra, nome e posizione della foto al centro, vista a destra. -->
         <Grid x:Name="ViewerBarraSuperiore" Grid.Row="0" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12" Padding="8,6,12,6">
-            <Button
-                x:Name="ViewerCloseButton"
-                Style="{StaticResource BarraButtonStyle}"
-                Click="ViewerCloseButton_Click"
-                IsTabStop="False"
-                AllowFocusOnInteraction="False"
-                ToolTipService.ToolTip="Torna alla griglia (Esc)">
-                <StackPanel Orientation="Horizontal" Spacing="8">
-                    <FontIcon Glyph="&#xE72B;" FontSize="14" />
-                    <TextBlock Text="Griglia" />
-                </StackPanel>
-            </Button>
+            <StackPanel Orientation="Horizontal" Spacing="4">
+                <Button
+                    x:Name="ViewerCloseButton"
+                    Style="{StaticResource BarraButtonStyle}"
+                    Click="ViewerCloseButton_Click"
+                    IsTabStop="False"
+                    AllowFocusOnInteraction="False"
+                    ToolTipService.ToolTip="Torna alla griglia (Esc)">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <FontIcon Glyph="&#xE72B;" FontSize="14" />
+                        <TextBlock Text="Griglia" />
+                    </StackPanel>
+                </Button>
+                <!-- Colonne laterali comprimibili: più spazio alla foto quando serve solo guardare. -->
+                <ToggleButton
+                    x:Name="ViewerPannelloModificheToggle"
+                    IsChecked="True"
+                    Style="{StaticResource BarraToggleButtonStyle}"
+                    Click="ViewerPannelli_Click"
+                    IsTabStop="False"
+                    AllowFocusOnInteraction="False"
+                    ToolTipService.ToolTip="Mostra/nascondi le modifiche">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <FontIcon Glyph="&#xE70F;" FontSize="14" />
+                        <TextBlock Text="Modifiche" />
+                    </StackPanel>
+                </ToggleButton>
+            </StackPanel>
             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="12" HorizontalAlignment="Center" VerticalAlignment="Center">
                 <TextBlock x:Name="ViewerStatusText" FontWeight="SemiBold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                 <Border x:Name="ViewerVideoBadge" Padding="8,3" CornerRadius="10" Background="#33FFB300" VerticalAlignment="Center" Visibility="Collapsed">
@@ -36,13 +79,28 @@
             <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
                 <TextBlock x:Name="ViewerZoomText" Text="Zoom 100%" Foreground="{StaticResource TestoSecondarioBrush}" FontSize="12" VerticalAlignment="Center" Margin="0,0,8,0" ToolTipService.ToolTip="Rotella per lo zoom, trascina per spostare" />
                 <Button x:Name="ViewerGrigliaToggle" Content="Griglia: terzi" Style="{StaticResource BarraButtonStyle}" Click="ViewerGrigliaToggle_Click" IsTabStop="False" AllowFocusOnInteraction="False" ToolTipService.ToolTip="Griglia di composizione: terzi, metà o diagonali" />
+                <ToggleButton
+                    x:Name="ViewerPannelloDettagliToggle"
+                    IsChecked="True"
+                    Style="{StaticResource BarraToggleButtonStyle}"
+                    Click="ViewerPannelli_Click"
+                    IsTabStop="False"
+                    AllowFocusOnInteraction="False"
+                    ToolTipService.ToolTip="Mostra/nascondi i dettagli della foto">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <FontIcon Glyph="&#xE946;" FontSize="14" />
+                        <TextBlock Text="Dettagli" />
+                    </StackPanel>
+                </ToggleButton>
             </StackPanel>
         </Grid>
 
-        <Grid Grid.Row="1" ColumnDefinitions="290,*" RowDefinitions="*,Auto,Auto">
+        <Grid Grid.Row="1" ColumnDefinitions="Auto,*,Auto" RowDefinitions="*,Auto,Auto">
 
             <!-- Pannello editor stile Picasa: "Correzioni base" e "Regolazioni", su una card come il pannello cartelle. -->
             <Border
+                x:Name="ViewerPannelloModifiche"
+                Width="290"
                 Grid.Column="0"
                 Grid.RowSpan="3"
                 Margin="8,0,0,8"
@@ -128,6 +186,25 @@
                                 <TextBlock Grid.Column="2" Text="L" Foreground="{StaticResource TestoTerziarioBrush}" />
                             </Grid>
                         </Button>
+                        <!-- Gira di 90° e specchia, come i pulsanti di Picasa: il ritaglio già fatto gira con la foto. -->
+                        <Grid ColumnDefinitions="*,*,*" ColumnSpacing="6">
+                            <Button Click="ViewerRuotaAntiorario_Click" HorizontalAlignment="Stretch" Padding="0,8" IsTabStop="False" AllowFocusOnInteraction="False"
+                                    ToolTipService.ToolTip="Gira a sinistra (Shift+R)" AutomationProperties.Name="Gira a sinistra">
+                                <FontIcon Glyph="&#xE7AD;" FontSize="16" RenderTransformOrigin="0.5,0.5">
+                                    <FontIcon.RenderTransform>
+                                        <ScaleTransform ScaleX="-1" />
+                                    </FontIcon.RenderTransform>
+                                </FontIcon>
+                            </Button>
+                            <Button Grid.Column="1" Click="ViewerRuotaOrario_Click" HorizontalAlignment="Stretch" Padding="0,8" IsTabStop="False" AllowFocusOnInteraction="False"
+                                    ToolTipService.ToolTip="Gira a destra (R)" AutomationProperties.Name="Gira a destra">
+                                <FontIcon Glyph="&#xE7AD;" FontSize="16" />
+                            </Button>
+                            <Button Grid.Column="2" Click="ViewerSpecchia_Click" HorizontalAlignment="Stretch" Padding="0,8" IsTabStop="False" AllowFocusOnInteraction="False"
+                                    ToolTipService.ToolTip="Specchia (sinistra ↔ destra)" AutomationProperties.Name="Specchia">
+                                <FontIcon Glyph="&#xE8AB;" FontSize="16" />
+                            </Button>
+                        </Grid>
                         <TextBlock Text="Correzione automatica" Foreground="{StaticResource TestoSecondarioBrush}" FontSize="12" Margin="0,8,0,0" />
                         <ToggleButton x:Name="ViewerLuckyToggle" ToolTipService.ToolTip="Contrasto e colore automatici insieme" Click="ViewerLuckyToggle_Click" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Padding="12,7" IsTabStop="False" AllowFocusOnInteraction="False">
                             <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
@@ -200,12 +277,46 @@
                     </Button>
                     <TextBlock Text="Tieni premuto B per vedere l'originale" Foreground="{StaticResource TestoTerziarioBrush}" FontSize="11" TextWrapping="Wrap" HorizontalAlignment="Center" />
 
+                </StackPanel>
+            </ScrollViewer>
+            </Border>
+
+
+            <!--
+                Dettagli della foto (colonna destra, comprimibile): quando è stata scattata (giorno
+                della settimana compreso), file, raffica, luogo e dati di ripresa.
+            -->
+            <Border
+                x:Name="ViewerPannelloDettagli"
+                Width="300"
+                Grid.Column="2"
+                Grid.RowSpan="3"
+                Margin="0,0,8,8"
+                CornerRadius="8"
+                Background="{StaticResource SfondoPannelloEditorBrush}"
+                BorderBrush="{StaticResource BordoContenutoBrush}"
+                BorderThickness="1">
+            <ScrollViewer VerticalScrollBarVisibility="Auto" IsTabStop="False">
+                <StackPanel Padding="16,14" Spacing="6">
+                    <TextBlock x:Name="ViewerGiornoSettimanaText" FontSize="20" FontWeight="SemiBold" TextWrapping="Wrap" />
+                    <TextBlock x:Name="ViewerDataText" FontSize="14" TextWrapping="Wrap" />
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <FontIcon Glyph="&#xE823;" FontSize="14" Foreground="{StaticResource TestoSecondarioBrush}" />
+                        <TextBlock x:Name="ViewerOraText" FontSize="14" Foreground="{StaticResource TestoSecondarioBrush}" />
+                    </StackPanel>
+
+                    <Rectangle Height="1" Fill="{StaticResource BordoContenutoBrush}" Margin="0,8,0,6" />
+                    <TextBlock Text="File" FontWeight="SemiBold" />
+                    <TextBlock x:Name="ViewerFileNomeText" FontSize="12" TextWrapping="Wrap" IsTextSelectionEnabled="True" />
+                    <TextBlock x:Name="ViewerFileInfoText" Foreground="{StaticResource TestoSecondarioBrush}" FontSize="12" TextWrapping="Wrap" />
+                    <TextBlock x:Name="ViewerRafficaInfoText" Foreground="#4FC3F7" FontSize="12" TextWrapping="Wrap" Visibility="Collapsed" />
+
                     <!--
                         Luogo, come il pannello "Luoghi" di Picasa: nome del posto, dispositivo e dati
                         di ripresa (altitudine, direzione, drone), mini-mappa con la freccia della
                         direzione. "Correggi" sposta il segnaposto; la correzione sta solo nel sidecar.
                     -->
-                    <StackPanel x:Name="PannelloLuogo" Spacing="6" Margin="0,6,0,0">
+                    <StackPanel x:Name="PannelloLuogo" Spacing="6" Margin="0,2,0,0">
                         <Rectangle Height="1" Fill="{StaticResource BordoContenutoBrush}" Margin="0,2,0,6" />
                         <TextBlock Text="Luogo" FontWeight="SemiBold" />
                         <TextBlock x:Name="ViewerLuogoNome" FontSize="12" TextWrapping="Wrap" />
@@ -227,10 +338,54 @@
                 </StackPanel>
             </ScrollViewer>
             </Border>
+            <!--
+                Zona della foto. Foto della stessa raffica in piccolo per scegliere al volo: sopra se la
+                foto è orizzontale, a fianco se è verticale (AggiornaRaffica). Clic = apri quella foto.
+            -->
+            <Grid x:Name="ViewerZonaFoto" Grid.Column="1" RowDefinitions="Auto,*" ColumnDefinitions="Auto,*">
+                <ListView
+                    x:Name="ViewerRafficaOrizzontale"
+                    Grid.Row="0"
+                    Grid.Column="1"
+                    HorizontalAlignment="Center"
+                    Margin="8,0,8,4"
+                    SelectionMode="None"
+                    IsItemClickEnabled="True"
+                    ItemClick="ViewerRaffica_ItemClick"
+                    IsTabStop="False"
+                    AllowFocusOnInteraction="False"
+                    ItemTemplate="{StaticResource RafficaItemTemplate}"
+                    ItemContainerStyle="{StaticResource RafficaItemStyle}"
+                    ScrollViewer.HorizontalScrollMode="Enabled"
+                    ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                    ScrollViewer.VerticalScrollMode="Disabled"
+                    ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                    Visibility="Collapsed">
+                    <ListView.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <ItemsStackPanel Orientation="Horizontal" />
+                        </ItemsPanelTemplate>
+                    </ListView.ItemsPanel>
+                </ListView>
+                <ListView
+                    x:Name="ViewerRafficaVerticale"
+                    Grid.Row="1"
+                    Grid.Column="0"
+                    VerticalAlignment="Center"
+                    Margin="8,8,0,8"
+                    SelectionMode="None"
+                    IsItemClickEnabled="True"
+                    ItemClick="ViewerRaffica_ItemClick"
+                    IsTabStop="False"
+                    AllowFocusOnInteraction="False"
+                    ItemTemplate="{StaticResource RafficaItemTemplate}"
+                    ItemContainerStyle="{StaticResource RafficaItemStyle}"
+                    Visibility="Collapsed" />
 
             <!-- Background trasparente: tutta l'area (anche fuori dalla foto) riceve trascinamento e rotella. -->
             <Grid
                 x:Name="ViewerArea"
+                Grid.Row="1"
                 Grid.Column="1"
                 Background="Transparent"
                 SizeChanged="ViewerArea_SizeChanged"
@@ -238,6 +393,21 @@
                 PointerMoved="ViewerArea_PointerMoved"
                 PointerReleased="ViewerArea_PointerReleased"
                 PointerCaptureLost="ViewerArea_PointerReleased">
+                <!--
+                    Mentre si scorre: la miniatura (già in memoria) ingrandita al posto della foto, finché
+                    la preview vera non è decodificata. Stesso margine della foto (24 / 2), girata come lei.
+                -->
+                <Image
+                    x:Name="ViewerSegnaposto"
+                    Margin="12"
+                    Stretch="Uniform"
+                    IsHitTestVisible="False"
+                    RenderTransformOrigin="0.5,0.5"
+                    Visibility="Collapsed">
+                    <Image.RenderTransform>
+                        <CompositeTransform x:Name="ViewerSegnapostoTransform" />
+                    </Image.RenderTransform>
+                </Image>
                 <Grid x:Name="ViewerImageContainer" HorizontalAlignment="Center" VerticalAlignment="Center">
                     <Grid x:Name="ViewerImageHost">
                         <Grid.RenderTransform>
@@ -284,6 +454,7 @@
                         <FontIcon Glyph="&#xE714;" Foreground="White" FontSize="18" />
                     </Border>
                 </Grid>
+            </Grid>
             </Grid>
 
             <!--
@@ -347,7 +518,11 @@
                             Height="{x:Bind DimensioneFilmstrip, Mode=OneWay}"
                             Opacity="{x:Bind OpacitaFilmstrip, Mode=OneWay}">
                             <Border Background="{StaticResource SfondoCellaBrush}" CornerRadius="4">
-                                <Image Source="{x:Bind Thumbnail, Mode=OneWay}" Stretch="Uniform" />
+                                <Image Source="{x:Bind Thumbnail, Mode=OneWay}" Stretch="Uniform" RenderTransformOrigin="0.5,0.5">
+                                    <Image.RenderTransform>
+                                        <CompositeTransform Rotation="{x:Bind RotazioneMiniatura, Mode=OneWay}" ScaleX="{x:Bind ScalaXMiniatura, Mode=OneWay}" />
+                                    </Image.RenderTransform>
+                                </Image>
                             </Border>
                             <Border BorderBrush="#FFD600" BorderThickness="3" CornerRadius="4" Visibility="{x:Bind IsSelected, Mode=OneWay}" />
                             <Border Width="4" HorizontalAlignment="Left" CornerRadius="4,0,0,4" Background="#00B0FF" Visibility="{x:Bind EvidenziaGruppoViewer, Mode=OneWay}" />

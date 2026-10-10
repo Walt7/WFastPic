@@ -19,6 +19,15 @@ public sealed record EditRecipe
 
     public double StraightenAngleDegrees { get; init; } = 0;
 
+    /// <summary>
+    /// Gira di 90° (0, 90, 180, 270, senso orario) e specchio orizzontale: primo passo della ricetta,
+    /// prima del raddrizzamento. Modificarli sempre con <see cref="Orientamento"/>, che trasforma
+    /// insieme ritaglio e raddrizzamento. Assenti nelle ricette vecchie = foto non girata.
+    /// </summary>
+    public int RotationDegrees { get; init; } = 0;
+
+    public bool FlipHorizontal { get; init; } = false;
+
     /// <summary>Legacy schema v1 ("auto-correzione"): migrato in AutoContrast+AutoColor da <see cref="EditRecipeSerializer"/>.</summary>
     public bool AutoCorrect { get; init; } = false;
 
@@ -52,4 +61,7 @@ public sealed record EditRecipe
     public bool HasCrop => CropX != 0 || CropY != 0 || CropWidth != 1 || CropHeight != 1;
 
     public bool HasStraighten => StraightenAngleDegrees != 0;
+
+    /// <summary>Girata di 90°/180°/270° o specchiata: la miniatura viene girata, non serve un simbolo.</summary>
+    public bool HasOrientation => RotationDegrees % 360 != 0 || FlipHorizontal;
 }

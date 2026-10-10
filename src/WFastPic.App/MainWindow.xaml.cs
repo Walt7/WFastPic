@@ -49,14 +49,14 @@ public partial class MainWindow : Window
     private int _miniatureTotali;
     private int _richiestaCaricamentoCartella;
 
-    /// <summary>"v0.8" dalla &lt;Version&gt; del progetto (0.8.0): basta cambiarla lì.</summary>
+    /// <summary>"v. 0.9" dalla &lt;Version&gt; del progetto (0.9.0): basta cambiarla lì (e aggiungere la voce in CHANGELOG.md).</summary>
     private static string VersioneApp
     {
         get
         {
             var versione = typeof(MainWindow).Assembly.GetName().Version;
             if (versione is null) return "";
-            return versione.Build > 0 ? $"v{versione.Major}.{versione.Minor}.{versione.Build}" : $"v{versione.Major}.{versione.Minor}";
+            return versione.Build > 0 ? $"v. {versione.Major}.{versione.Minor}.{versione.Build}" : $"v. {versione.Major}.{versione.Minor}";
         }
     }
 
@@ -88,6 +88,8 @@ public partial class MainWindow : Window
         Griglia.AddHandler(UIElement.PointerWheelChangedEvent, new PointerEventHandler(Griglia_PointerWheelChanged), handledEventsToo: true);
 
         InizializzaViewer();
+        Viewer.PannelloModificheAperto = impostazioni.ViewerPannelloModifiche;
+        Viewer.PannelloDettagliAperto = impostazioni.ViewerPannelloDettagli;
 
         Closed += (s, e) => ChiudiSessione();
 
@@ -97,6 +99,7 @@ public partial class MainWindow : Window
             DispatcherQueue.TryEnqueue(async () =>
             {
                 await CaricaCartellaAsync(cartellaIniziale);
+                RiprendiUltimaFoto(impostazioni);
             });
         }
     }
@@ -114,7 +117,26 @@ public partial class MainWindow : Window
             DividiPerGiorni = _dividiPerGiorni,
             PannelloCartelleAperto = Viewer.IsAperto ? _pannelloCartelleAperto : RootSplitView.IsPaneOpen,
             RiconoscimentoPersone = _riconoscimentoPersone,
+            ViewerPannelloModifiche = Viewer.PannelloModificheAperto,
+            ViewerPannelloDettagli = Viewer.PannelloDettagliAperto,
+            UltimaCartella = _db?.CartellaFoto,
+            UltimaFoto = (Viewer.IsAperto ? Viewer.FotoCorrente : Griglia.SelectedItem as PhotoGridItem)?.PathRelativo,
+            UltimaFotoNelViewer = Viewer.IsAperto,
         });
+
+    /// <summary>All'avvio: di nuovo sulla foto dove si era rimasti, nel viewer se era aperto.</summary>
+    private void RiprendiUltimaFoto(Impostazioni impostazioni)
+    {
+        if (impostazioni is not { UltimaCartella: string cartella, UltimaFoto: string foto }) return;
+        if (_db?.CartellaFoto is not string corrente || !StessoPercorso(cartella, corrente)) return;
+
+        var item = _visibili.FirstOrDefault(i => string.Equals(i.PathRelativo, foto, StringComparison.OrdinalIgnoreCase));
+        if (item is null) return;
+
+        Griglia.SelectedItem = item;
+        Griglia.ScrollIntoView(item, ScrollIntoViewAlignment.Leading);
+        if (impostazioni.UltimaFotoNelViewer) ApriViewer(item);
+    }
 
     private void ChiudiSessione()
     {

@@ -97,7 +97,11 @@ public sealed partial class ViewerView
             // col render), invece di mostrare per un attimo maniglie e rotazione sulla foto ritagliata.
             _bufferPrimaGeometria = _viewerPixelCorrenti is not null ? (_viewerPixelCorrenti, _displayWidth, _displayHeight) : null;
             if (r.HasGeometry && _viewerPixelOriginali is not null)
-                MostraBuffer(_viewerPixelOriginali, _viewerPixelWidth, _viewerPixelHeight);
+            {
+                // Tela = foto già girata/specchiata: ritaglio e raddrizzamento sono espressi su quella.
+                var tela = Orientamento.Applica(_viewerPixelOriginali, _viewerPixelWidth, _viewerPixelHeight, r);
+                MostraBuffer(tela.Bgra, tela.Larghezza, tela.Altezza);
+            }
 
             ViewerProporzioneToggle.Content = $"Proporzioni: {ProporzioniDisponibili[_proporzioneIndice].Etichetta}";
             ImpostaVisibilitaGeometria(true);
@@ -111,8 +115,9 @@ public sealed partial class ViewerView
 
     private bool CropCoincideConInscritto(EditRecipe r)
     {
-        var w = (double)_viewerPixelWidth;
-        var h = (double)_viewerPixelHeight;
+        var (lt, at) = Orientamento.Dimensioni(_viewerPixelWidth, _viewerPixelHeight, r);
+        var w = (double)lt;
+        var h = (double)at;
         var (x0, y0, x1, y1) = StraightenGeometry.FitRect(w, h, r.StraightenAngleDegrees, 0, 0, w, h);
         return Math.Abs(x0 / w - r.CropX) < 0.005 && Math.Abs(y0 / h - r.CropY) < 0.005
             && Math.Abs(x1 / w - (r.CropX + r.CropWidth)) < 0.005 && Math.Abs(y1 / h - (r.CropY + r.CropHeight)) < 0.005;
@@ -136,6 +141,7 @@ public sealed partial class ViewerView
         ViewerHintText.Text = attiva ? HintGeometria : HintViewer;
 
         AggiornaBadgeFoto(_fotoViewerCorrente);
+        if (_fotoViewerCorrente is { } corrente) AggiornaRaffica(corrente); // in ritaglio si vede solo la foto
         if (attiva) AggiornaOverlayCrop();
     }
 

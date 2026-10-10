@@ -364,7 +364,11 @@
                         <!-- Image dentro il Border: il CornerRadius ritaglia anche la miniatura, non solo lo sfondo. -->
                         <!-- Fondo appena visibile finché la miniatura non arriva; poi la foto "galleggia" con gli angoli arrotondati. -->
                         <Border Background="{StaticResource SfondoCellaBrush}" CornerRadius="6" />
-                        <Border CornerRadius="4" Margin="6" HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <!-- Cella quadrata: girata di 90° la miniatura entra comunque. -->
+                        <Border CornerRadius="4" Margin="6" HorizontalAlignment="Center" VerticalAlignment="Center" RenderTransformOrigin="0.5,0.5">
+                            <Border.RenderTransform>
+                                <CompositeTransform Rotation="{x:Bind RotazioneMiniatura, Mode=OneWay}" ScaleX="{x:Bind ScalaXMiniatura, Mode=OneWay}" />
+                            </Border.RenderTransform>
                             <Image Source="{x:Bind Thumbnail, Mode=OneWay}" Stretch="Uniform" />
                         </Border>
                         <Border Background="#8C000000" CornerRadius="6" Visibility="{x:Bind IsReject, Mode=OneWay}" />

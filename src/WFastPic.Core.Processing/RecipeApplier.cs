@@ -1,14 +1,17 @@
 namespace WFastPic.Core.Processing;
 
 /// <summary>
-/// Applica in ordine le operazioni della ricetta (raddrizza → ritaglia → tono) a un buffer BGRA8
-/// decodificato, "cuocendole" nei pixel. Usato sia in export sia nel Viewer (su preview): il
-/// buffer in ingresso non viene mai modificato.
+/// Applica in ordine le operazioni della ricetta (gira/specchia → raddrizza → ritaglia → tono) a un
+/// buffer BGRA8 decodificato, "cuocendole" nei pixel. Usato sia in export sia nel Viewer (su
+/// preview): il buffer in ingresso non viene mai modificato.
 /// </summary>
 public static class RecipeApplier
 {
     public static (byte[] Bgra, int Larghezza, int Altezza) Applica(byte[] bgra, int larghezza, int altezza, EditRecipe ricetta)
     {
+        // Ritaglio e raddrizzamento sono espressi sulla foto già girata (Orientamento).
+        (bgra, larghezza, altezza) = Orientamento.Applica(bgra, larghezza, altezza, ricetta);
+
         var angolo = ricetta.StraightenAngleDegrees;
         var ruotato = angolo != 0 ? PixelOps.Rotate(bgra, larghezza, altezza, angolo) : bgra;
 

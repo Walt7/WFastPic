@@ -76,9 +76,25 @@ public sealed class PhotoGridItem : INotifyPropertyChanged
 
     public bool HaModifiche => _haRitaglio || _haRaddrizzamento || _haTono;
 
+    // ---- Gira/specchia della ricetta: la miniatura viene girata (RenderTransform), niente simbolo.
+
+    private double _rotazioneMiniatura;
+    public double RotazioneMiniatura => _rotazioneMiniatura;
+
+    private double _scalaXMiniatura = 1;
+    public double ScalaXMiniatura => _scalaXMiniatura;
+
     /// <summary>Allinea i simboli alla ricetta (all'apertura della cartella e mentre si modifica nell'editor).</summary>
     public void AggiornaModifiche(WFastPic.Core.Processing.EditRecipe ricetta)
     {
+        var (rotazione, scalaX) = (ricetta.RotationDegrees % 360, ricetta.FlipHorizontal ? -1.0 : 1.0);
+        if (rotazione != _rotazioneMiniatura || scalaX != _scalaXMiniatura)
+        {
+            (_rotazioneMiniatura, _scalaXMiniatura) = (rotazione, scalaX);
+            OnPropertyChanged(nameof(RotazioneMiniatura));
+            OnPropertyChanged(nameof(ScalaXMiniatura));
+        }
+
         var (ritaglio, raddrizzamento, tono) = (ricetta.HasCrop, ricetta.HasStraighten, ricetta.HasTone);
         if (ritaglio == _haRitaglio && raddrizzamento == _haRaddrizzamento && tono == _haTono) return;
 
@@ -130,6 +146,9 @@ public sealed class PhotoGridItem : INotifyPropertyChanged
     }
 
     private bool _verticale;
+
+    /// <summary>Miniatura più alta che larga (foto non girata nella ricetta).</summary>
+    public bool MiniaturaVerticale => _verticale;
 
     /// <summary>
     /// Badge in griglia (video, GPS, modifiche) fuori dalla foto: in colonna nella banda vuota a sinistra
@@ -196,6 +215,7 @@ public sealed class PhotoGridItem : INotifyPropertyChanged
             OnPropertyChanged();
             OnPropertyChanged(nameof(DimensioneFilmstrip));
             OnPropertyChanged(nameof(OpacitaFilmstrip));
+            OnPropertyChanged(nameof(OpacitaRaffica));
         }
     }
 
@@ -221,6 +241,9 @@ public sealed class PhotoGridItem : INotifyPropertyChanged
 
     // Le altre foto attenuate: l'occhio va subito a quella in osservazione.
     public double OpacitaFilmstrip => IsCorrenteViewer ? 1.0 : 0.55;
+
+    /// <summary>Striscia della raffica nel viewer: le altre foto del gruppo restano ben leggibili per confrontarle.</summary>
+    public double OpacitaRaffica => IsCorrenteViewer ? 1.0 : 0.8;
 
     private void OnPropertyChanged([CallerMemberName] string? nome = null) =>
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nome));
