@@ -28,6 +28,10 @@ scarti le altre, dai una sistemata veloce ed esporti. Tutto da tastiera, senza m
 Non è un Lightroom e non è un gestore di file: è lo strumento per passare da 1300 scatti alle 80
 foto da tenere, nel minor numero di gesti possibile.
 
+<p align="center">
+  <img src="assets/social-preview.png" width="760" alt="WFastPic: la griglia con le foto selezionate in giallo, le stelle e i filtri">
+</p>
+
 ## Perché esiste
 
 Di Picasa mi mancava una cosa sopra tutte: poter passare in rassegna tutte le foto di una vacanza,

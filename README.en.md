@@ -32,6 +32,10 @@ worth keeping, in as few gestures as possible.
 > The app is available in Italian and English (language choice in the "About" window, bottom right: Automatic follows Windows).
 > This page and the changelog are available in both languages.
 
+<p align="center">
+  <img src="assets/social-preview.png" width="760" alt="WFastPic: the grid with selected photos in yellow, star ratings and filters">
+</p>
+
 ## Why it exists
 
 What I missed most about Picasa was being able to go through all the photos of a vacation, pick the good
