@@ -144,8 +144,10 @@ public partial class MainWindow
 
         // Le maniglie continuano con la stessa proporzione (se è tra quelle disponibili).
         var orizzontale = Math.Max(r.Rapporto, 1 / r.Rapporto);
-        var indice = Array.FindIndex(ProporzioniDisponibili, p => p.Rapporto is double v && Math.Abs(v - orizzontale) < 0.01);
-        _proporzioneIndice = r.Rapporto == 1 ? Array.FindIndex(ProporzioniDisponibili, p => p.Rapporto == 1.0) : Math.Max(0, indice);
+        // "Come la foto" diventa "originale"; le altre la proporzione uguale, altrimenti "libera".
+        var indice = Enumerable.Range(0, ProporzioniDisponibili.Length)
+            .FirstOrDefault(i => RapportoProporzione(i) is double v && Math.Abs(v - orizzontale) < 0.01, 0);
+        _proporzioneIndice = indice;
         ViewerProporzioneToggle.Content = $"Proporzioni: {ProporzioniDisponibili[_proporzioneIndice].Etichetta}";
 
         AggiornaOverlayCrop();

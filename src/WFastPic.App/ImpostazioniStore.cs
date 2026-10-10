@@ -12,6 +12,9 @@ public sealed record Impostazioni(int DimensioneCellaGriglia = 160)
     /// <summary>Griglia divisa per giorno di scatto.</summary>
     public bool DividiPerGiorni { get; init; }
 
+    /// <summary>Riconoscimento persone (pesante: modelli da 38 MB, analisi in background); null = da chiedere.</summary>
+    public bool? RiconoscimentoPersone { get; init; }
+
     /// <summary>Pannello cartelle a sinistra: aperto di default, come in Picasa.</summary>
     public bool PannelloCartelleAperto { get; init; } = true;
 }

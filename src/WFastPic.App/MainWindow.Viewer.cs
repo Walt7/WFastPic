@@ -27,9 +27,11 @@ public partial class MainWindow
 {
     private enum GrigliaComposizione { Terzi, Meta, Diagonali }
 
+    // NaN = "originale": le proporzioni della foto stessa, calcolate sulla foto aperta.
     private static readonly (string Etichetta, double? Rapporto)[] ProporzioniDisponibili =
     [
         ("libera", null),
+        ("originale", double.NaN),
         ("1:1", 1.0),
         ("4:3", 4.0 / 3),
         ("3:2", 3.0 / 2),
@@ -42,7 +44,16 @@ public partial class MainWindow
     private const int UndoMax = 50;
 
     private int _proporzioneIndice;
-    private double? ProporzioneCorrente => ProporzioniDisponibili[_proporzioneIndice].Rapporto;
+    private double? ProporzioneCorrente => RapportoProporzione(_proporzioneIndice);
+
+    // In forma "orizzontale" (>= 1): RapportoEffettivo la gira per le foto verticali, come le altre.
+    private double? RapportoProporzione(int indice) => ProporzioniDisponibili[indice].Rapporto switch
+    {
+        double r when double.IsNaN(r) && _viewerPixelWidth > 0 && _viewerPixelHeight > 0 =>
+            Math.Max((double)_viewerPixelWidth / _viewerPixelHeight, (double)_viewerPixelHeight / _viewerPixelWidth),
+        double r when double.IsNaN(r) => null,
+        var r => r,
+    };
 
     private bool _viewerAperto;
     private PhotoGridItem? _fotoViewerCorrente;

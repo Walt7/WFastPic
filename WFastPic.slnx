@@ -16,6 +16,7 @@
     <Project Path="src/WFastPic.Core.Library/WFastPic.Core.Library.csproj" />
     <Project Path="src/WFastPic.Core.Metadata/WFastPic.Core.Metadata.csproj" />
     <Project Path="src/WFastPic.Core.Persistence/WFastPic.Core.Persistence.csproj" />
+    <Project Path="src/WFastPic.Core.Persone/WFastPic.Core.Persone.csproj" />
     <Project Path="src/WFastPic.Core.Processing/WFastPic.Core.Processing.csproj" />
     <Project Path="src/WFastPic.Core.Selection/WFastPic.Core.Selection.csproj" />
   </Folder>

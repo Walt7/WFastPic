@@ -17,9 +17,31 @@ public sealed record PhotoRecord(
     bool GpsManuale = false,
     double? Altitude = null,
     double? Direction = null,
-    int? NumeroVolti = null);
+    int? NumeroVolti = null,
+    bool PersoneAnalizzate = false);
 
 public sealed record SyncResult(int Nuove, int Aggiornate, int Invariate);
+
+/// <summary>Stato del nome su un volto: nessuno, proposto in automatico, confermato, "non è questa persona".</summary>
+public static class StatoPersona
+{
+    public const int Nessuno = 0;
+    public const int Proposto = 1;
+    public const int Confermato = 2;
+    public const int Rifiutato = 3;
+}
+
+/// <summary>Un volto di una cartella con impronta (128 float) e miniatura JPEG, per il riconoscimento persone.</summary>
+public sealed record VoltoSalvato(
+    long Id, long PhotoId,
+    double X0, double Y0, double X1, double Y1,
+    byte[]? Impronta, byte[]? Miniatura,
+    long? PersonaId, int Stato);
+
+/// <summary>Un volto pronto da salvare (riquadro normalizzato sulla foto non raddrizzata).</summary>
+public sealed record VoltoDaSalvare(
+    double X0, double Y0, double X1, double Y1, float Punteggio,
+    byte[] Impronta, byte[] Miniatura, long? PersonaId, int Stato);
 
 /// <summary>Per il pannello cartelle: quante foto e in che periodo, dall'ultima apertura della cartella.</summary>
 public sealed record RiepilogoCartella(int NumeroFoto, DateTime? PrimoScatto, DateTime? UltimoScatto);
@@ -186,6 +208,22 @@ public sealed class LibrarySidecarDatabase : IDisposable
         {
             using var alterCmd = _connection.CreateCommand();
             alterCmd.CommandText = "ALTER TABLE photos ADD COLUMN volti_cercati INTEGER NOT NULL DEFAULT 0;";
+            alterCmd.ExecuteNonQuery();
+        }
+
+        // Riconoscimento persone: impronta, miniatura e persona (globale) per ogni volto.
+        var colonneVolti = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        using (var infoVolti = _connection.CreateCommand())
+        {
+            infoVolti.CommandText = "PRAGMA table_info(volti);";
+            using var reader = infoVolti.ExecuteReader();
+            while (reader.Read()) colonneVolti.Add(reader.GetString(1));
+        }
+        foreach (var (colonna, tipo) in new[] { ("impronta", "BLOB NULL"), ("miniatura", "BLOB NULL"), ("punteggio", "REAL NULL"), ("persona_id", "INTEGER NULL"), ("stato_persona", "INTEGER NOT NULL DEFAULT 0") })
+        {
+            if (colonneVolti.Contains(colonna)) continue;
+            using var alterCmd = _connection.CreateCommand();
+            alterCmd.CommandText = $"ALTER TABLE volti ADD COLUMN {colonna} {tipo};";
             alterCmd.ExecuteNonQuery();
         }
 
@@ -393,7 +431,8 @@ public sealed class LibrarySidecarDatabase : IDisposable
         cmd.CommandText = """
             SELECT p.id, p.path_relativo, p.size, p.last_write_utc, p.capture_date,
                    s.stato, s.rating, p.latitude, p.longitude, p.gps_manuale, p.altitude, p.direction,
-                   CASE WHEN p.volti_cercati = 1 THEN (SELECT COUNT(*) FROM volti v WHERE v.photo_id = p.id) END
+                   CASE WHEN p.volti_cercati >= 1 THEN (SELECT COUNT(*) FROM volti v WHERE v.photo_id = p.id) END,
+                   p.volti_cercati
             FROM photos p
             JOIN selection_state s ON s.photo_id = p.id
             ORDER BY p.capture_date IS NULL, p.capture_date, p.path_relativo;
@@ -416,7 +455,8 @@ public sealed class LibrarySidecarDatabase : IDisposable
                 GpsManuale: reader.GetInt64(9) != 0,
                 Altitude: reader.IsDBNull(10) ? null : reader.GetDouble(10),
                 Direction: reader.IsDBNull(11) ? null : reader.GetDouble(11),
-                NumeroVolti: reader.IsDBNull(12) ? null : reader.GetInt32(12)));
+                NumeroVolti: reader.IsDBNull(12) ? null : reader.GetInt32(12),
+                PersoneAnalizzate: reader.GetInt64(13) >= VersioneAnalisiPersone));
         }
 
         return risultato;
@@ -459,7 +499,8 @@ public sealed class LibrarySidecarDatabase : IDisposable
         cmd.CommandText = """
             SELECT p.id, p.path_relativo, p.size, p.last_write_utc, p.capture_date,
                    s.stato, s.rating, p.latitude, p.longitude, p.gps_manuale, p.altitude, p.direction,
-                   CASE WHEN p.volti_cercati = 1 THEN (SELECT COUNT(*) FROM volti v WHERE v.photo_id = p.id) END
+                   CASE WHEN p.volti_cercati >= 1 THEN (SELECT COUNT(*) FROM volti v WHERE v.photo_id = p.id) END,
+                   p.volti_cercati
             FROM photos p
             JOIN selection_state s ON s.photo_id = p.id
             WHERE s.stato = $stato
@@ -484,7 +525,8 @@ public sealed class LibrarySidecarDatabase : IDisposable
                 GpsManuale: reader.GetInt64(9) != 0,
                 Altitude: reader.IsDBNull(10) ? null : reader.GetDouble(10),
                 Direction: reader.IsDBNull(11) ? null : reader.GetDouble(11),
-                NumeroVolti: reader.IsDBNull(12) ? null : reader.GetInt32(12)));
+                NumeroVolti: reader.IsDBNull(12) ? null : reader.GetInt32(12),
+                PersoneAnalizzate: reader.GetInt64(13) >= VersioneAnalisiPersone));
         }
 
         return risultato;
@@ -603,6 +645,105 @@ public sealed class LibrarySidecarDatabase : IDisposable
         cmd.Parameters.AddWithValue("$dir", (object?)gpsDelFile?.Direction ?? DBNull.Value);
         cmd.Parameters.AddWithValue("$id", photoId);
         cmd.ExecuteNonQuery();
+    }
+
+    /// <summary>volti_cercati: 1 = solo rilevamento (Windows), 2 = volti con impronta per riconoscere le persone.</summary>
+    public const int VersioneAnalisiPersone = 2;
+
+    /// <summary>Salva i volti con impronta di una foto (sostituendo quelli del solo rilevamento).</summary>
+    public void SalvaVoltiPersone(long photoId, IReadOnlyList<VoltoDaSalvare> volti)
+    {
+        using var scope = _lock.EnterScope();
+        using var transaction = _connection.BeginTransaction();
+
+        using (var cancella = _connection.CreateCommand())
+        {
+            cancella.Transaction = transaction;
+            cancella.CommandText = "DELETE FROM volti WHERE photo_id = $id; UPDATE photos SET volti_cercati = $versione WHERE id = $id;";
+            cancella.Parameters.AddWithValue("$id", photoId);
+            cancella.Parameters.AddWithValue("$versione", VersioneAnalisiPersone);
+            cancella.ExecuteNonQuery();
+        }
+
+        foreach (var v in volti)
+        {
+            using var inserisci = _connection.CreateCommand();
+            inserisci.Transaction = transaction;
+            inserisci.CommandText = """
+                INSERT INTO volti (photo_id, x0, y0, x1, y1, punteggio, impronta, miniatura, persona_id, stato_persona)
+                VALUES ($id, $x0, $y0, $x1, $y1, $punteggio, $impronta, $miniatura, $persona, $stato);
+                """;
+            inserisci.Parameters.AddWithValue("$id", photoId);
+            inserisci.Parameters.AddWithValue("$x0", v.X0);
+            inserisci.Parameters.AddWithValue("$y0", v.Y0);
+            inserisci.Parameters.AddWithValue("$x1", v.X1);
+            inserisci.Parameters.AddWithValue("$y1", v.Y1);
+            inserisci.Parameters.AddWithValue("$punteggio", v.Punteggio);
+            inserisci.Parameters.AddWithValue("$impronta", v.Impronta);
+            inserisci.Parameters.AddWithValue("$miniatura", v.Miniatura);
+            inserisci.Parameters.AddWithValue("$persona", (object?)v.PersonaId ?? DBNull.Value);
+            inserisci.Parameters.AddWithValue("$stato", v.Stato);
+            inserisci.ExecuteNonQuery();
+        }
+
+        transaction.Commit();
+    }
+
+    /// <summary>Tutti i volti con impronta della cartella (per raggruppare e riconoscere).</summary>
+    public IReadOnlyList<VoltoSalvato> GetVoltiPersone()
+    {
+        using var scope = _lock.EnterScope();
+        using var cmd = _connection.CreateCommand();
+        cmd.CommandText = """
+            SELECT rowid, photo_id, x0, y0, x1, y1, impronta, miniatura, persona_id, stato_persona
+            FROM volti WHERE impronta IS NOT NULL;
+            """;
+        using var reader = cmd.ExecuteReader();
+        var volti = new List<VoltoSalvato>();
+        while (reader.Read())
+        {
+            volti.Add(new VoltoSalvato(
+                reader.GetInt64(0), reader.GetInt64(1),
+                reader.GetDouble(2), reader.GetDouble(3), reader.GetDouble(4), reader.GetDouble(5),
+                reader.IsDBNull(6) ? null : (byte[])reader[6],
+                reader.IsDBNull(7) ? null : (byte[])reader[7],
+                reader.IsDBNull(8) ? null : reader.GetInt64(8),
+                reader.GetInt32(9)));
+        }
+        return volti;
+    }
+
+    /// <summary>
+    /// "Rianalizza le persone": dimentica volti e nomi della cartella, la prossima ricerca li ricalcola.
+    /// Le persone (archivio globale) restano: i loro volti verranno riproposti in automatico.
+    /// </summary>
+    public void AzzeraAnalisiVolti()
+    {
+        using var scope = _lock.EnterScope();
+        using var cmd = _connection.CreateCommand();
+        cmd.CommandText = "DELETE FROM volti; UPDATE photos SET volti_cercati = 0;";
+        cmd.ExecuteNonQuery();
+    }
+
+    /// <summary>Dà (o toglie) un nome a dei volti: proposto, confermato o rifiutato.</summary>
+    public void AssegnaPersona(IEnumerable<long> idVolti, long? personaId, int stato)
+    {
+        using var scope = _lock.EnterScope();
+        using var transaction = _connection.BeginTransaction();
+        using var cmd = _connection.CreateCommand();
+        cmd.Transaction = transaction;
+        cmd.CommandText = "UPDATE volti SET persona_id = $persona, stato_persona = $stato WHERE rowid = $id;";
+        var pPersona = cmd.Parameters.Add("$persona", SqliteType.Integer);
+        var pStato = cmd.Parameters.Add("$stato", SqliteType.Integer);
+        var pId = cmd.Parameters.Add("$id", SqliteType.Integer);
+        foreach (var id in idVolti)
+        {
+            pPersona.Value = (object?)personaId ?? DBNull.Value;
+            pStato.Value = stato;
+            pId.Value = id;
+            cmd.ExecuteNonQuery();
+        }
+        transaction.Commit();
     }
 
     /// <summary>Volti trovati nella foto (normalizzati, foto non raddrizzata); null se non è ancora stata analizzata.</summary>

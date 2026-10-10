@@ -93,7 +93,17 @@ Aggiunte fuori piano, su richiesta esplicita durante lo sviluppo:
 - Simboli delle modifiche sulle miniature (griglia e filmstrip): ritaglio, raddrizzamento,
   colore/tono (`EditRecipe.HasCrop/HasStraighten/HasTone`); ricette lette tutte insieme all'apertura
   della cartella (`GetAllRecipeJson`), aggiornati dal vivo durante l'editing (`MostraBuffer`).
-- Versione dell'app nel `<Version>` del csproj, mostrata nel titolo della finestra (v0.8).
+- Persone stile Picasa (opzione chiesta al primo uso, interruttore nella sezione Persone): progetto
+  `WFastPic.Core.Persone` (ONNX Runtime). YuNet (rilevamento + 5 punti, decodifica a mano come
+  OpenCV FaceDetectorYN, ingresso fisso 640) → allineamento per similitudine su 112×112 → SFace
+  (impronta 128, somiglianza coseno). Modelli OpenCV Zoo scaricati al primo uso in
+  LocalAppData\WFastPic\modelli con verifica SHA-256 (`ModelliPersone`), mai nel repo. Volti con
+  impronta e miniatura nel sidecar (`volti`, `volti_cercati = 2`); persone (nome, avatar, campioni)
+  nell'archivio globale `persone.db` (`ArchivioPersone`), valide per tutte le cartelle. Gruppi senza
+  nome per legame medio (centroidi oltre 300 volti), proposte automatiche oltre 0,42, conferma/
+  rinomina/togli/ignora dal menu, filtro griglia per persona, "Rianalizza le persone".
+  Senza l'opzione resta il rilevatore di Windows (solo volti, per ritagli e filtro "Con volti").
+- Proporzioni del ritaglio: anche "originale" (quelle della foto).- Versione dell'app nel `<Version>` del csproj, mostrata nel titolo della finestra (v0.8).
 - Griglia divisa per giorni (opzionale, "Per giorni"): vista raggruppata allineata a `_visibili`,
   che resta l'unico elenco di riferimento.
 
@@ -136,7 +146,7 @@ src/
 ├─ WFastPic.Core.Persistence/   (sidecar SQLite)
 └─ WFastPic.Core.Export/        (bake ricetta + watermark + tag EXIF + encode JPEG — Windows-targeted)
 tests/
-└─ WFastPic.Core.Tests/         (xUnit, 123 test — Library/Selection/Processing/Metadata/Export)
+└─ WFastPic.Core.Tests/         (xUnit, 131 test — Library/Selection/Processing/Metadata/Export)
 tools/
 ├─ HeicSmokeTest/                (Fase 0, smoke test decoding)
 └─ ScanSmokeTest/
@@ -169,7 +179,7 @@ Nota: `Z`/`F` zoom, `R` ruota rigida, `M` riproduci video, `Ctrl+C/V` copia rice
 
 ## Convenzioni per chi implementa
 
-- Test prima o insieme al codice per la logica in `Core.*` (xUnit) — 123 test attuali coprono
+- Test prima o insieme al codice per la logica in `Core.*` (xUnit) — 131 test attuali coprono
   scan/identità, raffiche, selezione, ricetta/crop/rotate/tono/geometria raddrizzamento, ordinamento
   cronologico, riapertura veloce, scarti, concorrenza sidecar, stima avanzamento, zoom/trascinamento viewer.
 - `LibrarySidecarDatabase` è condiviso tra thread UI e coda di scrittura: ogni metodo pubblico nuovo

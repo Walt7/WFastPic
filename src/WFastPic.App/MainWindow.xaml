@@ -17,8 +17,56 @@
         PaneBackground="#1E1E1E">
 
         <SplitView.Pane>
-            <Grid RowDefinitions="Auto,*,Auto" Padding="0,10,0,0">
-                <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Padding="14,0,8,6">
+            <Grid RowDefinitions="Auto,Auto,*,Auto" Padding="0,10,0,0">
+                <!--
+                    Persone stile Picasa (opzione: riconoscimento pesante, chiesto al primo uso): chi compare
+                    nella cartella e i gruppi di volti simili senza nome. Clic = filtra la griglia;
+                    tasto destro = dai un nome, conferma le proposte, rinomina, togli il nome, ignora.
+                -->
+                <Expander
+                    x:Name="PersoneExpander"
+                    Grid.Row="0"
+                    IsExpanded="True"
+                    HorizontalAlignment="Stretch"
+                    HorizontalContentAlignment="Stretch">
+                    <Expander.Header>
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Text="Persone" FontWeight="SemiBold" VerticalAlignment="Center" />
+                            <ToggleSwitch
+                                x:Name="RiconoscimentoPersoneSwitch"
+                                Grid.Column="1"
+                                OnContent=""
+                                OffContent=""
+                                MinWidth="0"
+                                Toggled="RiconoscimentoPersoneSwitch_Toggled"
+                                ToolTipService.ToolTip="Riconoscimento delle persone (analisi in background)" />
+                        </Grid>
+                    </Expander.Header>
+                    <StackPanel Spacing="6">
+                        <TextBlock x:Name="PersoneStatoText" Foreground="#888888" FontSize="12" TextWrapping="Wrap" />
+                        <GridView
+                            x:Name="PersoneList"
+                            MaxHeight="260"
+                            SelectionMode="None"
+                            IsItemClickEnabled="True"
+                            ItemClick="PersoneList_ItemClick"
+                            RightTapped="PersoneList_RightTapped">
+                            <GridView.ItemTemplate>
+                                <DataTemplate x:DataType="local:PersonaUi">
+                                    <StackPanel Width="72" Spacing="2" Padding="0,4" ToolTipService.ToolTip="{x:Bind Dettaglio}">
+                                        <Border Width="56" Height="56" CornerRadius="28" Background="#2A2A2A" HorizontalAlignment="Center">
+                                            <Image Source="{x:Bind Avatar}" Stretch="UniformToFill" />
+                                        </Border>
+                                        <TextBlock Text="{x:Bind Nome}" Foreground="White" FontSize="12" HorizontalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Text="{x:Bind Dettaglio}" Foreground="#999999" FontSize="10" HorizontalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </GridView.ItemTemplate>
+                        </GridView>
+                        <HyperlinkButton Content="Rianalizza le persone di questa cartella" FontSize="12" Padding="0" Click="RianalizzaPersone_Click" />
+                    </StackPanel>
+                </Expander>
+                <Grid Grid.Row="1" ColumnDefinitions="*,Auto" Padding="14,8,8,6">
                     <TextBlock Text="Cartelle" Foreground="White" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" />
                     <Button
                         Grid.Column="1"
@@ -32,7 +80,7 @@
                     </Button>
                 </Grid>
 
-                <Grid Grid.Row="1">
+                <Grid Grid.Row="2">
                     <ListView
                         x:Name="ElencoCartelle"
                         SelectionMode="None"
@@ -98,7 +146,7 @@
 
                 <Expander
                     x:Name="SfogliaPcExpander"
-                    Grid.Row="2"
+                    Grid.Row="3"
                     Header="Sfoglia il PC"
                     HorizontalAlignment="Stretch"
                     HorizontalContentAlignment="Stretch"
@@ -157,6 +205,18 @@
                         <ComboBoxItem Content="Geolocalizzate" />
                         <ComboBoxItem Content="Con volti" />
                     </ComboBox>
+                    <Button
+                        x:Name="FiltroPersonaButton"
+                        Margin="12,0,0,0"
+                        Visibility="Collapsed"
+                        Click="FiltroPersonaButton_Click"
+                        ToolTipService.ToolTip="Togli il filtro persona">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <FontIcon Glyph="&#xE77B;" FontSize="14" />
+                            <TextBlock x:Name="FiltroPersonaText" />
+                            <FontIcon Glyph="&#xE711;" FontSize="10" />
+                        </StackPanel>
+                    </Button>
                     <ToggleButton
                         x:Name="DividiPerGiorniToggle"
                         Margin="12,0,0,0"

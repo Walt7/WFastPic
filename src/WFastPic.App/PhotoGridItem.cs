@@ -57,6 +57,9 @@ public sealed class PhotoGridItem : INotifyPropertyChanged
     /// <summary>Volti trovati dalla ricerca in background; null = foto non ancora analizzata.</summary>
     public int? NumeroVolti { get; set; }
 
+    /// <summary>Volti già analizzati per riconoscere le persone (non solo rilevati).</summary>
+    public bool PersoneAnalizzate { get; set; }
+
     /// <summary>Posizione scelta/corretta dall'utente nell'editor: la riscansione GPS non la tocca.</summary>
     public bool GpsManuale { get; set; }
 

@@ -68,6 +68,7 @@ public partial class MainWindow : Window
         _impostazioniExport = impostazioni.Export ?? new ImpostazioniExport();
         _nomiLuoghiOnline = impostazioni.NomiLuoghiOnline;
         _dividiPerGiorni = impostazioni.DividiPerGiorni;
+        _riconoscimentoPersone = impostazioni.RiconoscimentoPersone;
         Griglia.ItemsSource = _visibili;
         InizializzaGiorni();
         AggiornaStatusBar();
@@ -102,12 +103,23 @@ public partial class MainWindow : Window
     /// scrittura sia svuotata, perdendo l'ultimo Space/Delete/rating. Il writer gira sul thread pool
     /// e non ha bisogno del thread UI, quindi l'attesa non va in deadlock.
     /// </summary>
+    private void SalvaImpostazioni() =>
+        ImpostazioniStore.Salva(new Impostazioni(_cellSize)
+        {
+            Export = _impostazioniExport,
+            NomiLuoghiOnline = _nomiLuoghiOnline,
+            DividiPerGiorni = _dividiPerGiorni,
+            PannelloCartelleAperto = RootSplitView.IsPaneOpen,
+            RiconoscimentoPersone = _riconoscimentoPersone,
+        });
+
     private void ChiudiSessione()
     {
-        ImpostazioniStore.Salva(new Impostazioni(_cellSize) { Export = _impostazioniExport, NomiLuoghiOnline = _nomiLuoghiOnline, DividiPerGiorni = _dividiPerGiorni, PannelloCartelleAperto = RootSplitView.IsPaneOpen });
+        SalvaImpostazioni();
         _thumbnailLoader?.Annulla();
         _exportCts?.Cancel();
         FermaRicercaVolti();
+        ChiudiArchivioPersone();
         // Finestra chiusa col viewer aperto: le modifiche alla foto corrente vanno in coda prima
         // che la coda venga svuotata (un ritaglio non ancora applicato si perde, come in Picasa).
         if (_viewerAperto) SalvaRicettaCorrente();
@@ -161,6 +173,8 @@ public partial class MainWindow : Window
     {
         var richiesta = ++_richiestaCaricamentoCartella;
         FermaRicercaVolti();
+        _filtroPersona = null;
+        FiltroPersonaButton.Visibility = Visibility.Collapsed;
         if (_thumbnailLoader is not null)
         {
             _thumbnailLoader.ProgressoCambiato -= ThumbnailLoader_ProgressoCambiato;
@@ -284,6 +298,7 @@ public partial class MainWindow : Window
                 Direction = record.Direction,
                 GpsManuale = record.GpsManuale,
                 NumeroVolti = record.NumeroVolti,
+                PersoneAnalizzate = record.PersoneAnalizzate,
                 HasVideo = conVideo.Contains(record.Id),
                 Stato = record.Stato,
                 Rating = record.Rating,
@@ -306,6 +321,7 @@ public partial class MainWindow : Window
 
         PercorsoTextBox.Text = cartella;
         RegistraCartellaAperta(cartella);
+        AggiornaPannelloPersone();
     }
 
     // --- Raffiche: foto scattate a pochi secondi di distanza ---
@@ -507,7 +523,7 @@ public partial class MainWindow : Window
     {
         var filtro = Filtri[_filtroIndice];
         _visibili.Clear();
-        foreach (var item in _tutte.Where(i => CorrispondeAlFiltro(i, filtro)))
+        foreach (var item in _tutte.Where(i => CorrispondeAlFiltro(i, filtro) && CorrispondeAllaPersona(i)))
         {
             _visibili.Add(item);
         }
