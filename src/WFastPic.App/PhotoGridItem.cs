@@ -185,6 +185,45 @@ public sealed class PhotoGridItem : INotifyPropertyChanged
         }
     }
 
+    // ---- Voto automatico: sempre separato dal voto dell'utente (Rating), che non tocca mai.
+
+    /// <summary>Misure tecniche dalla ricerca in background; null = foto non ancora analizzata.</summary>
+    public WFastPic.Core.Processing.MisureQualita? Qualita { get; set; }
+
+    private WFastPic.Core.Processing.VotoSuggerito? _votoAuto;
+    public WFastPic.Core.Processing.VotoSuggerito? VotoAuto
+    {
+        get => _votoAuto;
+        set
+        {
+            if (_votoAuto == value) return;
+            _votoAuto = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(HasVotoAuto));
+            OnPropertyChanged(nameof(VotoAutoTesto));
+            OnPropertyChanged(nameof(VotoAutoDescrizione));
+            OnPropertyChanged(nameof(DaScartareSuggerita));
+            OnPropertyChanged(nameof(MiglioreRaffica));
+            OnPropertyChanged(nameof(CiSeiTu));
+        }
+    }
+
+    public bool HasVotoAuto => _votoAuto is not null;
+
+    /// <summary>Stelline vuote (☆), non piene come quelle date dall'utente.</summary>
+    public string VotoAutoTesto => _votoAuto is null ? "" : new string('☆', _votoAuto.Stelle);
+
+    /// <summary>"Voto automatico: 4 stelle · nitida · la migliore della raffica" (tooltip e viewer).</summary>
+    public string VotoAutoDescrizione => _votoAuto is null ? "" : EtichetteVoto.Descrivi(_votoAuto);
+
+    /// <summary>Mossa, sfocata o esposta malissimo: compare in "Da scartare?". Lo scarto lo decide l'utente.</summary>
+    public bool DaScartareSuggerita => _votoAuto?.DaScartare == true;
+
+    public bool MiglioreRaffica => _votoAuto?.MiglioreRaffica == true;
+
+    /// <summary>Ci sei tu (la persona "Io"): la foto è messa in evidenza.</summary>
+    public bool CiSeiTu => _votoAuto?.CiSeiTu == true;
+
     public bool IsSelected => Stato == StatoSelezione.Selected;
     public bool IsReject => Stato == StatoSelezione.Reject;
     public bool HasRating => Rating > 0;

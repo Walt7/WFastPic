@@ -25,7 +25,7 @@ public partial class MainWindow : Window
     private const int CellSizeMax = 400;
     private const int CellSizeStep = 20;
 
-    private static readonly string[] Filtri = ["Tutte", "Selezionate", "Scarti", "Geolocalizzate", "Con volti"];
+    private static readonly string[] Filtri = ["Tutte", "Selezionate", "Scarti", "Geolocalizzate", "Con volti", FiltroDaScartare];
 
     private readonly ObservableCollection<PhotoGridItem> _visibili = new();
     private readonly List<PhotoGridItem> _tutte = new();
@@ -260,9 +260,10 @@ public partial class MainWindow : Window
         IReadOnlyList<PhotoRecord> records;
         HashSet<long> conVideo;
         Dictionary<long, EditRecipe> ricette;
+        IReadOnlyDictionary<long, QualitaSalvata> qualita;
         try
         {
-            (db, records, conVideo, ricette) = await Task.Run(() =>
+            (db, records, conVideo, ricette, qualita) = await Task.Run(() =>
             {
                 var database = LibrarySidecarDatabase.OpenOrCreate(cartella);
                 try
@@ -279,7 +280,9 @@ public partial class MainWindow : Window
                     // Per i simboli delle modifiche sulle miniature (ritaglio, raddrizzamento, colore).
                     var modifiche = database.GetAllRecipeJson()
                         .ToDictionary(r => r.Key, r => EditRecipeSerializer.FromJson(r.Value));
-                    return (database, foto, video, modifiche);
+                    // Misure già fatte per il voto automatico: le stelline ci sono subito.
+                    var misure = database.GetQualita(MisuraQualita.Versione);
+                    return (database, foto, video, modifiche, misure);
                 }
                 catch
                 {
@@ -341,7 +344,10 @@ public partial class MainWindow : Window
             if (item.Stato == StatoSelezione.Reject) _conteggioScarti++;
         }
 
+        AssegnaQualitaSalvate(_tutte, qualita);
+        _importanzaFoto = [];
         RaggruppaRaffiche();
+        RicalcolaVotiAutomatici();
         ApplicaFiltro();
         AggiornaStatusBar();
         Griglia.Focus(FocusState.Programmatic);
@@ -424,6 +430,7 @@ public partial class MainWindow : Window
 
         NascondiDallaGriglia(daNascondere);
         AggiornaStatusBar();
+        AggiornaScartaSuggerite();
     }
 
     private bool ApplicaStato(PhotoGridItem item, string nuovoStato)
@@ -545,6 +552,8 @@ public partial class MainWindow : Window
         "Scarti" => item.Stato == StatoSelezione.Reject,
         "Geolocalizzate" => item.HasGps,
         "Con volti" => item.NumeroVolti > 0,
+        // Solo quelle ancora da decidere: scartandole spariscono dall'elenco.
+        FiltroDaScartare => item.DaScartareSuggerita && item.Stato != StatoSelezione.Reject,
         _ => true,
     };
 
@@ -644,6 +653,10 @@ public partial class MainWindow : Window
                 T("Apri una cartella di foto per iniziare: scegli le migliori con Space, scarta con Canc, sistema ed esporta. " +
                 "Le cartelle aperte restano nel pannello a sinistra, divise per anno.")),
             (_, true) => (T("Nessuna foto in questa cartella"), T("Scegli un'altra cartella dal pannello a sinistra o aprine una nuova.")),
+            _ when Filtri[_filtroIndice] == FiltroDaScartare => (T("Nessuna foto da scartare"),
+                _tutte.Any(f => f.Qualita is null)
+                    ? T("L'analisi delle foto è ancora in corso: quelle mosse o sfocate compariranno qui.")
+                    : T("Nessuna foto mossa, sfocata o esposta male tra quelle ancora da decidere.")),
             _ => (T("Nessuna foto con questo filtro"), T("Premi Tab o scegli «Tutte» nel filtro in alto per rivederle tutte.")),
         };
         StatoVuotoPanel.Visibility = Visibility.Visible;
@@ -755,6 +768,7 @@ public partial class MainWindow : Window
                 _aggiornamentoFiltroInCorso = false;
             }
         }
+        AggiornaScartaSuggerite();
     }
 
     // --- Tastiera: ← → SPACE è il ciclo critico, nessuna operazione qui deve bloccare ---

@@ -4,6 +4,24 @@ What is new in WFastPic, version by version. The newest is on top. ([Italiano](C
 Technical details (bug causes, files touched) are in [`doc/correzioni-e-novita.md`](doc/correzioni-e-novita.md) (in Italian).
 The app interface is in Italian: names of buttons and menus below are given as they appear in the app.
 
+## [Unreleased]
+
+### New
+- **Automatic photo rating, all on your PC**: after thumbnails and faces, WFastPic measures every photo
+  (sharpness, faces included, camera shake, exposure) and gives it 1 to 5 stars. They are **hollow
+  purple stars at the bottom right**, clearly different from yours (filled yellow, on the left), which
+  are never touched. The reason is in the thumbnail tooltip and in the viewer details: "sharp", "shaken
+  or blurry", "the sharpest of the burst", "you are in it"…
+- **"To reject?"**, a new filter (also with Tab): shaken, blurry, almost black or almost all white
+  photos. Reject them one by one with Delete or all together with "Reject all" (with confirmation);
+  nothing is rejected on its own and rejecting stays reversible.
+- **Who matters most**: in the People menu, "Favourite" (star) and "Who is it" (It's me, Family, Friend,
+  Acquaintance). Sharp photos with you in them get 5 stars and are marked in the grid; then come
+  favourites and family, friends, people with just a name. You and your favourites are at the top.
+- **Viewer, details column**: a "Rating" section (yours and the automatic one, with the reasons) and a
+  **"Faces"** section as in Picasa: the people in the photo with their name ("?" if only suggested);
+  click a face to say who it is, confirm or correct it.
+
 ## [0.9.2] — 2026-10-10
 
 ### New

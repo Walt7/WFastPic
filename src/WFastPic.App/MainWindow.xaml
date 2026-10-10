@@ -257,7 +257,20 @@
                         <ComboBoxItem Content="Scarti" />
                         <ComboBoxItem Content="Geolocalizzate" />
                         <ComboBoxItem Content="Con volti" />
+                        <ComboBoxItem Content="Da scartare?" />
                     </ComboBox>
+                    <!-- Solo nel filtro «Da scartare?»: scarta in un colpo le foto mosse o venute male (con conferma). -->
+                    <Button
+                        x:Name="ScartaSuggeriteButton"
+                        Margin="4,0,0,0"
+                        Visibility="Collapsed"
+                        Click="ScartaSuggeriteButton_Click"
+                        ToolTipService.ToolTip="Segna come scarti tutte le foto suggerite (si possono rivedere nel filtro Scarti)">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <FontIcon Glyph="&#xE74D;" FontSize="14" Foreground="OrangeRed" />
+                            <TextBlock x:Name="ScartaSuggeriteText" Text="Scarta tutte" />
+                        </StackPanel>
+                    </Button>
                     <Button
                         x:Name="FiltroPersonaButton"
                         Margin="4,0,0,0"
@@ -458,16 +471,32 @@
                                 </StackPanel>
                             </Border>
                         </StackPanel>
-                        <Border
-                            Background="#CC000000"
-                            CornerRadius="3"
-                            Padding="4,1"
-                            HorizontalAlignment="Right"
-                            VerticalAlignment="Bottom"
-                            Margin="6"
-                            Visibility="{x:Bind HasGroup, Mode=OneWay}">
-                            <TextBlock Text="{x:Bind GruppoTesto, Mode=OneWay}" Foreground="#00B0FF" FontSize="12" />
-                        </Border>
+                        <!--
+                            In basso a destra: voto automatico (stelline vuote viola, ben diverse dalle piene
+                            gialle dell'utente in basso a sinistra) e posizione nella raffica.
+                        -->
+                        <StackPanel Orientation="Horizontal" Spacing="4" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="6">
+                            <Border
+                                Background="#CC000000"
+                                CornerRadius="3"
+                                Padding="4,1"
+                                Visibility="{x:Bind HasVotoAuto, Mode=OneWay}"
+                                ToolTipService.ToolTip="{x:Bind VotoAutoDescrizione, Mode=OneWay}">
+                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                    <FontIcon Glyph="&#xE7BA;" Foreground="OrangeRed" FontSize="12" Visibility="{x:Bind DaScartareSuggerita, Mode=OneWay}" />
+                                    <FontIcon Glyph="&#xE77B;" Foreground="Gold" FontSize="12" Visibility="{x:Bind CiSeiTu, Mode=OneWay}" />
+                                    <FontIcon Glyph="&#xE8E1;" Foreground="#00B0FF" FontSize="12" Visibility="{x:Bind MiglioreRaffica, Mode=OneWay}" />
+                                    <TextBlock Text="{x:Bind VotoAutoTesto, Mode=OneWay}" Foreground="#B39DDB" FontSize="12" />
+                                </StackPanel>
+                            </Border>
+                            <Border
+                                Background="#CC000000"
+                                CornerRadius="3"
+                                Padding="4,1"
+                                Visibility="{x:Bind HasGroup, Mode=OneWay}">
+                                <TextBlock Text="{x:Bind GruppoTesto, Mode=OneWay}" Foreground="#00B0FF" FontSize="12" />
+                            </Border>
+                        </StackPanel>
                     </Grid>
                 </DataTemplate>
             </ListView.ItemTemplate>

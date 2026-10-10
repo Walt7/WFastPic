@@ -44,6 +44,64 @@ public class PosizioneManualeTests
     }
 
     [Fact]
+    public void Misure_di_qualita_restano_finche_il_file_e_il_calcolo_non_cambiano()
+    {
+        var (cartella, db, identita) = CreaDbConUnaFoto(null);
+        try
+        {
+            var id = db.GetAllPhotos().Single().Id;
+            Assert.Empty(db.GetQualita(1));
+
+            db.SalvaQualita(id, 1, new QualitaSalvata(0.8, 0.7, 0.01, 0.02, 120));
+            Assert.Equal(new QualitaSalvata(0.8, 0.7, 0.01, 0.02, 120), db.GetQualita(1)[id]);
+            Assert.Empty(db.GetQualita(2)); // calcolo cambiato: si rimisura
+
+            db.SyncScan([new ScannedPhoto(identita, null, null)]);
+            Assert.Single(db.GetQualita(1));
+
+            db.SyncScan([new ScannedPhoto(identita with { LastWriteUtc = identita.LastWriteUtc.AddMinutes(1) }, null, null)]);
+            Assert.Empty(db.GetQualita(1));
+        }
+        finally
+        {
+            db.Dispose();
+            Directory.Delete(cartella, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void Importanza_delle_persone_nell_archivio()
+    {
+        var percorso = Path.Combine(Path.GetTempPath(), "wfastpic-persone-" + Guid.NewGuid() + ".db");
+        try
+        {
+            using (var archivio = ArchivioPersone.Apri(percorso))
+            {
+                var anna = archivio.TrovaOCrea("Anna", null);
+                var bruno = archivio.TrovaOCrea("Bruno", null);
+
+                archivio.ImpostaCerchia(anna, CerchiaPersona.Io);
+                archivio.ImpostaCerchia(bruno, CerchiaPersona.Io); // una sola persona è "io"
+                archivio.ImpostaPreferita(anna, true);
+            }
+
+            using var riaperto = ArchivioPersone.Apri(percorso);
+            var persone = riaperto.Elenco().ToDictionary(p => p.Nome);
+            Assert.False(persone["Anna"].SonoIo);
+            Assert.True(persone["Bruno"].SonoIo);
+            Assert.True(persone["Anna"].Preferita);
+            Assert.Equal(CerchiaPersona.Nessuna, persone["Anna"].Cerchia);
+
+            riaperto.ImpostaCerchia(persone["Anna"].Id, CerchiaPersona.Amico);
+            Assert.True(riaperto.Elenco().Single(p => p.Nome == "Bruno").SonoIo); // le altre cerchie non toccano "io"
+        }
+        finally
+        {
+            foreach (var f in Directory.GetFiles(Path.GetTempPath(), Path.GetFileName(percorso) + "*")) File.Delete(f);
+        }
+    }
+
+    [Fact]
     public void Volti_salvati_restano_finche_il_file_non_cambia()
     {
         var (cartella, db, identita) = CreaDbConUnaFoto(null);

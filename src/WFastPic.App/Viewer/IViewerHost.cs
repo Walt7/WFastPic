@@ -31,4 +31,15 @@ internal interface IViewerHost
     void SetRating(PhotoGridItem foto, int rating);
 
     Task<string?> NomeLuogoAsync(double latitudine, double longitudine, CancellationToken ct);
+
+    /// <summary>Volti della foto con il nome della persona (sezione Volti dei dettagli); null se non ancora analizzata.</summary>
+    Task<IReadOnlyList<VoltoDellaFoto>?> VoltiDellaFotoAsync(PhotoGridItem foto);
+
+    /// <summary>"Chi è?" su un volto: dà o corregge il nome, conferma una proposta.</summary>
+    Task DaiNomeAlVoltoAsync(VoltoDellaFoto volto);
 }
+
+/// <summary>Un volto nei dettagli del viewer: miniatura, persona (anche solo proposta) e chi è per l'utente.</summary>
+internal sealed record VoltoDellaFoto(
+    long Id, long PhotoId, byte[]? Miniatura, float[] Impronta,
+    string? Nome, bool Proposto, int Cerchia, bool Preferita);

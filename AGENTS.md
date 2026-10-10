@@ -147,7 +147,22 @@ Aggiunte fuori piano, su richiesta esplicita durante lo sviluppo:
 - Scorrimento veloce nel viewer: miniatura ingrandita come segnaposto finché la preview non è pronta;
   precaricamento di 5 foto nella direzione di marcia + 1 dietro (max 2 decode in parallelo, cache 10);
   un decode in corso non viene mai ripetuto per la stessa foto (`_decodeInCorso`).
-- Allavvio
+- Voto automatico, tutto offline e **sempre separato dal voto dell'utente** (che non tocca mai):
+  `MisuraQualita` (Core.Processing, testata) misura su una preview da 512 px la nitidezza come rapporto
+  tra dettaglio a metà e a un quarto di scala, nelle tessere più a fuoco e nella direzione peggiore
+  (coglie il mosso, ignora il rumore), anche sui volti, più bruciati/chiusi/luminosità. Misure nel sidecar
+  (tabella `qualita`, con `versione`: cambiando il calcolo si rimisura; azzerate se il file cambia),
+  analisi in background dopo i volti (`MainWindow.Qualita.cs`, in pausa col viewer aperto).
+  `VotoAutomatico` dà 1-5 stelle relative alla cartella con limiti assoluti: soglie tarate su ~1300 foto
+  reali confrontate con le selezioni (sotto 0,60 nessuna era selezionata). In griglia stelline vuote
+  viola in basso a destra (quelle dell'utente restano piene gialle a sinistra), icone "da scartare?",
+  "ci sei tu", "migliore della raffica". Filtro "Da scartare?" (mosse/sfocate, quasi nere, quasi bianche)
+  con "Scarta tutte" e conferma: mai scarti automatici. La raffica non basta mai a suggerire lo scarto.
+- Importanza delle persone (`persone.db`: `preferita`, `cerchia` = Conoscente/Amico/Famiglia/Io in
+  ordine di importanza, "Io" una persona sola): menu Persone "Preferita" e "Chi è"; nel voto tu > stella
+  e famiglia > amici > con nome > conoscenti; tu e le preferite in cima all'elenco Persone.
+- Dettagli del viewer: sezione Voto (il tuo / automatico con i motivi) e sezione Volti come Picasa
+  (miniature con nome, "?" se proposto, cerchia; clic = "Chi è?" su quel volto, via `IViewerHost`).
 
 Non ancora implementato / verificato: nessuna fase residua del piano. Resta da fare solo verifica
 manuale interattiva utente su una cartella reale (drag crop, straighten, export end-to-end) — un
@@ -190,7 +205,7 @@ src/
 ├─ WFastPic.Core.Persistence/   (sidecar SQLite)
 └─ WFastPic.Core.Export/        (bake ricetta + watermark + tag EXIF + encode JPEG — Windows-targeted)
 tests/
-└─ WFastPic.Core.Tests/         (xUnit, 147 test — Library/Selection/Processing/Metadata/Export)
+└─ WFastPic.Core.Tests/         (xUnit, 188 test — Library/Selection/Processing/Metadata/Export)
 tools/
 ├─ HeicSmokeTest/                (Fase 0, smoke test decoding)
 └─ ScanSmokeTest/
@@ -245,7 +260,7 @@ Nota: `Z`/`F` zoom, `M` riproduci video, `Ctrl+C/V` copia ricetta — presenti n
   `IViewerHost`; la finestra lo usa con `Viewer.Apri/Chiudi/IsAperto/SalvaRicettaCorrente` e l'evento
   `Chiuso`. Una nuova dipendenza va aggiunta all'interfaccia, non aggirata.
 
-- Test prima o insieme al codice per la logica in `Core.*` (xUnit) — 147 test attuali coprono
+- Test prima o insieme al codice per la logica in `Core.*` (xUnit) — 188 test attuali coprono
   scan/identità, raffiche, selezione, ricetta/crop/rotate/tono/geometria raddrizzamento, ordinamento
   cronologico, riapertura veloce, scarti, concorrenza sidecar, stima avanzamento, zoom/trascinamento viewer.
 - `LibrarySidecarDatabase` è condiviso tra thread UI e coda di scrittura: ogni metodo pubblico nuovo

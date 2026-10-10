@@ -323,6 +323,29 @@
                     <TextBlock x:Name="ViewerRafficaInfoText" Foreground="#4FC3F7" FontSize="12" TextWrapping="Wrap" Visibility="Collapsed" />
 
                     <!--
+                        Voto: quello dell'utente (stelline piene gialle, tasti 0-5) e quello automatico
+                        (vuote viola, con il perché), sempre separati: l'automatico non tocca mai l'altro.
+                    -->
+                    <Rectangle Height="1" Fill="{StaticResource BordoContenutoBrush}" Margin="0,2,0,6" />
+                    <TextBlock Text="Voto" FontWeight="SemiBold" />
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10" RowDefinitions="Auto,Auto" RowSpacing="2">
+                        <TextBlock Text="Il tuo" FontSize="12" Foreground="{StaticResource TestoSecondarioBrush}" VerticalAlignment="Center" />
+                        <TextBlock x:Name="ViewerVotoTuoText" Grid.Column="1" FontSize="14" Foreground="Gold" />
+                        <TextBlock Grid.Row="1" Text="Automatico" FontSize="12" Foreground="{StaticResource TestoSecondarioBrush}" VerticalAlignment="Center" />
+                        <TextBlock x:Name="ViewerVotoAutoText" Grid.Row="1" Grid.Column="1" FontSize="14" Foreground="#B39DDB" />
+                    </Grid>
+                    <TextBlock x:Name="ViewerVotoMotiviText" Foreground="{StaticResource TestoSecondarioBrush}" FontSize="11" TextWrapping="Wrap" />
+
+                    <!--
+                        Volti, come Picasa: chi c'è nella foto (nome, "?" se solo proposto) e chi è per
+                        l'utente. Clic su un volto = "Chi è?" per dare, correggere o confermare il nome.
+                    -->
+                    <Rectangle Height="1" Fill="{StaticResource BordoContenutoBrush}" Margin="0,2,0,6" />
+                    <TextBlock Text="Volti" FontWeight="SemiBold" />
+                    <VariableSizedWrapGrid x:Name="ViewerVoltiPanel" Orientation="Horizontal" ItemWidth="80" ItemHeight="104" />
+                    <TextBlock x:Name="ViewerVoltiStatoText" Foreground="{StaticResource TestoSecondarioBrush}" FontSize="11" TextWrapping="Wrap" />
+
+                    <!--
                         Luogo, come il pannello "Luoghi" di Picasa: nome del posto, dispositivo e dati
                         di ripresa (altitudine, direzione, drone), mini-mappa con la freccia della
                         direzione. "Correggi" sposta il segnaposto; la correzione sta solo nel sidecar.

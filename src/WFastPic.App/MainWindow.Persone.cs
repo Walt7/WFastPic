@@ -7,6 +7,7 @@ using Microsoft.UI.Xaml.Media.Imaging;
 using WFastPic.Core.Library;
 using WFastPic.Core.Persistence;
 using WFastPic.Core.Persone;
+using WFastPic.Core.Processing;
 using static WFastPic.Core.Localizzazione.Testi;
 
 namespace WFastPic.App;
@@ -28,6 +29,22 @@ public sealed class PersonaUi
     public required HashSet<long> Foto { get; init; }
     public required IReadOnlyList<float[]> Impronte { get; init; }
     public byte[]? AvatarJpeg { get; init; }
+
+    /// <summary>Io, famiglia, amico, conoscente (<see cref="CerchiaPersona"/>) e la stella: pesano nel voto automatico.</summary>
+    public int Cerchia { get; init; }
+    public bool Preferita { get; init; }
+
+    public ImportanzaPersone Importanza => SenzaNome
+        ? ImportanzaPersone.Nessuna
+        : Cerchia switch
+        {
+            CerchiaPersona.Io => ImportanzaPersone.Io,
+            CerchiaPersona.Famiglia => ImportanzaPersone.Preferita,
+            _ when Preferita => ImportanzaPersone.Preferita,
+            CerchiaPersona.Amico => ImportanzaPersone.Amico,
+            CerchiaPersona.Conoscente => ImportanzaPersone.Conoscente,
+            _ => ImportanzaPersone.ConNome,
+        };
 
     /// <summary>Miniature dei volti nella cartella aperta, per "Cambia immagine".</summary>
     public IReadOnlyList<byte[]> MiniatureVolti { get; init; } = [];
@@ -105,6 +122,7 @@ public partial class MainWindow
         {
             PersoneList.ItemsSource = null;
             PersoneStatoText.Text = _riconoscimentoPersone == true ? "" : T("Attiva il riconoscimento per raggruppare i volti per persona.");
+            AggiornaImportanzaPersone([]);
             return;
         }
 
@@ -144,6 +162,8 @@ public partial class MainWindow
 
         _personeCorrenti = elenco.Select(e => e.Persona).ToList();
         PersoneList.ItemsSource = _personeCorrenti;
+        AggiornaImportanzaPersone(_personeCorrenti);
+        Viewer.AggiornaVoltiFotoCorrente();
         RiallineaFiltroPersona();
         var analizzate = _tutte.Count(f => f.PersoneAnalizzate);
         var quiQualcuno = elenco.Any(e => e.Persona.Foto.Count > 0);
@@ -215,7 +235,9 @@ public partial class MainWindow
             if (totale == 0) continue; // nome rimasto senza volti in nessuna cartella nota
 
             var proposte = qui.Where(v => v.Stato == StatoPersona.Proposto).Select(v => v.Id).ToList();
-            var parti = new List<string> { Foto(totale) };
+            var parti = new List<string>();
+            if (EtichettaCerchia(persona.Cerchia, persona.Preferita) is { } etichetta) parti.Add(etichetta);
+            parti.Add(Foto(totale));
             if (foto.Count == 0) parti.Add(altrove.Count == 1 ? ArchivioCartelle.Nome(altrove[0].Cartella) : T("{0} cartelle", altrove.Count));
             else if (altrove.Count > 0) parti.Add(T("{0} qui", foto.Count));
             if (proposte.Count > 0) parti.Add(T("{0} da confermare", proposte.Count));
@@ -231,8 +253,18 @@ public partial class MainWindow
                 Impronte = qui.Select(v => Impronte.DaByte(v.Impronta!)).ToList(),
                 MiniatureVolti = qui.Where(v => v.Miniatura is not null).Select(v => v.Miniatura!).Take(60).ToList(),
                 AltreCartelle = altrove,
+                Cerchia = persona.Cerchia,
+                Preferita = persona.Preferita,
             }, persona.Avatar ?? qui.FirstOrDefault()?.Miniatura));
         }
+
+        // In cima tu, poi le persone con la stella e la famiglia; le altre in ordine alfabetico.
+        risultato = risultato.OrderBy(r => r.Item1.Importanza switch
+        {
+            ImportanzaPersone.Io => 0,
+            ImportanzaPersone.Preferita => 1,
+            _ => 2,
+        }).ToList();
 
         var senzaNome = volti.Where(v => v.PersonaId is null && v.Stato != StatoPersona.Rifiutato).ToList();
         var etichette = RiconoscimentoPersone.Raggruppa(senzaNome.Select(v => Impronte.DaByte(v.Impronta!)).ToList());
@@ -373,6 +405,25 @@ public partial class MainWindow
             Voce(menu.Items, T("Rinomina…"), "", () => _ = DaiNomeAsync(persona, persona.Nome));
             if (persona.MiniatureVolti.Count > 1)
                 Voce(menu.Items, T("Cambia immagine…"), "", () => _ = CambiaImmagineAsync(persona));
+
+            menu.Items.Add(new MenuFlyoutSeparator());
+            var preferita = new ToggleMenuFlyoutItem { Text = T("Preferita"), IsChecked = persona.Preferita, Icon = new FontIcon { Glyph = "" } };
+            preferita.Click += (_, _) => ImpostaImportanza(persona, () => Archivio.ImpostaPreferita(persona.PersonaId!.Value, !persona.Preferita));
+            menu.Items.Add(preferita);
+
+            var chiE = new MenuFlyoutSubItem { Text = T("Chi è"), Icon = new FontIcon { Glyph = "" } };
+            foreach (var cerchia in new[] { CerchiaPersona.Io, CerchiaPersona.Famiglia, CerchiaPersona.Amico, CerchiaPersona.Conoscente, CerchiaPersona.Nessuna })
+            {
+                var voce = new RadioMenuFlyoutItem
+                {
+                    Text = cerchia == CerchiaPersona.Nessuna ? T("Non specificato") : EtichettaCerchia(cerchia, false)!,
+                    GroupName = "cerchia",
+                    IsChecked = persona.Cerchia == cerchia,
+                };
+                voce.Click += (_, _) => ImpostaImportanza(persona, () => Archivio.ImpostaCerchia(persona.PersonaId!.Value, cerchia));
+                chiE.Items.Add(voce);
+            }
+            menu.Items.Add(chiE);
         }
 
         var altre = _personeCorrenti.Where(p => p != persona).ToList();
@@ -386,6 +437,29 @@ public partial class MainWindow
 
         menu.ShowAt(e.OriginalSource as FrameworkElement, e.GetPosition(e.OriginalSource as UIElement));
         e.Handled = true;
+    }
+
+    /// <summary>"Sono io", "Famiglia", "★ Amico"… sotto il nome nel pannello; null se non è stato detto nulla.</summary>
+    private static string? EtichettaCerchia(int cerchia, bool preferita)
+    {
+        var nome = cerchia switch
+        {
+            CerchiaPersona.Io => T("Sono io"),
+            CerchiaPersona.Famiglia => T("Famiglia"),
+            CerchiaPersona.Amico => T("Amico"),
+            CerchiaPersona.Conoscente => T("Conoscente"),
+            _ => null,
+        };
+        if (!preferita) return nome;
+        return nome is null ? "★" : "★ " + nome;
+    }
+
+    /// <summary>Stella o cerchia cambiata: l'elenco si riordina e le stelline automatiche si ricalcolano.</summary>
+    private void ImpostaImportanza(PersonaUi persona, Action modifica)
+    {
+        if (persona.PersonaId is null) return;
+        modifica();
+        AggiornaPannelloPersone();
     }
 
     /// <summary>
@@ -443,10 +517,11 @@ public partial class MainWindow
         flyout.ShowAt(PersoneList, new FlyoutShowOptions { Position = posizione });
     }
 
-    private async Task DaiNomeAsync(PersonaUi persona, string? nomeAttuale)
+    /// <param name="suggerito">Nome già proposto o dato al volto (dal viewer): scritto nella casella.</param>
+    private async Task DaiNomeAsync(PersonaUi persona, string? nomeAttuale, string? suggerito = null)
     {
         var nomiNoti = Archivio.Elenco().Select(p => p.Nome).ToList();
-        var casella = new AutoSuggestBox { PlaceholderText = T("Nome della persona"), Text = nomeAttuale ?? "", Width = 300 };
+        var casella = new AutoSuggestBox { PlaceholderText = T("Nome della persona"), Text = nomeAttuale ?? suggerito ?? "", Width = 300 };
         casella.TextChanged += (s, a) =>
         {
             if (a.Reason != AutoSuggestionBoxTextChangeReason.UserInput) return;
@@ -459,7 +534,9 @@ public partial class MainWindow
         contenuto.Children.Add(casella);
         contenuto.Children.Add(new TextBlock
         {
-            Text = nomeAttuale is null
+            Text = nomeAttuale is null && persona.Volti.Count == 1
+                ? T("Il volto prende questo nome (anche di una persona già nota); WFastPic lo proporrà anche sui volti somiglianti, in tutte le cartelle.")
+                : nomeAttuale is null
                 ? T("I {0} volti del gruppo prendono questo nome (anche di una persona già nota); WFastPic lo proporrà anche sui volti somiglianti, in tutte le cartelle.", persona.Volti.Count)
                 : T("Rinomina la persona in tutte le cartelle. Con il nome di un'altra persona, le due si uniscono."),
             TextWrapping = TextWrapping.Wrap, Foreground = new SolidColorBrush(Microsoft.UI.Colors.Gray), MaxWidth = 320,
@@ -499,6 +576,9 @@ public partial class MainWindow
             return;
         }
 
+        // Volto che ha già questo nome (confermato, non solo proposto): niente da cambiare.
+        if (string.Equals(nome, suggerito, StringComparison.CurrentCultureIgnoreCase) && persona.Proposte.Count == 0) return;
+
         var dbCorrente = _db;
         if (dbCorrente is null) return;
         var esisteva = Archivio.EsisteNome(nome);
@@ -510,7 +590,8 @@ public partial class MainWindow
         SeguiFiltroSe(persona, nuovaId, nome);
         await AssegnaEAggiornaAsync(persona.Volti, nuovaId, StatoPersona.Confermato);
 
-        ImpostaAnnulla(dbCorrente, T("Nome «{0}» dato a {1} volti", nome, persona.Volti.Count), async () =>
+        var annulla = persona.Volti.Count == 1 ? T("Nome «{0}» dato a un volto", nome) : T("Nome «{0}» dato a {1} volti", nome, persona.Volti.Count);
+        ImpostaAnnulla(dbCorrente, annulla, async () =>
         {
             await Task.Run(() => RipristinaVolti(dbCorrente, voltiPrima));
             if (esisteva) Archivio.ImpostaCampioni(nuovaId, campioniPrima); else Archivio.Elimina(nuovaId);
@@ -782,5 +863,67 @@ public partial class MainWindow
         TogliFiltroPersona();
         AggiornaPannelloPersone();
         AvviaRicercaVolti();
+    }
+
+    // ---------------------------------------------------------------- volti nei dettagli del viewer
+
+    async Task<IReadOnlyList<VoltoDellaFoto>?> IViewerHost.VoltiDellaFotoAsync(PhotoGridItem foto)
+    {
+        var db = _db;
+        if (db is null || _riconoscimentoPersone != true || !foto.PersoneAnalizzate) return null;
+        if (_selectionManager is not null) await _selectionManager.SvuotaAsync();
+
+        // Nomi dal pannello (già con le unioni risolte); un id unito si porta sulla persona che resta.
+        var perId = _personeCorrenti.Where(p => p.PersonaId is not null).ToDictionary(p => p.PersonaId!.Value);
+        var archivio = Archivio;
+        try
+        {
+            return await Task.Run(() =>
+            {
+                var unioni = archivio.Unioni();
+                return db.GetVoltiPersone(foto.Id)
+                    .Where(v => v.Impronta is not null && !(v.PersonaId is null && v.Stato == StatoPersona.Rifiutato))
+                    .Select(v =>
+                    {
+                        var id = v.PersonaId is long p && unioni.TryGetValue(p, out var resta) ? resta : v.PersonaId;
+                        var persona = id is long pid && v.Stato is StatoPersona.Proposto or StatoPersona.Confermato
+                            ? perId.GetValueOrDefault(pid) : null;
+                        return new VoltoDellaFoto(v.Id, v.PhotoId, v.Miniatura, Impronte.DaByte(v.Impronta!),
+                            persona?.Nome, v.Stato == StatoPersona.Proposto, persona?.Cerchia ?? CerchiaPersona.Nessuna,
+                            persona?.Preferita ?? false);
+                    })
+                    .ToList();
+            });
+        }
+        catch (ObjectDisposedException)
+        {
+            return null; // cartella cambiata nel frattempo
+        }
+    }
+
+    /// <summary>Come scrivere il nome sotto un volto in Picasa: stesso "Chi è?" del pannello, per un volto solo.</summary>
+    async Task IViewerHost.DaiNomeAlVoltoAsync(VoltoDellaFoto volto)
+    {
+        var persona = new PersonaUi
+        {
+            Nome = T("Senza nome"),
+            Dettaglio = "",
+            PersonaId = null,
+            Volti = [volto.Id],
+            Proposte = volto.Proposto ? [volto.Id] : [],
+            Foto = [volto.PhotoId],
+            Impronte = [volto.Impronta],
+            AvatarJpeg = volto.Miniatura,
+        };
+        if (volto.Miniatura is not null) persona.Avatar = await CreaImmagineAsync(volto.Miniatura);
+
+        try
+        {
+            await DaiNomeAsync(persona, null, volto.Nome);
+        }
+        catch (Exception)
+        {
+            // Un altro dialogo è già aperto.
+        }
     }
 }

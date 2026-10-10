@@ -65,6 +65,121 @@ public sealed partial class ViewerView
 
         ViewerRafficaInfoText.Visibility = foto.HasGroup ? Visibility.Visible : Visibility.Collapsed;
         ViewerRafficaInfoText.Text = foto.HasGroup ? T("Raffica: foto {0} di {1}", foto.PosizioneNelGruppo, foto.DimensioneGruppo) : "";
+
+        // Il voto cambia anche a foto ferma (tasti 0-5, analisi in background, nomi dati ai volti).
+        if (_fotoDettagli != foto)
+        {
+            if (_fotoDettagli is not null) _fotoDettagli.PropertyChanged -= FotoDettagli_PropertyChanged;
+            _fotoDettagli = foto;
+            foto.PropertyChanged += FotoDettagli_PropertyChanged;
+        }
+        AggiornaVoto(foto);
+        _ = AggiornaVoltiAsync(foto);
+    }
+
+    // ---------------------------------------------------------------- voto e volti
+
+    private PhotoGridItem? _fotoDettagli;
+    private int _richiestaVolti;
+
+    private void FotoDettagli_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (sender is not PhotoGridItem foto || foto != _fotoDettagli) return;
+        if (e.PropertyName is nameof(PhotoGridItem.Rating) or nameof(PhotoGridItem.VotoAuto)) AggiornaVoto(foto);
+    }
+
+    private void AggiornaVoto(PhotoGridItem foto)
+    {
+        ViewerVotoTuoText.Text = foto.Rating > 0 ? foto.RatingTesto : T("nessuno (tasti 1-5)");
+        ViewerVotoTuoText.Opacity = foto.Rating > 0 ? 1 : 0.6;
+        ViewerVotoAutoText.Text = foto.VotoAuto is not null ? foto.VotoAutoTesto : T("in analisi…");
+        ViewerVotoAutoText.Opacity = foto.VotoAuto is null ? 0.6 : 1;
+        ViewerVotoMotiviText.Text = foto.VotoAuto is { } v ? string.Join(" · ", EtichetteVoto.Motivi(v.Motivi)) : "";
+    }
+
+    /// <summary>Nomi, cerchie o volti cambiati (pannello Persone aggiornato): si rilegge la sezione Volti.</summary>
+    internal void AggiornaVoltiFotoCorrente()
+    {
+        if (IsAperto && _fotoDettagli is { } foto) _ = AggiornaVoltiAsync(foto);
+    }
+
+    private async Task AggiornaVoltiAsync(PhotoGridItem foto)
+    {
+        var richiesta = ++_richiestaVolti;
+        var volti = await Host.VoltiDellaFotoAsync(foto);
+        if (richiesta != _richiestaVolti) return;
+
+        ViewerVoltiPanel.Children.Clear();
+        ViewerVoltiStatoText.Text = volti switch
+        {
+            null => T("Volti non ancora analizzati (serve il riconoscimento delle persone, nel pannello a sinistra)."),
+            [] => T("Nessun volto in questa foto."),
+            _ => T("Clic su un volto per dire chi è."),
+        };
+        if (volti is null) return;
+
+        foreach (var volto in volti)
+        {
+            var elemento = await CreaVoltoAsync(volto);
+            if (richiesta != _richiestaVolti) return;
+            ViewerVoltiPanel.Children.Add(elemento);
+        }
+    }
+
+    /// <summary>Miniatura tonda, nome sotto ("Anna?" se solo proposto) e chi è (Sono io, ★, Famiglia…).</summary>
+    private async Task<UIElement> CreaVoltoAsync(VoltoDellaFoto volto)
+    {
+        var immagine = new Microsoft.UI.Xaml.Media.Imaging.BitmapImage();
+        if (volto.Miniatura is not null)
+        {
+            using var stream = new MemoryStream(volto.Miniatura).AsRandomAccessStream();
+            await immagine.SetSourceAsync(stream);
+        }
+
+        var nome = volto.Nome is null ? T("Senza nome") : volto.Proposto ? volto.Nome + "?" : volto.Nome;
+        var cerchia = volto.Nome is null ? null : volto.Cerchia switch
+        {
+            Core.Persistence.CerchiaPersona.Io => T("Sono io"),
+            Core.Persistence.CerchiaPersona.Famiglia => T("Famiglia"),
+            Core.Persistence.CerchiaPersona.Amico => T("Amico"),
+            Core.Persistence.CerchiaPersona.Conoscente => T("Conoscente"),
+            _ => null,
+        };
+        if (volto.Preferita && volto.Nome is not null) cerchia = cerchia is null ? "★" : "★ " + cerchia;
+
+        var contenuto = new StackPanel { Spacing = 2, HorizontalAlignment = HorizontalAlignment.Center };
+        contenuto.Children.Add(new Border
+        {
+            Width = 56, Height = 56, CornerRadius = new CornerRadius(28),
+            // Bordo oro su di te, come le foto "ci sei tu" in griglia.
+            BorderThickness = new Thickness(volto.Cerchia == Core.Persistence.CerchiaPersona.Io && volto.Nome is not null ? 2 : 0),
+            BorderBrush = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Gold),
+            Child = new Image { Source = immagine, Stretch = Microsoft.UI.Xaml.Media.Stretch.UniformToFill },
+        });
+        contenuto.Children.Add(new TextBlock
+        {
+            Text = nome, FontSize = 11, TextTrimming = TextTrimming.CharacterEllipsis, MaxWidth = 74,
+            HorizontalAlignment = HorizontalAlignment.Center, Opacity = volto.Nome is null || volto.Proposto ? 0.65 : 1,
+        });
+        if (cerchia is not null)
+            contenuto.Children.Add(new TextBlock { Text = cerchia, FontSize = 10, Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Gold), HorizontalAlignment = HorizontalAlignment.Center });
+
+        var pulsante = new Button
+        {
+            Content = contenuto,
+            Padding = new Thickness(2),
+            Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent),
+            BorderThickness = new Thickness(0),
+            IsTabStop = false,
+            AllowFocusOnInteraction = false,
+        };
+        ToolTipService.SetToolTip(pulsante, volto.Proposto ? T("Proposta: clic per confermare o correggere") : T("Chi è?"));
+        pulsante.Click += async (_, _) =>
+        {
+            await Host.DaiNomeAlVoltoAsync(volto); // i nomi si aggiornano con il pannello Persone (AggiornaVoltiFotoCorrente)
+            ViewerOverlay.Focus(FocusState.Programmatic);
+        };
+        return pulsante;
     }
 
     private static string DimensioneLeggibile(long byteFile) => byteFile switch

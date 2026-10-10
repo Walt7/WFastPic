@@ -18,6 +18,7 @@ internal static partial class TestiEn
         ViewerCodice(d);
         PersoneCodice(d);
         Libreria(d);
+        VotoAutomatico(d);
         return d;
     }
 }

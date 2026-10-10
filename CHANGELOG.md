@@ -3,6 +3,24 @@
 Le novità di WFastPic, versione per versione. La più recente è in cima. ([English](CHANGELOG.en.md))
 I dettagli tecnici (cause dei bug, file toccati) sono in [`doc/correzioni-e-novita.md`](doc/correzioni-e-novita.md).
 
+## [Non ancora rilasciato]
+
+### Novità
+- **Voto automatico delle foto, tutto sul PC**: dopo le miniature e i volti, WFastPic misura ogni foto
+  (nitidezza, anche dei volti, mosso, esposizione) e le dà da 1 a 5 stelle. Sono stelline **vuote viola
+  in basso a destra**, ben diverse dalle tue (piene gialle, a sinistra), che non vengono mai toccate.
+  Il perché è nel suggerimento sulla miniatura e nei dettagli del viewer: "nitida", "mossa o sfocata",
+  "la più nitida della raffica", "ci sei tu"…
+- **"Da scartare?"**, nuovo filtro (anche con Tab): le foto mosse, sfocate, quasi nere o quasi tutte
+  bianche. Le scarti una a una con Canc o tutte insieme con "Scarta tutte" (con conferma); niente viene
+  scartato da solo e lo scarto resta reversibile.
+- **Chi conta di più**: nel menu delle Persone "Preferita" (stella) e "Chi è" (Sono io, Famiglia,
+  Amico, Conoscente). Le foto nitide in cui ci sei tu prendono 5 stelle e sono segnate in griglia; poi
+  contano le preferite e la famiglia, gli amici, chi ha solo un nome. Tu e le preferite in cima all'elenco.
+- **Viewer, colonna dei dettagli**: sezione "Voto" (il tuo e quello automatico, con i motivi) e sezione
+  **"Volti"** come in Picasa: le persone nella foto con il nome (con "?" se è solo una proposta); clic su
+  un volto per dire chi è, confermare o correggere.
+
 ## [0.9.2] — 2026-10-10
 
 ### Novità

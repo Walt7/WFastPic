@@ -58,18 +58,26 @@ public partial class MainWindow
         if (_riconoscimentoPersone is null) await ChiediRiconoscimentoPersoneAsync();
         if (token.IsCancellationRequested) return;
 
-        if (_riconoscimentoPersone == true)
+        try
         {
-            if (await AssicuraModelliPersoneAsync(token))
+            if (_riconoscimentoPersone == true && await AssicuraModelliPersoneAsync(token))
             {
-                AvviaAnalisiPersone(manager, token);
-                return;
+                await AvviaAnalisiPersone(manager, token);
             }
-            if (token.IsCancellationRequested) return;
-            StatusText.Text = T("Riconoscimento persone non disponibile (modelli non scaricati): solo rilevamento dei volti.");
-        }
+            else
+            {
+                if (token.IsCancellationRequested) return;
+                if (_riconoscimentoPersone == true) StatusText.Text = T("Riconoscimento persone non disponibile (modelli non scaricati): solo rilevamento dei volti.");
+                await AvviaRilevamentoVoltiWindows(manager, token);
+            }
 
-        AvviaRilevamentoVoltiWindows(manager, token);
+            // Dopo i volti (servono per la nitidezza dei visi): misure per il voto automatico.
+            if (!token.IsCancellationRequested) await AnalizzaQualitaAsync(manager, token);
+        }
+        catch (OperationCanceledException)
+        {
+            // Cartella cambiata o app chiusa: la ricerca riparte alla prossima apertura.
+        }
     }
 
     // ---------------------------------------------------------------- domanda al primo uso
@@ -147,7 +155,7 @@ public partial class MainWindow
 
     // ---------------------------------------------------------------- riconoscimento persone
 
-    private void AvviaAnalisiPersone(SelectionManager manager, CancellationToken token)
+    private Task AvviaAnalisiPersone(SelectionManager manager, CancellationToken token)
     {
         var daAnalizzare = _tutte.Where(f => !f.PersoneAnalizzate).ToList();
         var persone = PersoneNote();
@@ -156,14 +164,13 @@ public partial class MainWindow
         if (daAnalizzare.Count == 0)
         {
             // Tutto già analizzato: i volti ancora senza nome vengono comunque confrontati con le persone note.
-            if (dbAnalisi is not null)
-                _ = Task.Run(() => RiproponiPersone(dbAnalisi, persone)).ContinueWith(
-                    _ => DispatcherQueue.TryEnqueue(AggiornaPannelloPersone), TaskScheduler.Default);
-            return;
+            if (dbAnalisi is null) return Task.CompletedTask;
+            return Task.Run(() => RiproponiPersone(dbAnalisi, persone)).ContinueWith(
+                _ => DispatcherQueue.TryEnqueue(AggiornaPannelloPersone), TaskScheduler.Default);
         }
 
         var cronometro = Stopwatch.StartNew();
-        _ = Task.Run(async () =>
+        return Task.Run(async () =>
         {
             try
             {
@@ -252,14 +259,14 @@ public partial class MainWindow
 
     // ---------------------------------------------------------------- solo rilevamento (Windows)
 
-    private void AvviaRilevamentoVoltiWindows(SelectionManager manager, CancellationToken token)
+    private Task AvviaRilevamentoVoltiWindows(SelectionManager manager, CancellationToken token)
     {
-        if (!RilevatoreVolti.Disponibile) return;
+        if (!RilevatoreVolti.Disponibile) return Task.CompletedTask;
         var daAnalizzare = _tutte.Where(f => f.NumeroVolti is null).ToList();
-        if (daAnalizzare.Count == 0) return;
+        if (daAnalizzare.Count == 0) return Task.CompletedTask;
 
         var cronometro = Stopwatch.StartNew();
-        _ = Task.Run(async () =>
+        return Task.Run(async () =>
         {
             for (var i = 0; i < daAnalizzare.Count && !token.IsCancellationRequested; i++)
             {

@@ -3,7 +3,25 @@ using Microsoft.Data.Sqlite;
 namespace WFastPic.Core.Persistence;
 
 /// <summary>Una persona con nome: avatar (JPEG del volto) e campioni di impronta confermati.</summary>
-public sealed record PersonaArchivio(long Id, string Nome, byte[]? Avatar, IReadOnlyList<byte[]> Campioni);
+public sealed record PersonaArchivio(
+    long Id, string Nome, byte[]? Avatar, IReadOnlyList<byte[]> Campioni,
+    bool Preferita = false, int Cerchia = CerchiaPersona.Nessuna)
+{
+    public bool SonoIo => Cerchia == CerchiaPersona.Io;
+}
+
+/// <summary>
+/// Chi è per l'utente: pesa nel voto automatico delle foto in cui compare. "Io" è chi usa il programma,
+/// il protagonista delle sue foto: una persona sola. In ordine di importanza; Nessuna = non ancora detto.
+/// </summary>
+public static class CerchiaPersona
+{
+    public const int Nessuna = 0;
+    public const int Conoscente = 1;
+    public const int Amico = 2;
+    public const int Famiglia = 3;
+    public const int Io = 4;
+}
 
 /// <summary>
 /// Persone valide per tutte le cartelle, come le "Persone" di Picasa: un nome dato nelle foto della
@@ -56,10 +74,16 @@ public sealed class ArchivioPersone : IDisposable
             using var r = info.ExecuteReader();
             while (r.Read()) colonne.Add(r.GetString(1));
         }
-        if (!colonne.Contains("unita_a"))
+        // Importanza per il voto automatico: le persone con la stella e la cerchia (io, famiglia, amici…).
+        foreach (var (colonna, tipo) in new[]
+                 {
+                     ("unita_a", "INTEGER NULL"),
+                     ("preferita", "INTEGER NOT NULL DEFAULT 0"), ("cerchia", "INTEGER NOT NULL DEFAULT 0"),
+                 })
         {
+            if (colonne.Contains(colonna)) continue;
             using var alter = connection.CreateCommand();
-            alter.CommandText = "ALTER TABLE persone ADD COLUMN unita_a INTEGER NULL;";
+            alter.CommandText = $"ALTER TABLE persone ADD COLUMN {colonna} {tipo};";
             alter.ExecuteNonQuery();
         }
         return new ArchivioPersone(connection);
@@ -82,14 +106,18 @@ public sealed class ArchivioPersone : IDisposable
         }
 
         using var persone = _connection.CreateCommand();
-        persone.CommandText = "SELECT id, nome, avatar FROM persone WHERE unita_a IS NULL ORDER BY nome COLLATE NOCASE;";
+        persone.CommandText = """
+            SELECT id, nome, avatar, preferita, cerchia FROM persone
+            WHERE unita_a IS NULL ORDER BY nome COLLATE NOCASE;
+            """;
         using var r = persone.ExecuteReader();
         var elenco = new List<PersonaArchivio>();
         while (r.Read())
         {
             var id = r.GetInt64(0);
             elenco.Add(new PersonaArchivio(id, r.GetString(1), r.IsDBNull(2) ? null : (byte[])r[2],
-                campioni.TryGetValue(id, out var c) ? c : []));
+                campioni.TryGetValue(id, out var c) ? c : [],
+                Preferita: r.GetInt64(3) != 0, Cerchia: r.GetInt32(4)));
         }
         return elenco;
     }
@@ -156,6 +184,35 @@ public sealed class ArchivioPersone : IDisposable
         using var cmd = _connection.CreateCommand();
         cmd.CommandText = "UPDATE persone SET avatar = $avatar WHERE id = $id;";
         cmd.Parameters.AddWithValue("$avatar", avatar);
+        cmd.Parameters.AddWithValue("$id", personaId);
+        cmd.ExecuteNonQuery();
+    }
+
+    public void ImpostaPreferita(long personaId, bool preferita)
+    {
+        using var scope = _lock.EnterScope();
+        using var cmd = _connection.CreateCommand();
+        cmd.CommandText = "UPDATE persone SET preferita = $preferita WHERE id = $id;";
+        cmd.Parameters.AddWithValue("$preferita", preferita ? 1 : 0);
+        cmd.Parameters.AddWithValue("$id", personaId);
+        cmd.ExecuteNonQuery();
+    }
+
+    /// <summary>
+    /// Io, famiglia, amico, conoscente (<see cref="CerchiaPersona"/>). "Io" è una persona sola: chi lo era
+    /// prima torna senza cerchia.
+    /// </summary>
+    public void ImpostaCerchia(long personaId, int cerchia)
+    {
+        using var scope = _lock.EnterScope();
+        using var cmd = _connection.CreateCommand();
+        cmd.CommandText = """
+            UPDATE persone SET cerchia = $nessuna WHERE $cerchia = $io AND cerchia = $io AND id <> $id;
+            UPDATE persone SET cerchia = $cerchia WHERE id = $id;
+            """;
+        cmd.Parameters.AddWithValue("$nessuna", CerchiaPersona.Nessuna);
+        cmd.Parameters.AddWithValue("$io", CerchiaPersona.Io);
+        cmd.Parameters.AddWithValue("$cerchia", cerchia);
         cmd.Parameters.AddWithValue("$id", personaId);
         cmd.ExecuteNonQuery();
     }

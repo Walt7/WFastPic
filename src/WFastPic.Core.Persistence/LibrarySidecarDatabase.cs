@@ -43,6 +43,9 @@ public sealed record VoltoDaSalvare(
     double X0, double Y0, double X1, double Y1, float Punteggio,
     byte[] Impronta, byte[] Miniatura, long? PersonaId, int Stato);
 
+/// <summary>Misure tecniche salvate per il voto automatico (vedi MisuraQualita in Core.Processing).</summary>
+public sealed record QualitaSalvata(double Nitidezza, double? NitidezzaVolti, double Bruciati, double Chiusi, double Luminosita);
+
 /// <summary>Per il pannello cartelle: quante foto e in che periodo, dall'ultima apertura della cartella.</summary>
 public sealed record RiepilogoCartella(int NumeroFoto, DateTime? PrimoScatto, DateTime? UltimoScatto, int NumeroSelezionate = 0);
 
@@ -218,6 +221,18 @@ public sealed class LibrarySidecarDatabase : IDisposable
                 recipe_json TEXT NOT NULL,
                 schema_version INTEGER NOT NULL
             );
+
+            -- Misure tecniche per il voto automatico (nitidezza, esposizione), calcolate in background.
+            -- Il voto si ricava ogni volta da queste, relativo alla cartella; quello dell'utente resta in selection_state.
+            CREATE TABLE IF NOT EXISTS qualita (
+                photo_id INTEGER PRIMARY KEY REFERENCES photos(id) ON DELETE CASCADE,
+                versione INTEGER NOT NULL,
+                nitidezza REAL NOT NULL,
+                nitidezza_volti REAL NULL,
+                bruciati REAL NOT NULL,
+                chiusi REAL NOT NULL,
+                luminosita REAL NOT NULL
+            );
             """;
         cmd.ExecuteNonQuery();
 
@@ -348,6 +363,7 @@ public sealed class LibrarySidecarDatabase : IDisposable
                     -- Contenuto del file cambiato: i volti trovati prima non valgono più.
                     UPDATE photos SET volti_cercati = 0 WHERE id = $id AND $fileCambiato = 1;
                     DELETE FROM volti WHERE photo_id = $id AND $fileCambiato = 1;
+                    DELETE FROM qualita WHERE photo_id = $id AND $fileCambiato = 1;
                     """;
                 update.Parameters.AddWithValue("$alt", (object?)foto.Gps?.Altitude ?? DBNull.Value);
                 update.Parameters.AddWithValue("$fileCambiato",
@@ -756,6 +772,31 @@ public sealed class LibrarySidecarDatabase : IDisposable
         return volti;
     }
 
+    /// <summary>Volti con impronta di una sola foto (sezione Volti nei dettagli del viewer).</summary>
+    public IReadOnlyList<VoltoSalvato> GetVoltiPersone(long photoId)
+    {
+        using var scope = _lock.EnterScope();
+        using var cmd = _connection.CreateCommand();
+        cmd.CommandText = """
+            SELECT rowid, photo_id, x0, y0, x1, y1, impronta, miniatura, persona_id, stato_persona
+            FROM volti WHERE impronta IS NOT NULL AND photo_id = $id ORDER BY x0;
+            """;
+        cmd.Parameters.AddWithValue("$id", photoId);
+        using var reader = cmd.ExecuteReader();
+        var volti = new List<VoltoSalvato>();
+        while (reader.Read())
+        {
+            volti.Add(new VoltoSalvato(
+                reader.GetInt64(0), reader.GetInt64(1),
+                reader.GetDouble(2), reader.GetDouble(3), reader.GetDouble(4), reader.GetDouble(5),
+                reader.IsDBNull(6) ? null : (byte[])reader[6],
+                reader.IsDBNull(7) ? null : (byte[])reader[7],
+                reader.IsDBNull(8) ? null : reader.GetInt64(8),
+                reader.GetInt32(9)));
+        }
+        return volti;
+    }
+
     /// <summary>
     /// "Rianalizza le persone": dimentica volti e nomi della cartella, la prossima ricerca li ricalcola.
     /// Le persone (archivio globale) restano: i loro volti verranno riproposti in automatico.
@@ -855,6 +896,51 @@ public sealed class LibrarySidecarDatabase : IDisposable
         }
 
         transaction.Commit();
+    }
+
+    /// <summary>
+    /// Misure per il voto automatico, solo quelle calcolate con <paramref name="versione"/>: cambiando il
+    /// calcolo le vecchie vengono ignorate e la foto si rimisura.
+    /// </summary>
+    public IReadOnlyDictionary<long, QualitaSalvata> GetQualita(int versione)
+    {
+        using var scope = _lock.EnterScope();
+        using var cmd = _connection.CreateCommand();
+        cmd.CommandText = """
+            SELECT photo_id, nitidezza, nitidezza_volti, bruciati, chiusi, luminosita
+            FROM qualita WHERE versione = $versione;
+            """;
+        cmd.Parameters.AddWithValue("$versione", versione);
+        using var reader = cmd.ExecuteReader();
+        var misure = new Dictionary<long, QualitaSalvata>();
+        while (reader.Read())
+        {
+            misure[reader.GetInt64(0)] = new QualitaSalvata(
+                reader.GetDouble(1), reader.IsDBNull(2) ? null : reader.GetDouble(2),
+                reader.GetDouble(3), reader.GetDouble(4), reader.GetDouble(5));
+        }
+        return misure;
+    }
+
+    public void SalvaQualita(long photoId, int versione, QualitaSalvata q)
+    {
+        using var scope = _lock.EnterScope();
+        using var cmd = _connection.CreateCommand();
+        cmd.CommandText = """
+            INSERT INTO qualita (photo_id, versione, nitidezza, nitidezza_volti, bruciati, chiusi, luminosita)
+            VALUES ($id, $versione, $nitidezza, $volti, $bruciati, $chiusi, $luminosita)
+            ON CONFLICT(photo_id) DO UPDATE SET versione = excluded.versione, nitidezza = excluded.nitidezza,
+                nitidezza_volti = excluded.nitidezza_volti, bruciati = excluded.bruciati,
+                chiusi = excluded.chiusi, luminosita = excluded.luminosita;
+            """;
+        cmd.Parameters.AddWithValue("$id", photoId);
+        cmd.Parameters.AddWithValue("$versione", versione);
+        cmd.Parameters.AddWithValue("$nitidezza", q.Nitidezza);
+        cmd.Parameters.AddWithValue("$volti", (object?)q.NitidezzaVolti ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("$bruciati", q.Bruciati);
+        cmd.Parameters.AddWithValue("$chiusi", q.Chiusi);
+        cmd.Parameters.AddWithValue("$luminosita", q.Luminosita);
+        cmd.ExecuteNonQuery();
     }
 
     /// <summary>Nome del luogo già risolto per questa cella (vedi NomeLuogo.Chiave), o null.</summary>

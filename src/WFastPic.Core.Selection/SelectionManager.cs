@@ -58,6 +58,9 @@ public sealed class SelectionManager : IAsyncDisposable
     public void SalvaVoltiPersone(long photoId, IReadOnlyList<VoltoDaSalvare> volti) =>
         _codaScritture.Writer.TryWrite(() => _db.SalvaVoltiPersone(photoId, volti));
 
+    public void SalvaQualita(long photoId, int versione, QualitaSalvata misure) =>
+        _codaScritture.Writer.TryWrite(() => _db.SalvaQualita(photoId, versione, misure));
+
     public string? GetRecipeJson(long photoId) =>
         _ricettePendenti.TryGetValue(photoId, out var json) ? json : _db.GetRecipeJson(photoId);
 
