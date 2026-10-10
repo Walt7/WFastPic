@@ -136,6 +136,7 @@ public sealed class PhotoGridItem : INotifyPropertyChanged
             _isCorrenteViewer = value;
             OnPropertyChanged();
             OnPropertyChanged(nameof(DimensioneFilmstrip));
+            OnPropertyChanged(nameof(OpacitaFilmstrip));
         }
     }
 
@@ -148,11 +149,19 @@ public sealed class PhotoGridItem : INotifyPropertyChanged
             if (_evidenziaGruppoViewer == value) return;
             _evidenziaGruppoViewer = value;
             OnPropertyChanged();
-            OnPropertyChanged(nameof(DimensioneFilmstrip));
         }
     }
 
-    public double DimensioneFilmstrip => IsCorrenteViewer ? 100 : EvidenziaGruppoViewer ? 90 : 80;
+    // Misure del filmstrip: usate anche da AggiornaFilmstrip per centrare la foto corrente.
+    // Solo due larghezze (corrente / altre): la raffica si distingue col colore, non con la misura.
+    public const double FilmstripLato = 80;
+    public const double FilmstripLatoCorrente = 108;
+    public const double FilmstripMargine = 4;
+
+    public double DimensioneFilmstrip => IsCorrenteViewer ? FilmstripLatoCorrente : FilmstripLato;
+
+    // Le altre foto attenuate: l'occhio va subito a quella in osservazione.
+    public double OpacitaFilmstrip => IsCorrenteViewer ? 1.0 : 0.55;
 
     private void OnPropertyChanged([CallerMemberName] string? nome = null) =>
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nome));

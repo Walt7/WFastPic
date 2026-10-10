@@ -34,6 +34,12 @@ Aggiunte fuori piano, su richiesta esplicita durante lo sviluppo:
   cancellazione irreversibile; "Sposta in Scarti/" rinomina "nome (1).ext" in caso di collisione.
   Il video abbinato (.mov/.mp4) segue sempre la foto, con lo stesso nome base; se uno dei due file
   è bloccato non si sposta nessuno dei due.
+- Viewer stile Picasa: filmstrip con la foto in osservazione sempre al centro (padding calcolato,
+  quante miniature entrano nella larghezza, max ±12), più grande, a piena opacità, bordo bianco e
+  linea verde "corrente"; le altre attenuate. Colori coerenti con la griglia (giallo = selezionata,
+  azzurro = stessa raffica, verde = corrente). Posizione "N di M" nella barra in alto. In
+  ritaglio/raddrizza il filmstrip sparisce, i margini si allargano per le maniglie e l'area foto ha
+  un clip: zoom e rotazione non disegnano mai sopra pannello o barre.
 
 Non ancora implementato / verificato: nessuna fase residua del piano. Resta da fare solo verifica
 manuale interattiva utente su una cartella reale (drag crop, straighten, export end-to-end) — un

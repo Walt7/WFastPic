@@ -151,7 +151,10 @@ public partial class MainWindow
 
         _fotoViewerCorrente = foto;
         _mostraOriginale = false;
-        ViewerStatusText.Text = "Caricamento…";
+        // Filmstrip e posizione si aggiornano subito, prima del decode: con ←/→ veloci
+        // l'evidenziazione segue il tasto invece di inseguire l'immagine grande.
+        AggiornaFilmstrip();
+        ViewerStatusText.Text = $"{TestoPosizioneViewer(foto)} · caricamento…";
 
         var (pixel, larghezza, altezza) = await OttieniPreviewAsync(foto.PercorsoCompleto);
 
@@ -177,14 +180,20 @@ public partial class MainWindow
         if (richiesta != _richiestaCaricamentoViewer || !_viewerAperto)
             return;
 
-        AggiornaFilmstrip();
-        ViewerStatusText.Text = foto.PathRelativo;
+        ViewerStatusText.Text = TestoPosizioneViewer(foto);
         ViewerVideoBadge.Visibility = foto.HasVideo ? Visibility.Visible : Visibility.Collapsed;
         ViewerSelectionBorder.Visibility = foto.IsSelected ? Visibility.Visible : Visibility.Collapsed;
 
         ViewerOverlay.Focus(FocusState.Programmatic);
 
         _ = PrecaricaViciniAsync(foto);
+    }
+
+    // "IMG_1234.HEIC · 34 di 1300": come in Picasa si sa sempre dove si è nella cartella (o nel filtro).
+    private string TestoPosizioneViewer(PhotoGridItem foto)
+    {
+        var indice = _visibili.IndexOf(foto);
+        return indice < 0 ? foto.PathRelativo : $"{foto.PathRelativo} · {indice + 1} di {_visibili.Count}";
     }
 
     private async Task<(byte[] Pixel, int Larghezza, int Altezza)> OttieniPreviewAsync(string percorso)
@@ -326,8 +335,15 @@ public partial class MainWindow
 
     private void ApplicaLayoutViewer(int pixelWidth, int pixelHeight)
     {
-        var areaW = ViewerArea.ActualWidth > 40 ? ViewerArea.ActualWidth - 24 : 1100;
-        var areaH = ViewerArea.ActualHeight > 40 ? ViewerArea.ActualHeight - 24 : 620;
+        // Area non ancora misurata (viewer appena aperto): niente misure inventate che farebbero
+        // uscire la foto dall'area; ci pensa ViewerArea_SizeChanged appena il layout è pronto.
+        if (ViewerArea.ActualWidth <= 40 || ViewerArea.ActualHeight <= 40) return;
+
+        // In ritaglio serve aria attorno alla foto: le maniglie (14px) devono stare tutte dentro
+        // l'area ed essere afferrabili anche sui bordi, non a filo con pannello o barra.
+        var margine = _geometriaAttiva ? 2 * (DimensioneManiglia + 16) : 24;
+        var areaW = ViewerArea.ActualWidth - margine;
+        var areaH = ViewerArea.ActualHeight - margine;
         var scala = Math.Min(Math.Min(areaW / pixelWidth, areaH / pixelHeight), 2.0);
         _viewerImgW = Math.Max(1, pixelWidth * scala);
         _viewerImgH = Math.Max(1, pixelHeight * scala);
@@ -345,6 +361,9 @@ public partial class MainWindow
 
     private void ViewerArea_SizeChanged(object sender, SizeChangedEventArgs e)
     {
+        // Zoom (ScaleTransform) e raddrizza (RotateTransform) non cambiano il layout: senza clip la
+        // foto ingrandita o ruotata verrebbe disegnata sopra il pannello e sotto il filmstrip.
+        ViewerArea.Clip = new RectangleGeometry { Rect = new Rect(0, 0, e.NewSize.Width, e.NewSize.Height) };
         if (_viewerAperto && _viewerPixelOriginali is not null) AggiornaBitmap();
     }
 
@@ -621,8 +640,20 @@ public partial class MainWindow
         CropRectBorder.Visibility = vis;
         DimTop.Visibility = vis; DimBottom.Visibility = vis; DimLeft.Visibility = vis; DimRight.Visibility = vis;
         foreach (var m in _maniglie.Values) m.Visibility = vis;
+
+        // Come Picasa: durante ritaglio/raddrizza si vede solo la foto. Il filmstrip sparisce (più
+        // spazio, nessun click accidentale che cambia foto a metà ritaglio); il SizeChanged
+        // dell'area ridimensiona l'immagine e riposiziona le maniglie.
+        Filmstrip.Visibility = attiva ? Visibility.Collapsed : Visibility.Visible;
+        ViewerHintText.Text = attiva ? HintGeometria : HintViewer;
+
         if (attiva) AggiornaOverlayCrop();
     }
+
+    private const string HintViewer =
+        "←/→ foto · Space seleziona · Delete scarta · 0-5 rating · X ritaglia · L raddrizza · U ho fortuna · Ctrl+Z/Y annulla/ripeti · B originale · Esc chiudi";
+    private const string HintGeometria =
+        "Trascina gli angoli o i lati per ritagliare, trascina dentro per spostare · L / frecce raddrizza · Invio o X applica · Esc annulla";
 
     private void EsciDaGeometria()
     {
@@ -924,8 +955,21 @@ public partial class MainWindow
     private PhotoGridItem? _filmstripCorrenteEvidenziata;
     private readonly List<PhotoGridItem> _filmstripGruppoEvidenziato = new();
 
+    private void Filmstrip_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        // Finestra ridimensionata: cambia quante miniature stanno ai lati e dove cade il centro.
+        if (_viewerAperto && e.PreviousSize.Width != e.NewSize.Width) AggiornaFilmstrip();
+    }
+
+    /// <summary>
+    /// Mostra attorno alla foto corrente solo le miniature che stanno nella larghezza disponibile
+    /// (al massimo ±12) e la tiene esattamente al centro, anche a inizio/fine cartella: lo spazio
+    /// mancante da un lato diventa padding sinistro invece di spostare la corrente.
+    /// </summary>
     private void AggiornaFilmstrip()
     {
+        const int raggioMassimo = 12;
+
         if (_filmstripCorrenteEvidenziata is not null) _filmstripCorrenteEvidenziata.IsCorrenteViewer = false;
         foreach (var item in _filmstripGruppoEvidenziato) item.EvidenziaGruppoViewer = false;
         _filmstripGruppoEvidenziato.Clear();
@@ -936,16 +980,30 @@ public partial class MainWindow
         var indice = _visibili.IndexOf(_fotoViewerCorrente);
         if (indice < 0) { Filmstrip.ItemsSource = null; return; }
 
-        const int raggio = 12;
+        var larghezza = Filmstrip.ActualWidth > 0 ? Filmstrip.ActualWidth : ViewerOverlay.ActualWidth;
+        var slot = PhotoGridItem.FilmstripLato + 2 * PhotoGridItem.FilmstripMargine;
+        var slotCorrente = PhotoGridItem.FilmstripLatoCorrente + 2 * PhotoGridItem.FilmstripMargine;
+        var raggio = Math.Clamp((int)((larghezza - slotCorrente) / 2 / slot), 0, raggioMassimo);
+
         var inizio = Math.Max(0, indice - raggio);
         var fine = Math.Min(_visibili.Count - 1, indice + raggio);
 
         var finestra = new List<PhotoGridItem>();
         for (var i = inizio; i <= fine; i++) finestra.Add(_visibili[i]);
-        Filmstrip.ItemsSource = finestra;
+
+        // Centro della corrente = centro della striscia, qualunque sia il numero di foto a sinistra.
+        var primaDellaCorrente = indice - inizio;
+        var paddingSinistro = larghezza / 2 - primaDellaCorrente * slot - slotCorrente / 2;
+        Filmstrip.Padding = new Thickness(Math.Max(0, paddingSinistro), 0, 0, 0);
 
         _fotoViewerCorrente.IsCorrenteViewer = true;
         _filmstripCorrenteEvidenziata = _fotoViewerCorrente;
+        Filmstrip.ItemsSource = finestra;
+
+        foreach (var item in finestra)
+        {
+            if (item.Thumbnail is null) _thumbnailLoader?.Priorita(item);
+        }
 
         if (_fotoViewerCorrente.GroupId is not null)
         {

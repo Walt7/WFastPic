@@ -368,43 +368,74 @@
                 </Grid>
             </Grid>
 
+            <!--
+                Filmstrip stile Picasa: la foto in osservazione è sempre al centro (Padding calcolato in
+                AggiornaFilmstrip), più grande, a piena opacità, con bordo bianco e la stessa linea verde
+                "corrente" della griglia; le altre sono attenuate. Colori coerenti con la griglia:
+                giallo = selezionata, azzurro a sinistra = stessa raffica, verde sotto = corrente.
+                Niente scroll e niente focus: le frecce restano al viewer.
+            -->
             <ListView
                 x:Name="Filmstrip"
                 Grid.Row="2"
-                Height="110"
+                Height="136"
+                Background="#141414"
                 SelectionMode="None"
+                IsTabStop="False"
+                AllowFocusOnInteraction="False"
                 ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                ScrollViewer.HorizontalScrollMode="Disabled"
                 IsItemClickEnabled="True"
-                ItemClick="Filmstrip_ItemClick">
+                ItemClick="Filmstrip_ItemClick"
+                SizeChanged="Filmstrip_SizeChanged">
+                <ListView.ItemContainerStyle>
+                    <!-- Contenitore senza padding/larghezza minima: il calcolo del centro usa le misure esatte. -->
+                    <Style TargetType="ListViewItem">
+                        <Setter Property="Padding" Value="0" />
+                        <Setter Property="Margin" Value="0" />
+                        <Setter Property="MinWidth" Value="0" />
+                        <Setter Property="MinHeight" Value="0" />
+                        <Setter Property="VerticalContentAlignment" Value="Bottom" />
+                    </Style>
+                </ListView.ItemContainerStyle>
                 <ListView.ItemsPanel>
                     <ItemsPanelTemplate>
-                        <StackPanel Orientation="Horizontal" />
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Bottom" Margin="0,0,0,6" />
                     </ItemsPanelTemplate>
                 </ListView.ItemsPanel>
                 <ListView.ItemTemplate>
                     <DataTemplate x:DataType="local:PhotoGridItem">
-                        <Grid
-                            Width="{x:Bind DimensioneFilmstrip, Mode=OneWay}"
-                            Height="{x:Bind DimensioneFilmstrip, Mode=OneWay}"
-                            Margin="4"
-                            VerticalAlignment="Bottom">
-                            <Border Background="#2A2A2A" />
-                            <Image Source="{x:Bind Thumbnail, Mode=OneWay}" Stretch="UniformToFill" />
-                            <Border BorderBrush="#00B0FF" BorderThickness="2" Visibility="{x:Bind EvidenziaGruppoViewer, Mode=OneWay}" />
-                            <Border BorderBrush="#FFD600" BorderThickness="3" Visibility="{x:Bind IsCorrenteViewer, Mode=OneWay}" />
-                            <FontIcon Glyph="&#xE73E;" Foreground="LimeGreen" FontSize="14" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="2" Visibility="{x:Bind IsSelected, Mode=OneWay}" />
-                            <FontIcon Glyph="&#xE711;" Foreground="OrangeRed" FontSize="14" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="2" Visibility="{x:Bind IsReject, Mode=OneWay}" />
-                        </Grid>
+                        <StackPanel Margin="4,0" Spacing="3" VerticalAlignment="Bottom">
+                            <Grid
+                                Width="{x:Bind DimensioneFilmstrip, Mode=OneWay}"
+                                Height="{x:Bind DimensioneFilmstrip, Mode=OneWay}"
+                                Opacity="{x:Bind OpacitaFilmstrip, Mode=OneWay}">
+                                <Border Background="#2A2A2A" CornerRadius="3">
+                                    <Image Source="{x:Bind Thumbnail, Mode=OneWay}" Stretch="UniformToFill" />
+                                </Border>
+                                <Border BorderBrush="#FFD600" BorderThickness="3" CornerRadius="3" Visibility="{x:Bind IsSelected, Mode=OneWay}" />
+                                <Border Width="4" HorizontalAlignment="Left" CornerRadius="3,0,0,3" Background="#00B0FF" Visibility="{x:Bind EvidenziaGruppoViewer, Mode=OneWay}" />
+                                <Border BorderBrush="White" BorderThickness="3" CornerRadius="3" Visibility="{x:Bind IsCorrenteViewer, Mode=OneWay}" />
+                                <FontIcon Glyph="&#xE73E;" Foreground="LimeGreen" FontSize="14" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="4" Visibility="{x:Bind IsSelected, Mode=OneWay}" />
+                                <FontIcon Glyph="&#xE711;" Foreground="OrangeRed" FontSize="14" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="4" Visibility="{x:Bind IsReject, Mode=OneWay}" />
+                            </Grid>
+                            <!-- Spazio sempre riservato: le miniature restano allineate in basso con o senza linea. -->
+                            <Grid Height="4">
+                                <Border CornerRadius="2" Background="LimeGreen" Visibility="{x:Bind IsCorrenteViewer, Mode=OneWay}" />
+                            </Grid>
+                        </StackPanel>
                     </DataTemplate>
                 </ListView.ItemTemplate>
             </ListView>
 
             <TextBlock
+                x:Name="ViewerHintText"
                 Grid.Row="3"
                 Foreground="#888888"
                 FontSize="12"
                 Padding="12,6"
-                Text="←/→ foto · Space seleziona · Delete scarta · 0-5 rating · X ritaglia · L raddrizza · U ho fortuna · Invio applica / Esc annulla ritaglio · Ctrl+Z/Y annulla/ripeti · B originale · Esc chiudi" />
+                Text="←/→ foto · Space seleziona · Delete scarta · 0-5 rating · X ritaglia · L raddrizza · U ho fortuna · Ctrl+Z/Y annulla/ripeti · B originale · Esc chiudi" />
         </Grid>
 
         <ContentDialog
