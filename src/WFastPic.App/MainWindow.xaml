@@ -318,6 +318,31 @@
                                 <Button Grid.Column="0" Content="Applica (Invio)" Click="ViewerGeometriaApplica_Click" HorizontalAlignment="Stretch" Style="{StaticResource AccentButtonStyle}" IsTabStop="False" AllowFocusOnInteraction="False" />
                                 <Button Grid.Column="1" Content="Annulla (Esc)" Click="ViewerGeometriaAnnulla_Click" HorizontalAlignment="Stretch" IsTabStop="False" AllowFocusOnInteraction="False" />
                             </Grid>
+
+                            <!-- Come Picasa: ritagli già pronti come miniature; un clic posiziona il riquadro. -->
+                            <Grid ColumnDefinitions="*,Auto" Margin="0,8,0,0">
+                                <TextBlock Text="Ritagli suggeriti" Foreground="#CCCCCC" FontSize="12" VerticalAlignment="Center" />
+                                <ProgressRing x:Name="ViewerSuggerimentiAnello" Grid.Column="1" Width="14" Height="14" IsActive="False" />
+                            </Grid>
+                            <GridView
+                                x:Name="ViewerSuggerimentiList"
+                                SelectionMode="None"
+                                IsItemClickEnabled="True"
+                                ItemClick="ViewerSuggerimento_ItemClick"
+                                IsTabStop="False"
+                                AllowFocusOnInteraction="False">
+                                <GridView.ItemTemplate>
+                                    <DataTemplate x:DataType="local:SuggerimentoRitaglioUi">
+                                        <StackPanel Width="108" Spacing="2" Padding="0,2">
+                                            <Border Height="76" Background="#2A2A2A" CornerRadius="3">
+                                                <Image Source="{x:Bind Anteprima}" Stretch="Uniform" />
+                                            </Border>
+                                            <TextBlock Text="{x:Bind Etichetta}" Foreground="#CCCCCC" FontSize="11" HorizontalAlignment="Center" />
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </GridView.ItemTemplate>
+                            </GridView>
+                            <TextBlock x:Name="ViewerSuggerimentiVolti" Foreground="#888888" FontSize="11" TextWrapping="Wrap" Visibility="Collapsed" />
                         </StackPanel>
 
                         <StackPanel x:Name="PannelloBase" Spacing="8">

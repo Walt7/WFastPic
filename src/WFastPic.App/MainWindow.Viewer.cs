@@ -702,6 +702,7 @@ public partial class MainWindow
             ImpostaVisibilitaGeometria(true);
             SincronizzaPannello();
             RichiediRender();
+            CalcolaSuggerimentiRitaglio();
         }
 
         if (focusSlider) ViewerStraightenSlider.Focus(FocusState.Programmatic);
@@ -746,6 +747,7 @@ public partial class MainWindow
     {
         _geometriaAttiva = false;
         _dragTag = null;
+        SvuotaSuggerimentiRitaglio();
         ViewerRotateTransform.Angle = 0;
         ImpostaVisibilitaGeometria(false);
         SincronizzaPannello();
@@ -985,6 +987,7 @@ public partial class MainWindow
         if (!_geometriaAttiva) return;
 
         ViewerRotateTransform.Angle = e.NewValue;
+        ProgrammaSuggerimentiRitaglio();
 
         double W = _viewerImgW, H = _viewerImgH;
         var (x0, y0, x1, y1) = _cropAutoPieno
