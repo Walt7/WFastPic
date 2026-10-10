@@ -46,6 +46,12 @@ public sealed class SelectionManager : IAsyncDisposable
         });
     }
 
+    public void SetPosizioneManuale(long photoId, double? latitude, double? longitude) =>
+        _codaScritture.Writer.TryWrite(() => _db.SetPosizioneManuale(photoId, latitude, longitude));
+
+    public void RipristinaPosizioneOriginale(long photoId, WFastPic.Core.Metadata.GeoCoordinate? gpsDelFile) =>
+        _codaScritture.Writer.TryWrite(() => _db.RipristinaPosizioneOriginale(photoId, gpsDelFile));
+
     public string? GetRecipeJson(long photoId) =>
         _ricettePendenti.TryGetValue(photoId, out var json) ? json : _db.GetRecipeJson(photoId);
 

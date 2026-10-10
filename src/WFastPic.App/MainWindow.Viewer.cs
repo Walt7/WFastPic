@@ -180,6 +180,7 @@ public partial class MainWindow
         // Filmstrip e posizione si aggiornano subito, prima del decode: con ←/→ veloci
         // l'evidenziazione segue il tasto invece di inseguire l'immagine grande.
         AggiornaFilmstrip();
+        AggiornaPannelloLuogo();
         ViewerStatusText.Text = $"{TestoPosizioneViewer(foto)} · caricamento…";
 
         (byte[] Pixel, int Larghezza, int Altezza) preview;
@@ -723,6 +724,7 @@ public partial class MainWindow
         // spazio, nessun click accidentale che cambia foto a metà ritaglio); il SizeChanged
         // dell'area ridimensiona l'immagine e riposiziona le maniglie.
         Filmstrip.Visibility = attiva ? Visibility.Collapsed : Visibility.Visible;
+        PannelloLuogo.Visibility = attiva ? Visibility.Collapsed : Visibility.Visible;
         ViewerHintText.Text = attiva ? HintGeometria : HintViewer;
 
         AggiornaBadgeFoto(_fotoViewerCorrente);
@@ -1080,6 +1082,8 @@ public partial class MainWindow
 
     private void ChiudiViewer()
     {
+        _ctsLuogo?.Cancel();
+        ImpostaModificaLuogo(false);
         _richiestaCaricamentoViewer++;
         if (_geometriaAttiva) EsciDaGeometria();
         SalvaRicettaCorrente();
@@ -1217,6 +1221,7 @@ public partial class MainWindow
         {
             case VirtualKey.Escape:
                 ChiudiViewer();
+
                 e.Handled = true;
                 break;
 

@@ -30,6 +30,7 @@ public sealed partial class MainWindow
 
         MapOverlay.Visibility = Visibility.Visible;
         MapOverlay.Focus(FocusState.Programmatic);
+        MapNomiLuoghiCheck.IsChecked = _nomiLuoghiOnline;
 
         // Se non ci sono coordinate GPS caricate per nessuna foto, eseguiamo prima una scansione automatica
         if (_tutte.Count > 0 && !_tutte.Any(p => p.HasGps))
@@ -91,14 +92,15 @@ public sealed partial class MainWindow
         MapStatusText.Text = "Scansione metadati GPS in corso…";
         MapInfoBar.IsOpen = false;
 
-        var daScansionare = forzaTutte ? _tutte.ToList() : _tutte.Where(p => !p.HasGps).ToList();
+        // Le posizioni corrette a mano nell'editor non si riscansionano mai.
+        var daScansionare = (forzaTutte ? _tutte : _tutte.Where(p => !p.HasGps)).Where(p => !p.GpsManuale).ToList();
         if (daScansionare.Count == 0)
         {
             MapLoadingRing.IsActive = false;
             return;
         }
 
-        var updates = new List<(long Id, double? Lat, double? Lon)>();
+        var updates = new List<(long Id, WFastPic.Core.Metadata.GeoCoordinate? Gps)>();
 
         await Task.Run(() =>
         {
@@ -107,7 +109,7 @@ public sealed partial class MainWindow
                 var meta = WFastPic.Core.Metadata.PhotoMetadataReader.Read(item.PercorsoCompleto);
                 if (meta.Gps.HasValue)
                 {
-                    updates.Add((item.Id, meta.Gps.Value.Latitude, meta.Gps.Value.Longitude));
+                    updates.Add((item.Id, meta.Gps));
                 }
             }
 
@@ -117,12 +119,14 @@ public sealed partial class MainWindow
             }
         });
 
-        foreach (var (id, lat, lon) in updates)
+        foreach (var (id, gps) in updates)
         {
             if (_perId.TryGetValue(id, out var item))
             {
-                item.Latitude = lat;
-                item.Longitude = lon;
+                item.Latitude = gps?.Latitude;
+                item.Longitude = gps?.Longitude;
+                item.Altitude = gps?.Altitude;
+                item.Direction = gps?.Direction;
             }
         }
 
@@ -174,18 +178,20 @@ public sealed partial class MainWindow
         {
             if (!_mapInitialized)
             {
-                var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-                var webViewDataFolder = Path.Combine(localAppData, "WFastPic", "WebView2");
-                Directory.CreateDirectory(webViewDataFolder);
-                Environment.SetEnvironmentVariable("WEBVIEW2_USER_DATA_FOLDER", webViewDataFolder);
-                await MapWebView.EnsureCoreWebView2Async();
-                MapWebView.CoreWebView2.Settings.UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 WFastPic/1.0";
+                await PreparaWebViewAsync(MapWebView);
                 MapWebView.WebMessageReceived += MapWebView_WebMessageReceived;
                 _mapInitialized = true;
             }
 
-            var html = GeneraHtmlMappa(fotoGps);
-            MapWebView.NavigateToString(html);
+            // Pagina servita da un host virtuale sulla cartella .wfastpic: le miniature già in
+            // thumbcache/ si caricano come file, senza codificarle in base64 nella pagina (che con
+            // NavigateToString avrebbe un limite di 2 MB).
+            if (_db is null) return;
+            var cartellaSidecar = Path.Combine(_db.CartellaFoto, ".wfastpic");
+            try { MapWebView.CoreWebView2.ClearVirtualHostNameToFolderMapping(HostMappa); } catch { /* non ancora mappato */ }
+            MapWebView.CoreWebView2.SetVirtualHostNameToFolderMapping(HostMappa, cartellaSidecar, CoreWebView2HostResourceAccessKind.Allow);
+            await File.WriteAllTextAsync(Path.Combine(cartellaSidecar, "mappa.html"), GeneraHtmlMappa(fotoGps));
+            MapWebView.CoreWebView2.Navigate($"https://{HostMappa}/mappa.html?v={Environment.TickCount64}");
         }
         catch (Exception ex)
         {
@@ -225,9 +231,16 @@ public sealed partial class MainWindow
         {
             var json = args.WebMessageAsJson;
             using var doc = JsonDocument.Parse(json);
-            if (doc.RootElement.TryGetProperty("id", out var idProp))
+            if (!doc.RootElement.TryGetProperty("id", out var idProp)) return;
+            var photoId = idProp.GetInt64();
+            var azione = doc.RootElement.TryGetProperty("action", out var a) ? a.GetString() : null;
+
+            if (azione == "dettagli")
             {
-                var photoId = idProp.GetInt64();
+                _ = InviaDettagliPopupAsync(photoId);
+            }
+            else if (azione == "open_viewer")
+            {
                 if (_perId.TryGetValue(photoId, out var item))
                 {
                     ChiudiMappa();
@@ -243,6 +256,14 @@ public sealed partial class MainWindow
         }
     }
 
+    private const string HostMappa = "mappa.wfastpic";
+
+    /// <summary>
+    /// Mappa stile Google/Picasa: le foto vicine si raggruppano da sole (Leaflet.markercluster) in un
+    /// segnaposto a goccia con il numero di foto; una foto abbastanza distante dalle altre mostra la
+    /// propria miniatura dentro il segnaposto. Zoomando i gruppi si separano; foto nello stesso punto
+    /// esatto (raffiche) si aprono a ventaglio all'ultimo zoom. Giallo = contiene foto selezionate.
+    /// </summary>
     private static string GeneraHtmlMappa(IReadOnlyList<PhotoGridItem> fotoGps)
     {
         var markersList = new List<object>();
@@ -258,6 +279,8 @@ public sealed partial class MainWindow
                     title = f.PathRelativo,
                     date = f.CaptureDate?.ToString("dd/MM/yyyy HH:mm") ?? "Data sconosciuta",
                     isSelected = f.IsSelected,
+                    thumb = "thumbcache/" + Uri.EscapeDataString(ThumbnailCacheLoader.NomeFileCache(f)),
+                    dir = f.GpsManuale ? null : f.Direction,
                 });
             }
         }
@@ -271,152 +294,151 @@ public sealed partial class MainWindow
                 <meta charset="utf-8" />
                 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
                 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+                <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
                 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+                <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
                 <style>
-                    html, body, #map {
-                        height: 100%;
-                        width: 100%;
-                        margin: 0;
-                        padding: 0;
-                        background: #181818;
-                        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-                    }
-                    .leaflet-popup-content-wrapper {
-                        background: #252526;
-                        color: #ffffff;
-                        border-radius: 8px;
-                        box-shadow: 0 4px 16px rgba(0,0,0,0.6);
-                        border: 1px solid #444;
-                    }
-                    .leaflet-popup-tip {
-                        background: #252526;
-                    }
-                    .popup-badge {
-                        display: inline-block;
-                        background: #FFD600;
-                        color: #000;
-                        font-weight: bold;
-                        font-size: 11px;
-                        padding: 2px 6px;
-                        border-radius: 3px;
-                        margin-bottom: 6px;
-                    }
-                    .popup-title {
-                        font-weight: 600;
-                        font-size: 14px;
-                        margin-bottom: 4px;
-                        word-break: break-all;
-                    }
-                    .popup-date {
-                        color: #aaaaaa;
-                        font-size: 12px;
-                        margin-bottom: 6px;
-                    }
-                    .popup-btn {
-                        display: inline-block;
-                        background: #0078D4;
-                        color: white;
-                        border: none;
-                        border-radius: 4px;
-                        padding: 6px 14px;
-                        font-size: 12px;
-                        cursor: pointer;
-                        font-weight: 600;
-                        margin-top: 6px;
-                        transition: background 0.2s;
-                    }
-                    .popup-btn:hover {
-                        background: #106EBE;
-                    }
-                    .custom-pin {
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                        width: 28px;
-                        height: 28px;
-                        border-radius: 50% 50% 50% 0;
-                        transform: rotate(-45deg);
-                        box-shadow: 0 2px 6px rgba(0,0,0,0.5);
-                    }
-                    .custom-pin-inner {
-                        width: 10px;
-                        height: 10px;
-                        border-radius: 50%;
-                        background: #1e1e1e;
-                        transform: rotate(45deg);
-                    }
-                    .pin-selected {
-                        background: #FFD600;
-                    }
-                    .pin-normal {
-                        background: #00B0FF;
-                    }
+                    html, body, #map { height: 100%; width: 100%; margin: 0; padding: 0; background: #181818;
+                        font-family: "Segoe UI", sans-serif; }
+                    .leaflet-popup-content-wrapper { background: #252526; color: #fff; border-radius: 8px;
+                        box-shadow: 0 4px 16px rgba(0,0,0,.6); border: 1px solid #444; }
+                    .leaflet-popup-tip { background: #252526; }
+                    .popup-img { display: block; width: 220px; height: 165px; object-fit: cover; border-radius: 4px;
+                        margin-bottom: 8px; background: #333; }
+                    .popup-badge { display: inline-block; background: #FFD600; color: #000; font-weight: bold;
+                        font-size: 11px; padding: 2px 6px; border-radius: 3px; margin-bottom: 6px; }
+                    .popup-title { font-weight: 600; font-size: 13px; margin-bottom: 2px; word-break: break-all; }
+                    .popup-date { color: #aaa; font-size: 12px; }
+                    .popup-btn { background: #0078D4; color: #fff; border: 0; border-radius: 4px; padding: 6px 14px;
+                        font-size: 12px; font-weight: 600; cursor: pointer; margin-top: 8px; }
+                    .popup-btn:hover { background: #106EBE; }
+
+                    /* Segnaposto a goccia stile Google: SVG con la punta in basso sul punto esatto. */
+                    .pin { position: relative; filter: drop-shadow(0 2px 3px rgba(0,0,0,.55)); }
+                    .pin svg { position: absolute; left: 0; top: 0; z-index: 0; }
+                    .pin .conteggio { position: absolute; z-index: 1; left: 0; right: 0; text-align: center; color: #fff;
+                        font-weight: 700; font-size: 13px; }
+                    .pin .foto { position: absolute; z-index: 1; border-radius: 50%; object-fit: cover; background: #555; }
+                    .pin .punto { position: absolute; z-index: 1; border-radius: 50%; background: #1e1e1e; }
+                    /* Freccia della direzione: parte dal punto esatto (la punta della goccia). */
+                    .pin .freccia { position: absolute; z-index: 2; overflow: visible; pointer-events: none; }
+                    .popup-luogo { color: #fff; font-size: 12px; margin: 2px 0 4px; }
+                    .popup-righe div { color: #ccc; font-size: 12px; }
                 </style>
             </head>
             <body>
                 <div id="map"></div>
                 <script>
                     const markersData = {{markersJson}};
-                    const map = L.map('map');
+                    const map = L.map('map', { zoomControl: true });
 
-                    const voyager = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+                    // Come Picasa: mappa stradale o satellite. (Le basemap CARTO ora chiedono una chiave API.)
+                    const stradale = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
                         maxZoom: 19,
-                        subdomains: 'abcd',
-                        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" style="color:#aaa;">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions" style="color:#aaa;">CARTO</a>'
+                        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                     });
-
-                    const dark = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                    const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
                         maxZoom: 19,
-                        subdomains: 'abcd',
-                        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" style="color:#aaa;">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions" style="color:#aaa;">CARTO</a>'
+                        attribution: 'Immagini &copy; Esri, Maxar, Earthstar Geographics'
                     });
+                    stradale.addTo(map);
+                    L.control.layers({ 'Mappa': stradale, 'Satellite': satellite }, null, { position: 'topright' }).addTo(map);
+                    const GOCCIA = 'M12 0C5.4 0 0 5.4 0 12c0 8.6 10.4 22.4 11.2 23.5a1 1 0 0 0 1.6 0C13.6 34.4 24 20.6 24 12 24 5.4 18.6 0 12 0z';
 
-                    voyager.addTo(map);
+                    function svgGoccia(w, h, colore, bordo) {
+                        return `<svg width="${w}" height="${h}" viewBox="-1 -1 26 38"><path d="${GOCCIA}" fill="${colore}" stroke="${bordo}" stroke-width="1.5"/></svg>`;
+                    }
 
-                    L.control.layers({
-                        'Mappa colori (Voyager)': voyager,
-                        'Tema scuro (Dark Matter)': dark
-                    }, null, { position: 'topright' }).addTo(map);
-
-                    const markerGroup = L.featureGroup();
-
-                    function createIcon(isSelected) {
-                        const pinClass = isSelected ? 'pin-selected' : 'pin-normal';
+                    // Foto isolata: goccia con la miniatura rotonda dentro (se non è in cache, un punto).
+                    function iconaFoto(item) {
+                        const w = 50, h = 72, d = 40, x = (w - d) / 2, y = 5;
+                        const colore = item.isSelected ? '#FFD600' : '#FFFFFF';
+                        // La mappa ha sempre il nord in alto: ruotare di "dir" gradi la mostra giusta a ogni zoom.
+                        const freccia = item.dir === null || item.dir === undefined ? '' :
+                            `<svg class="freccia" width="60" height="60" viewBox="-30 -30 60 60"
+                                  style="left:${w / 2 - 30}px;top:${h - 30}px;transform:rotate(${item.dir}deg)">
+                               <path d="M0 0 L0 -20" stroke="#fff" stroke-width="5" stroke-linecap="round"/>
+                               <path d="M0 0 L0 -20" stroke="#D32F2F" stroke-width="3" stroke-linecap="round"/>
+                               <path d="M-6 -17 L0 -28 L6 -17 Z" fill="#D32F2F" stroke="#fff" stroke-width="1.5"/>
+                             </svg>`;
                         return L.divIcon({
                             className: '',
-                            html: `<div class="custom-pin ${pinClass}"><div class="custom-pin-inner"></div></div>`,
-                            iconSize: [28, 28],
-                            iconAnchor: [14, 28],
-                            popupAnchor: [0, -28]
+                            html: `<div class="pin" style="width:${w}px;height:${h}px">${svgGoccia(w, h, colore, '#333')}${freccia}
+                                     <img class="foto" src="${item.thumb}" style="left:${x}px;top:${y}px;width:${d}px;height:${d}px"
+                                          onerror="this.outerHTML='<div class=&quot;punto&quot; style=&quot;left:19px;top:14px;width:12px;height:12px&quot;></div>'" />
+                                   </div>`,
+                            iconSize: [w, h], iconAnchor: [w / 2, h], popupAnchor: [0, -h + 6]
                         });
                     }
 
-                    markersData.forEach(item => {
-                        const icon = createIcon(item.isSelected);
-                        const marker = L.marker([item.lat, item.lon], { icon: icon }).addTo(markerGroup);
-                        const badgeHtml = item.isSelected ? '<div class="popup-badge">★ Selezionata</div>' : '';
-                        const content = document.createElement('div');
-                        content.innerHTML = `
-                            ${badgeHtml}
-                            <div class="popup-title">${item.title}</div>
-                            <div class="popup-date">📅 ${item.date}</div>
-                            <div class="popup-date">📍 ${item.lat.toFixed(5)}, ${item.lon.toFixed(5)}</div>
-                            <button class="popup-btn" onclick="openPhoto(${item.id})">Apri nel Viewer</button>
-                        `;
-                        marker.bindPopup(content);
+                    // Gruppo: goccia rossa (gialla se contiene selezionate) con il numero di foto.
+                    function iconaGruppo(cluster) {
+                        const figli = cluster.getAllChildMarkers();
+                        const n = figli.length;
+                        const conSelezionate = figli.some(m => m.options.item.isSelected);
+                        const w = n < 10 ? 38 : n < 100 ? 44 : 50, h = Math.round(w * 1.45);
+                        const colore = conSelezionate ? '#F9A825' : '#EA4335';
+                        return L.divIcon({
+                            className: '',
+                            html: `<div class="pin" style="width:${w}px;height:${h}px">${svgGoccia(w, h, colore, '#8B1A10')}
+                                     <div class="conteggio" style="top:${Math.round(w * 0.3)}px">${n}</div></div>`,
+                            iconSize: [w, h], iconAnchor: [w / 2, h]
+                        });
+                    }
+
+                    const gruppi = L.markerClusterGroup({
+                        maxClusterRadius: 70,
+                        showCoverageOnHover: false,
+                        spiderfyOnMaxZoom: true,
+                        iconCreateFunction: iconaGruppo
                     });
 
-                    markerGroup.addTo(map);
+                    function escape(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 
-                    if (markersData.length > 0) {
-                        map.fitBounds(markerGroup.getBounds().pad(0.1));
-                    } else {
-                        map.setView([41.9028, 12.4964], 6);
-                    }
+                    markersData.forEach(item => {
+                        const marker = L.marker([item.lat, item.lon], { icon: iconaFoto(item), item: item, title: item.title });
+                        const badge = item.isSelected ? '<div class="popup-badge">★ Selezionata</div>' : '';
+                        marker.bindPopup(`
+                            <img class="popup-img" src="${item.thumb}" onerror="this.style.display='none'" />
+                            ${badge}
+                            <div class="popup-title">${escape(item.title)}</div>
+                            <div class="popup-luogo" id="luogo-${item.id}">…</div>
+                            <div class="popup-date">📅 ${escape(item.date)}</div>
+                            <div class="popup-date">📍 ${item.lat.toFixed(5)}, ${item.lon.toFixed(5)}</div>
+                            <div class="popup-righe" id="righe-${item.id}"></div>
+                            <button class="popup-btn" onclick="openPhoto(${item.id})">Apri nel Viewer</button>`, { minWidth: 220 });
+                        // Luogo, dispositivo, altitudine, direzione: chiesti all'app solo all'apertura del popup.
+                        marker.on('popupopen', () => {
+                            if (dettagli[item.id]) riempi(dettagli[item.id]);
+                            else window.chrome.webview.postMessage({ action: 'dettagli', id: item.id });
+                        });
+                        gruppi.addLayer(marker);
+                    });
 
-                    function openPhoto(id) {
-                        window.chrome.webview.postMessage({ action: 'open_viewer', id: id });
+                    const dettagli = {};
+                    function riempi(d) {
+                        const luogo = document.getElementById('luogo-' + d.id);
+                        if (luogo) luogo.textContent = d.luogo ? '🏷 ' + d.luogo : '';
+                        const righe = document.getElementById('righe-' + d.id);
+                        if (righe) righe.innerHTML = d.righe.map(r => `<div>${escape(r)}</div>`).join('');
                     }
+                    window.chrome.webview.addEventListener('message', e => {
+                        if (e.data && e.data.action === 'dettagli') { dettagli[e.data.id] = e.data; riempi(e.data); }
+                    });
+                    map.addLayer(gruppi);
+
+                    // Inquadra tutte le foto; se l'area cambia dimensione prima che l'utente tocchi la mappa
+                    // (overlay appena mostrato) si inquadra di nuovo invece di restare a zoom mondiale.
+                    let toccata = false;
+                    map.on('mousedown wheel', () => toccata = true);
+                    function inquadra() {
+                        if (markersData.length > 0) map.fitBounds(gruppi.getBounds().pad(0.1), { maxZoom: 16 });
+                        else map.setView([41.9028, 12.4964], 6);
+                    }
+                    inquadra();
+                    new ResizeObserver(() => { map.invalidateSize(); if (!toccata) inquadra(); }).observe(document.getElementById('map'));
+
+                    function openPhoto(id) { window.chrome.webview.postMessage({ action: 'open_viewer', id: id }); }
                 </script>
             </body>
             </html>

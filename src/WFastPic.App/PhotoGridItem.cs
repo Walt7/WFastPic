@@ -48,6 +48,15 @@ public sealed class PhotoGridItem : INotifyPropertyChanged
 
     public bool HasGps => Latitude.HasValue && Longitude.HasValue;
 
+    /// <summary>Metri sul livello del mare, se il file la riporta (non per posizioni corrette a mano).</summary>
+    public double? Altitude { get; set; }
+
+    /// <summary>Verso dove guardava la camera (gradi da nord, orario): la freccia sulla mappa.</summary>
+    public double? Direction { get; set; }
+
+    /// <summary>Posizione scelta/corretta dall'utente nell'editor: la riscansione GPS non la tocca.</summary>
+    public bool GpsManuale { get; set; }
+
     private int? _groupId;
     public int? GroupId
     {

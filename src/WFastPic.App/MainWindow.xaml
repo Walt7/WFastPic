@@ -330,6 +330,31 @@
                         </Grid>
                         <Button x:Name="ViewerResetButton" Content="Ripristina originale" Click="ViewerReset_Click" HorizontalAlignment="Stretch" IsTabStop="False" AllowFocusOnInteraction="False" />
                         <TextBlock Text="Tieni premuto B per vedere l'originale" Foreground="#777777" FontSize="11" TextWrapping="Wrap" />
+
+                        <!--
+                            Luogo, come il pannello "Luoghi" di Picasa: nome del posto, dispositivo e dati
+                            di ripresa (altitudine, direzione, drone), mini-mappa con la freccia della
+                            direzione. "Correggi" sposta il segnaposto; la correzione sta solo nel sidecar.
+                        -->
+                        <StackPanel x:Name="PannelloLuogo" Spacing="6" Margin="0,6,0,0">
+                            <Rectangle Height="1" Fill="#333333" Margin="0,0,0,4" />
+                            <TextBlock Text="Luogo" Foreground="White" FontWeight="SemiBold" />
+                            <TextBlock x:Name="ViewerLuogoNome" Foreground="#DDDDDD" FontSize="12" TextWrapping="Wrap" />
+                            <TextBlock x:Name="ViewerLuogoDettagli" Foreground="#AAAAAA" FontSize="11" TextWrapping="Wrap" />
+                            <Border CornerRadius="4" Height="170" Background="#222222">
+                                <WebView2 x:Name="ViewerMiniMappa" />
+                            </Border>
+                            <TextBlock x:Name="ViewerLuogoSuggerimento" Text="Trascina il segnaposto o clicca sulla mappa nel punto giusto." Foreground="#FFB300" FontSize="11" TextWrapping="Wrap" Visibility="Collapsed" />
+                            <Grid x:Name="ViewerLuogoAzioni" ColumnDefinitions="*,*" ColumnSpacing="6">
+                                <Button x:Name="ViewerLuogoCorreggiButton" Content="Correggi" HorizontalAlignment="Stretch" Click="ViewerLuogoCorreggi_Click" IsTabStop="False" AllowFocusOnInteraction="False" />
+                                <Button x:Name="ViewerLuogoRimuoviButton" Grid.Column="1" Content="Rimuovi" HorizontalAlignment="Stretch" Click="ViewerLuogoRimuovi_Click" IsTabStop="False" AllowFocusOnInteraction="False" />
+                            </Grid>
+                            <Grid x:Name="ViewerLuogoModifica" ColumnDefinitions="*,*" ColumnSpacing="6" Visibility="Collapsed">
+                                <Button Content="Salva" HorizontalAlignment="Stretch" Style="{StaticResource AccentButtonStyle}" Click="ViewerLuogoSalva_Click" IsTabStop="False" AllowFocusOnInteraction="False" />
+                                <Button Grid.Column="1" Content="Annulla" HorizontalAlignment="Stretch" Click="ViewerLuogoAnnulla_Click" IsTabStop="False" AllowFocusOnInteraction="False" />
+                            </Grid>
+                            <Button x:Name="ViewerLuogoRipristinaButton" Content="Ripristina la posizione del file" HorizontalAlignment="Stretch" Click="ViewerLuogoRipristina_Click" Visibility="Collapsed" IsTabStop="False" AllowFocusOnInteraction="False" />
+                        </StackPanel>
                     </StackPanel>
                 </ScrollViewer>
 
@@ -573,7 +598,12 @@
                     <Button x:Name="MapFiltroTutteButton" Content="Tutte le foto" Click="MapFiltroTutte_Click" IsTabStop="False" />
                     <TextBlock x:Name="MapStatusText" Foreground="#AAAAAA" VerticalAlignment="Center" Margin="12,0,0,0" />
                 </StackPanel>
-                <Button Grid.Column="3" x:Name="MapRescanButton" Content="🔄 Riscansiona GPS" Click="MapRescanButton_Click" Margin="0,0,12,0" IsTabStop="False" />
+                <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="12" Margin="0,0,12,0">
+                    <!-- I nomi dei luoghi si chiedono a OpenStreetMap (le coordinate escono dal PC): disattivabile. -->
+                    <CheckBox x:Name="MapNomiLuoghiCheck" Content="Nomi dei luoghi (OpenStreetMap)" Click="NomiLuoghiCheck_Click" IsTabStop="False"
+                              ToolTipService.ToolTip="Mostra il nome del posto (es. Polignano a Mare, Puglia). Le coordinate vengono inviate a openstreetmap.org; i nomi restano salvati nella cartella." />
+                    <Button x:Name="MapRescanButton" Content="🔄 Riscansiona GPS" Click="MapRescanButton_Click" IsTabStop="False" />
+                </StackPanel>
                 <Button Grid.Column="4" Content="✕" Width="36" Height="36" Padding="0" Click="MapCloseButton_Click" IsTabStop="False" />
             </Grid>
 

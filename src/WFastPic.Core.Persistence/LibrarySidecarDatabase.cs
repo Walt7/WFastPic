@@ -13,7 +13,10 @@ public sealed record PhotoRecord(
     string Stato,
     int Rating,
     double? Latitude = null,
-    double? Longitude = null);
+    double? Longitude = null,
+    bool GpsManuale = false,
+    double? Altitude = null,
+    double? Direction = null);
 
 public sealed record SyncResult(int Nuove, int Aggiornate, int Invariate);
 
@@ -78,7 +81,16 @@ public sealed class LibrarySidecarDatabase : IDisposable
                 last_write_utc TEXT NOT NULL,
                 capture_date TEXT NULL,
                 latitude REAL NULL,
-                longitude REAL NULL
+                longitude REAL NULL,
+                gps_manuale INTEGER NOT NULL DEFAULT 0,
+                altitude REAL NULL,
+                direction REAL NULL
+            );
+
+            -- Nomi dei luoghi (geocodifica inversa) per cella di ~100 m: ogni punto si chiede una volta sola.
+            CREATE TABLE IF NOT EXISTS luoghi (
+                chiave TEXT PRIMARY KEY,
+                nome TEXT NOT NULL
             );
 
             CREATE TABLE IF NOT EXISTS selection_state (
@@ -121,6 +133,27 @@ public sealed class LibrarySidecarDatabase : IDisposable
             alterCmd.CommandText = "ALTER TABLE photos ADD COLUMN longitude REAL NULL;";
             alterCmd.ExecuteNonQuery();
         }
+
+        // Posizione corretta a mano dall'utente: né la scansione né "Riscansiona GPS" la sovrascrivono.
+        if (!colonneEsistenti.Contains("gps_manuale"))
+        {
+            using var alterCmd = _connection.CreateCommand();
+            alterCmd.CommandText = "ALTER TABLE photos ADD COLUMN gps_manuale INTEGER NOT NULL DEFAULT 0;";
+            alterCmd.ExecuteNonQuery();
+        }
+
+        if (!colonneEsistenti.Contains("altitude") || !colonneEsistenti.Contains("direction"))
+        {
+            // Le foto già geolocalizzate vanno rilette una volta per avere altitudine e direzione:
+            // azzerando la dimensione salvata l'identità non coincide più e la prossima scansione
+            // rilegge l'EXIF.
+            using var alterCmd = _connection.CreateCommand();
+            alterCmd.CommandText =
+                (colonneEsistenti.Contains("altitude") ? "" : "ALTER TABLE photos ADD COLUMN altitude REAL NULL;")
+                + (colonneEsistenti.Contains("direction") ? "" : "ALTER TABLE photos ADD COLUMN direction REAL NULL;")
+                + "UPDATE photos SET size = -1 WHERE latitude IS NOT NULL AND gps_manuale = 0;";
+            alterCmd.ExecuteNonQuery();
+        }
     }
 
     /// <summary>
@@ -138,7 +171,7 @@ public sealed class LibrarySidecarDatabase : IDisposable
         {
             using var select = _connection.CreateCommand();
             select.Transaction = transaction;
-            select.CommandText = "SELECT id, size, last_write_utc, latitude, longitude FROM photos WHERE path_relativo = $path;";
+            select.CommandText = "SELECT id, size, last_write_utc, latitude, longitude, gps_manuale, altitude, direction FROM photos WHERE path_relativo = $path;";
             select.Parameters.AddWithValue("$path", foto.Identity.PathRelativo);
 
             using var reader = select.ExecuteReader();
@@ -149,12 +182,17 @@ public sealed class LibrarySidecarDatabase : IDisposable
                 var lastWriteEsistente = DateTime.Parse(reader.GetString(2)).ToUniversalTime();
                 double? latEsistente = reader.IsDBNull(3) ? null : reader.GetDouble(3);
                 double? lonEsistente = reader.IsDBNull(4) ? null : reader.GetDouble(4);
+                var gpsManuale = reader.GetInt64(5) != 0;
+                double? altEsistente = reader.IsDBNull(6) ? null : reader.GetDouble(6);
+                double? dirEsistente = reader.IsDBNull(7) ? null : reader.GetDouble(7);
                 reader.Close();
 
+                // Con posizione corretta a mano il GPS letto dal file non conta (né per il confronto
+                // né per l'aggiornamento): resta quella scelta dall'utente.
                 var invariato = sizeEsistente == foto.Identity.Size
                     && lastWriteEsistente == foto.Identity.LastWriteUtc
-                    && latEsistente == foto.Gps?.Latitude
-                    && lonEsistente == foto.Gps?.Longitude;
+                    && (gpsManuale || (latEsistente == foto.Gps?.Latitude && lonEsistente == foto.Gps?.Longitude
+                        && altEsistente == foto.Gps?.Altitude && dirEsistente == foto.Gps?.Direction));
 
                 if (invariato)
                 {
@@ -166,9 +204,14 @@ public sealed class LibrarySidecarDatabase : IDisposable
                 update.Transaction = transaction;
                 update.CommandText = """
                     UPDATE photos SET size = $size, last_write_utc = $lastWrite, capture_date = $captureDate,
-                                      latitude = $lat, longitude = $lon
+                                      latitude = CASE WHEN gps_manuale = 1 THEN latitude ELSE $lat END,
+                                      longitude = CASE WHEN gps_manuale = 1 THEN longitude ELSE $lon END,
+                                      altitude = CASE WHEN gps_manuale = 1 THEN altitude ELSE $alt END,
+                                      direction = CASE WHEN gps_manuale = 1 THEN direction ELSE $dir END
                     WHERE id = $id;
                     """;
+                update.Parameters.AddWithValue("$alt", (object?)foto.Gps?.Altitude ?? DBNull.Value);
+                update.Parameters.AddWithValue("$dir", (object?)foto.Gps?.Direction ?? DBNull.Value);
                 update.Parameters.AddWithValue("$size", foto.Identity.Size);
                 update.Parameters.AddWithValue("$lastWrite", foto.Identity.LastWriteUtc.ToString("O"));
                 update.Parameters.AddWithValue("$captureDate", (object?)foto.CaptureDate?.ToString("O") ?? DBNull.Value);
@@ -185,10 +228,12 @@ public sealed class LibrarySidecarDatabase : IDisposable
                 using var insert = _connection.CreateCommand();
                 insert.Transaction = transaction;
                 insert.CommandText = """
-                    INSERT INTO photos (path_relativo, size, last_write_utc, capture_date, latitude, longitude)
-                    VALUES ($path, $size, $lastWrite, $captureDate, $lat, $lon);
+                    INSERT INTO photos (path_relativo, size, last_write_utc, capture_date, latitude, longitude, altitude, direction)
+                    VALUES ($path, $size, $lastWrite, $captureDate, $lat, $lon, $alt, $dir);
                     SELECT last_insert_rowid();
                     """;
+                insert.Parameters.AddWithValue("$alt", (object?)foto.Gps?.Altitude ?? DBNull.Value);
+                insert.Parameters.AddWithValue("$dir", (object?)foto.Gps?.Direction ?? DBNull.Value);
                 insert.Parameters.AddWithValue("$path", foto.Identity.PathRelativo);
                 insert.Parameters.AddWithValue("$size", foto.Identity.Size);
                 insert.Parameters.AddWithValue("$lastWrite", foto.Identity.LastWriteUtc.ToString("O"));
@@ -252,7 +297,7 @@ public sealed class LibrarySidecarDatabase : IDisposable
         using (_lock.EnterScope())
         {
             using var cmd = _connection.CreateCommand();
-            cmd.CommandText = "SELECT path_relativo, size, last_write_utc, capture_date, latitude, longitude FROM photos;";
+            cmd.CommandText = "SELECT path_relativo, size, last_write_utc, capture_date, latitude, longitude, altitude, direction FROM photos;";
             using var reader = cmd.ExecuteReader();
             while (reader.Read())
             {
@@ -263,7 +308,8 @@ public sealed class LibrarySidecarDatabase : IDisposable
                 DateTime? captureDate = reader.IsDBNull(3) ? null : DateTime.Parse(reader.GetString(3));
                 GeoCoordinate? gps = reader.IsDBNull(4) || reader.IsDBNull(5)
                     ? null
-                    : new GeoCoordinate(reader.GetDouble(4), reader.GetDouble(5));
+                    : new GeoCoordinate(reader.GetDouble(4), reader.GetDouble(5),
+                        reader.IsDBNull(6) ? null : reader.GetDouble(6), reader.IsDBNull(7) ? null : reader.GetDouble(7));
                 noti[identity.PathRelativo] = new ScannedPhoto(identity, captureDate, gps);
             }
         }
@@ -286,7 +332,7 @@ public sealed class LibrarySidecarDatabase : IDisposable
         using var cmd = _connection.CreateCommand();
         cmd.CommandText = """
             SELECT p.id, p.path_relativo, p.size, p.last_write_utc, p.capture_date,
-                   s.stato, s.rating, p.latitude, p.longitude
+                   s.stato, s.rating, p.latitude, p.longitude, p.gps_manuale, p.altitude, p.direction
             FROM photos p
             JOIN selection_state s ON s.photo_id = p.id
             ORDER BY p.capture_date IS NULL, p.capture_date, p.path_relativo;
@@ -305,7 +351,10 @@ public sealed class LibrarySidecarDatabase : IDisposable
                 Stato: reader.GetString(5),
                 Rating: reader.GetInt32(6),
                 Latitude: reader.IsDBNull(7) ? null : reader.GetDouble(7),
-                Longitude: reader.IsDBNull(8) ? null : reader.GetDouble(8)));
+                Longitude: reader.IsDBNull(8) ? null : reader.GetDouble(8),
+                GpsManuale: reader.GetInt64(9) != 0,
+                Altitude: reader.IsDBNull(10) ? null : reader.GetDouble(10),
+                Direction: reader.IsDBNull(11) ? null : reader.GetDouble(11)));
         }
 
         return risultato;
@@ -347,7 +396,7 @@ public sealed class LibrarySidecarDatabase : IDisposable
         using var cmd = _connection.CreateCommand();
         cmd.CommandText = """
             SELECT p.id, p.path_relativo, p.size, p.last_write_utc, p.capture_date,
-                   s.stato, s.rating, p.latitude, p.longitude
+                   s.stato, s.rating, p.latitude, p.longitude, p.gps_manuale, p.altitude, p.direction
             FROM photos p
             JOIN selection_state s ON s.photo_id = p.id
             WHERE s.stato = $stato
@@ -368,7 +417,10 @@ public sealed class LibrarySidecarDatabase : IDisposable
                 Stato: reader.GetString(5),
                 Rating: reader.GetInt32(6),
                 Latitude: reader.IsDBNull(7) ? null : reader.GetDouble(7),
-                Longitude: reader.IsDBNull(8) ? null : reader.GetDouble(8)));
+                Longitude: reader.IsDBNull(8) ? null : reader.GetDouble(8),
+                GpsManuale: reader.GetInt64(9) != 0,
+                Altitude: reader.IsDBNull(10) ? null : reader.GetDouble(10),
+                Direction: reader.IsDBNull(11) ? null : reader.GetDouble(11)));
         }
 
         return risultato;
@@ -411,26 +463,93 @@ public sealed class LibrarySidecarDatabase : IDisposable
         cmd.ExecuteNonQuery();
     }
 
-    public void UpdateGpsBatch(IEnumerable<(long Id, double? Latitude, double? Longitude)> updates)
+    /// <summary>"Riscansiona GPS": aggiorna le posizioni lette dai file, mai quelle corrette a mano.</summary>
+    public void UpdateGpsBatch(IEnumerable<(long Id, GeoCoordinate? Gps)> updates)
     {
         using var scope = _lock.EnterScope();
         using var transaction = _connection.BeginTransaction();
         using var cmd = _connection.CreateCommand();
         cmd.Transaction = transaction;
-        cmd.CommandText = "UPDATE photos SET latitude = $lat, longitude = $lon WHERE id = $id;";
+        cmd.CommandText = """
+            UPDATE photos SET latitude = $lat, longitude = $lon, altitude = $alt, direction = $dir
+            WHERE id = $id AND gps_manuale = 0;
+            """;
         var pLat = cmd.Parameters.Add("$lat", SqliteType.Real);
         var pLon = cmd.Parameters.Add("$lon", SqliteType.Real);
+        var pAlt = cmd.Parameters.Add("$alt", SqliteType.Real);
+        var pDir = cmd.Parameters.Add("$dir", SqliteType.Real);
         var pId = cmd.Parameters.Add("$id", SqliteType.Integer);
 
-        foreach (var (id, lat, lon) in updates)
+        foreach (var (id, gps) in updates)
         {
-            pLat.Value = (object?)lat ?? DBNull.Value;
-            pLon.Value = (object?)lon ?? DBNull.Value;
+            pLat.Value = (object?)gps?.Latitude ?? DBNull.Value;
+            pLon.Value = (object?)gps?.Longitude ?? DBNull.Value;
+            pAlt.Value = (object?)gps?.Altitude ?? DBNull.Value;
+            pDir.Value = (object?)gps?.Direction ?? DBNull.Value;
             pId.Value = id;
             cmd.ExecuteNonQuery();
         }
 
         transaction.Commit();
+    }
+
+    /// <summary>
+    /// Posizione scelta dall'utente nell'editor (come "Luoghi" di Picasa): solo nel sidecar, il file
+    /// originale non viene toccato. null/null = "nessuna posizione" voluta (es. foto di casa).
+    /// Altitudine e direzione del file non valgono più per il punto spostato: diventano sconosciute.
+    /// </summary>
+    public void SetPosizioneManuale(long photoId, double? latitude, double? longitude)
+    {
+        using var scope = _lock.EnterScope();
+        using var cmd = _connection.CreateCommand();
+        cmd.CommandText = """
+            UPDATE photos SET latitude = $lat, longitude = $lon, altitude = NULL, direction = NULL, gps_manuale = 1
+            WHERE id = $id;
+            """;
+        cmd.Parameters.AddWithValue("$lat", (object?)latitude ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("$lon", (object?)longitude ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("$id", photoId);
+        cmd.ExecuteNonQuery();
+    }
+
+    /// <summary>Torna alla posizione letta dal file (quella passata dal chiamante, già riletta dall'EXIF).</summary>
+    public void RipristinaPosizioneOriginale(long photoId, GeoCoordinate? gpsDelFile)
+    {
+        using var scope = _lock.EnterScope();
+        using var cmd = _connection.CreateCommand();
+        cmd.CommandText = """
+            UPDATE photos SET latitude = $lat, longitude = $lon, altitude = $alt, direction = $dir, gps_manuale = 0
+            WHERE id = $id;
+            """;
+        cmd.Parameters.AddWithValue("$lat", (object?)gpsDelFile?.Latitude ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("$lon", (object?)gpsDelFile?.Longitude ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("$alt", (object?)gpsDelFile?.Altitude ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("$dir", (object?)gpsDelFile?.Direction ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("$id", photoId);
+        cmd.ExecuteNonQuery();
+    }
+
+    /// <summary>Nome del luogo già risolto per questa cella (vedi NomeLuogo.Chiave), o null.</summary>
+    public string? GetNomeLuogo(string chiave)
+    {
+        using var scope = _lock.EnterScope();
+        using var cmd = _connection.CreateCommand();
+        cmd.CommandText = "SELECT nome FROM luoghi WHERE chiave = $chiave;";
+        cmd.Parameters.AddWithValue("$chiave", chiave);
+        return cmd.ExecuteScalar() as string;
+    }
+
+    public void SetNomeLuogo(string chiave, string nome)
+    {
+        using var scope = _lock.EnterScope();
+        using var cmd = _connection.CreateCommand();
+        cmd.CommandText = """
+            INSERT INTO luoghi (chiave, nome) VALUES ($chiave, $nome)
+            ON CONFLICT(chiave) DO UPDATE SET nome = excluded.nome;
+            """;
+        cmd.Parameters.AddWithValue("$chiave", chiave);
+        cmd.Parameters.AddWithValue("$nome", nome);
+        cmd.ExecuteNonQuery();
     }
 
     public void Dispose()

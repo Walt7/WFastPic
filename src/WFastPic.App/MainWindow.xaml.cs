@@ -51,7 +51,9 @@ public partial class MainWindow : Window
         InitializeComponent();
         Title = "WFastPic";
         AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "icon.ico"));
-        _cellSize = Math.Clamp(ImpostazioniStore.Carica().DimensioneCellaGriglia, CellSizeMin, CellSizeMax);
+        var impostazioni = ImpostazioniStore.Carica();
+        _cellSize = Math.Clamp(impostazioni.DimensioneCellaGriglia, CellSizeMin, CellSizeMax);
+        _nomiLuoghiOnline = impostazioni.NomiLuoghiOnline;
         Griglia.ItemsSource = _visibili;
         AggiornaStatusBar();
         AggiornaFiltroUI();
@@ -88,7 +90,7 @@ public partial class MainWindow : Window
     /// </summary>
     private void ChiudiSessione()
     {
-        ImpostazioniStore.Salva(new Impostazioni(_cellSize));
+        ImpostazioniStore.Salva(new Impostazioni(_cellSize) { NomiLuoghiOnline = _nomiLuoghiOnline });
         _thumbnailLoader?.Annulla();
         // Finestra chiusa col viewer aperto: le modifiche alla foto corrente vanno in coda prima
         // che la coda venga svuotata (un ritaglio non ancora applicato si perde, come in Picasa).
@@ -351,6 +353,9 @@ public partial class MainWindow : Window
                 CaptureDate = record.CaptureDate,
                 Latitude = record.Latitude,
                 Longitude = record.Longitude,
+                Altitude = record.Altitude,
+                Direction = record.Direction,
+                GpsManuale = record.GpsManuale,
                 HasVideo = conVideo.Contains(record.Id),
                 Stato = record.Stato,
                 Rating = record.Rating,

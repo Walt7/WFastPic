@@ -123,7 +123,8 @@ public sealed class ThumbnailCacheLoader
         }
     }
 
-    private static string NomeFileCache(PhotoGridItem item) =>
+    /// <summary>Usato anche dalla mappa, che mostra le miniature già in cache dentro i segnaposto.</summary>
+    internal static string NomeFileCache(PhotoGridItem item) =>
         $"{item.Id}-{item.FileSize}-{item.LastWriteUtc.Ticks}.jpg";
 
     private async Task<byte[]?> CaricaOGeneraAsync(PhotoGridItem item, CancellationToken token)
