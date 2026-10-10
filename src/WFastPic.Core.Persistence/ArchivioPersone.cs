@@ -47,6 +47,21 @@ public sealed class ArchivioPersone : IDisposable
             CREATE INDEX IF NOT EXISTS ix_campioni_persona ON campioni(persona_id);
             """;
         cmd.ExecuteNonQuery();
+
+        // Unione reversibile: una persona unita non si cancella, punta a quella in cui è confluita.
+        var colonne = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        using (var info = connection.CreateCommand())
+        {
+            info.CommandText = "PRAGMA table_info(persone);";
+            using var r = info.ExecuteReader();
+            while (r.Read()) colonne.Add(r.GetString(1));
+        }
+        if (!colonne.Contains("unita_a"))
+        {
+            using var alter = connection.CreateCommand();
+            alter.CommandText = "ALTER TABLE persone ADD COLUMN unita_a INTEGER NULL;";
+            alter.ExecuteNonQuery();
+        }
         return new ArchivioPersone(connection);
     }
 
@@ -67,7 +82,7 @@ public sealed class ArchivioPersone : IDisposable
         }
 
         using var persone = _connection.CreateCommand();
-        persone.CommandText = "SELECT id, nome, avatar FROM persone ORDER BY nome COLLATE NOCASE;";
+        persone.CommandText = "SELECT id, nome, avatar FROM persone WHERE unita_a IS NULL ORDER BY nome COLLATE NOCASE;";
         using var r = persone.ExecuteReader();
         var elenco = new List<PersonaArchivio>();
         while (r.Read())
@@ -88,7 +103,7 @@ public sealed class ArchivioPersone : IDisposable
         {
             cerca.CommandText = "SELECT id FROM persone WHERE nome = $nome COLLATE NOCASE;";
             cerca.Parameters.AddWithValue("$nome", nome);
-            if (cerca.ExecuteScalar() is long esistente) return esistente;
+            if (cerca.ExecuteScalar() is long esistente) return RisolviSenzaLock(esistente);
         }
 
         using var crea = _connection.CreateCommand();
@@ -133,6 +148,82 @@ public sealed class ArchivioPersone : IDisposable
         cmd.Parameters.AddWithValue("$nome", nuovoNome.Trim());
         cmd.Parameters.AddWithValue("$id", personaId);
         cmd.ExecuteNonQuery();
+    }
+
+    /// <summary>
+    /// Unisce <paramref name="daId"/> in <paramref name="aId"/>: da ora i volti della prima valgono come
+    /// della seconda, in tutte le cartelle. Niente viene cancellato: <see cref="AnnullaUnione"/> la separa.
+    /// </summary>
+    public void Unisci(long daId, long aId)
+    {
+        if (daId == aId) return;
+        using var scope = _lock.EnterScope();
+        if (RisolviSenzaLock(aId) == daId) throw new InvalidOperationException("Unione circolare.");
+        using var cmd = _connection.CreateCommand();
+        cmd.CommandText = "UPDATE persone SET unita_a = $a WHERE id = $da;";
+        cmd.Parameters.AddWithValue("$a", aId);
+        cmd.Parameters.AddWithValue("$da", daId);
+        cmd.ExecuteNonQuery();
+    }
+
+    public void AnnullaUnione(long personaId)
+    {
+        using var scope = _lock.EnterScope();
+        using var cmd = _connection.CreateCommand();
+        cmd.CommandText = "UPDATE persone SET unita_a = NULL WHERE id = $id;";
+        cmd.Parameters.AddWithValue("$id", personaId);
+        cmd.ExecuteNonQuery();
+    }
+
+    /// <summary>Persone unite → persona in cui sono confluite (catene già risolte).</summary>
+    public IReadOnlyDictionary<long, long> Unioni()
+    {
+        using var scope = _lock.EnterScope();
+        var diretti = new Dictionary<long, long>();
+        using (var cmd = _connection.CreateCommand())
+        {
+            cmd.CommandText = "SELECT id, unita_a FROM persone WHERE unita_a IS NOT NULL;";
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read()) diretti[reader.GetInt64(0)] = reader.GetInt64(1);
+        }
+        return diretti.Keys.ToDictionary(k => k, k => Risolvi(diretti, k));
+    }
+
+    /// <summary>Elimina una persona (solo per annullare la creazione di una persona appena fatta).</summary>
+    public void Elimina(long personaId)
+    {
+        using var scope = _lock.EnterScope();
+        using var cmd = _connection.CreateCommand();
+        cmd.CommandText = "DELETE FROM persone WHERE id = $id;";
+        cmd.Parameters.AddWithValue("$id", personaId);
+        cmd.ExecuteNonQuery();
+    }
+
+    private long RisolviSenzaLock(long id)
+    {
+        var diretti = new Dictionary<long, long>();
+        using var cmd = _connection.CreateCommand();
+        cmd.CommandText = "SELECT id, unita_a FROM persone WHERE unita_a IS NOT NULL;";
+        using var reader = cmd.ExecuteReader();
+        while (reader.Read()) diretti[reader.GetInt64(0)] = reader.GetInt64(1);
+        return Risolvi(diretti, id);
+    }
+
+    private static long Risolvi(Dictionary<long, long> diretti, long id)
+    {
+        var visti = 0;
+        while (diretti.TryGetValue(id, out var prossimo) && visti++ < 50) id = prossimo;
+        return id;
+    }
+
+    /// <summary>Esiste una persona con questo nome (anche unita ad altre)?</summary>
+    public bool EsisteNome(string nome)
+    {
+        using var scope = _lock.EnterScope();
+        using var cmd = _connection.CreateCommand();
+        cmd.CommandText = "SELECT 1 FROM persone WHERE nome = $nome COLLATE NOCASE;";
+        cmd.Parameters.AddWithValue("$nome", nome.Trim());
+        return cmd.ExecuteScalar() is not null;
     }
 
     public void Dispose()

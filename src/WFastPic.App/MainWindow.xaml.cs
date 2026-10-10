@@ -109,7 +109,7 @@ public partial class MainWindow : Window
             Export = _impostazioniExport,
             NomiLuoghiOnline = _nomiLuoghiOnline,
             DividiPerGiorni = _dividiPerGiorni,
-            PannelloCartelleAperto = RootSplitView.IsPaneOpen,
+            PannelloCartelleAperto = _viewerAperto ? _pannelloCartelleAperto : RootSplitView.IsPaneOpen,
             RiconoscimentoPersone = _riconoscimentoPersone,
         });
 

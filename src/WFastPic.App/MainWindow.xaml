@@ -44,6 +44,10 @@
                     </Expander.Header>
                     <StackPanel Spacing="6">
                         <TextBlock x:Name="PersoneStatoText" Foreground="#888888" FontSize="12" TextWrapping="Wrap" />
+                        <Grid x:Name="PersoneAnnullaPanel" ColumnDefinitions="*,Auto" ColumnSpacing="8" Visibility="Collapsed">
+                            <TextBlock x:Name="PersoneAnnullaText" Foreground="#CCCCCC" FontSize="12" TextWrapping="Wrap" VerticalAlignment="Center" />
+                            <HyperlinkButton Grid.Column="1" Content="Annulla" FontSize="12" Padding="0" Click="PersoneAnnulla_Click" />
+                        </Grid>
                         <GridView
                             x:Name="PersoneList"
                             MaxHeight="260"

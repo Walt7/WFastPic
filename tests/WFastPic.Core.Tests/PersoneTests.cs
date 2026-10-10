@@ -127,6 +127,39 @@ public class PersoneTests
     }
 
     [Fact]
+    public void Archivio_persone_unione_reversibile()
+    {
+        var percorso = Path.Combine(Path.GetTempPath(), "wfastpic-unione-" + Guid.NewGuid() + ".db");
+        try
+        {
+            using var archivio = ArchivioPersone.Apri(percorso);
+            var laura = archivio.TrovaOCrea("Laura", null);
+            var walter = archivio.TrovaOCrea("Walter", null);
+            var altra = archivio.TrovaOCrea("Altra", null);
+
+            archivio.Unisci(laura, walter);
+            archivio.Unisci(walter, altra); // catena: Laura → Walter → Altra
+
+            Assert.Equal(["Altra"], archivio.Elenco().Select(p => p.Nome));
+            Assert.Equal(altra, archivio.Unioni()[laura]);
+            Assert.Equal(altra, archivio.TrovaOCrea("laura", null)); // il nome unito porta alla persona che resta
+            Assert.Throws<InvalidOperationException>(() => archivio.Unisci(altra, laura));
+
+            archivio.AnnullaUnione(walter);
+            Assert.Equal(["Walter"], archivio.Elenco().Select(p => p.Nome).Where(n => n == "Walter"));
+            Assert.Equal(walter, archivio.Unioni()[laura]);
+
+            archivio.AnnullaUnione(laura);
+            Assert.Equal(3, archivio.Elenco().Count);
+            Assert.Empty(archivio.Unioni());
+        }
+        finally
+        {
+            foreach (var f in Directory.GetFiles(Path.GetTempPath(), Path.GetFileName(percorso) + "*")) File.Delete(f);
+        }
+    }
+
+    [Fact]
     public void Sidecar_salva_volti_con_impronta_e_nomi()
     {
         var cartella = Path.Combine(Path.GetTempPath(), "wfastpic-voltipersone-" + Guid.NewGuid());

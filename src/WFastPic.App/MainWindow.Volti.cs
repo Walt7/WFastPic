@@ -150,8 +150,16 @@ public partial class MainWindow
     {
         var daAnalizzare = _tutte.Where(f => !f.PersoneAnalizzate).ToList();
         var persone = PersoneNote();
+        var dbAnalisi = _db;
         AggiornaPannelloPersone();
-        if (daAnalizzare.Count == 0) return;
+        if (daAnalizzare.Count == 0)
+        {
+            // Tutto già analizzato: i volti ancora senza nome vengono comunque confrontati con le persone note.
+            if (dbAnalisi is not null)
+                _ = Task.Run(() => RiproponiPersone(dbAnalisi, persone)).ContinueWith(
+                    _ => DispatcherQueue.TryEnqueue(AggiornaPannelloPersone), TaskScheduler.Default);
+            return;
+        }
 
         var cronometro = Stopwatch.StartNew();
         _ = Task.Run(async () =>
@@ -167,6 +175,8 @@ public partial class MainWindow
                     var foto = daAnalizzare[i];
                     try
                     {
+                        // Nomi dati mentre l'analisi è in corso valgono subito anche per le foto che restano.
+                        if (i % 5 == 0) persone = PersoneNote();
                         var (bgra, w, h) = await PreviewDecoder.DecodePreviewBgraAsync(foto.PercorsoCompleto, LatoAnalisiPersone);
                         var volti = analizzatore.Analizza(bgra, w, h);
 
@@ -206,6 +216,13 @@ public partial class MainWindow
             {
                 // Modelli non caricabili (file danneggiato, runtime mancante): resta il rilevamento di base.
                 DispatcherQueue.TryEnqueue(() => StatusText.Text = "Riconoscimento persone non disponibile su questo PC.");
+            }
+
+            // Ultimo giro: volti analizzati prima che un nome fosse dato o prima dell'ultimo aggiornamento.
+            if (!token.IsCancellationRequested && dbAnalisi is not null)
+            {
+                try { await Task.Run(() => RiproponiPersone(dbAnalisi, PersoneNote())); }
+                catch (Exception) when (!token.IsCancellationRequested) { }
             }
 
             DispatcherQueue.TryEnqueue(() =>

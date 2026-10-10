@@ -35,6 +35,8 @@ public partial class MainWindow
     private ArchivioPersone? _archivioPersone;
     private (string Nome, HashSet<long> Foto)? _filtroPersona;
     private int _richiestaPersone;
+    private List<PersonaUi> _personeCorrenti = [];
+    private (LibrarySidecarDatabase Db, Func<Task> Azione)? _annullaPersone;
 
     private ArchivioPersone Archivio => _archivioPersone ??= ArchivioPersone.Apri(ArchivioPersone.PercorsoPredefinito);
 
@@ -66,6 +68,7 @@ public partial class MainWindow
     private async void AggiornaPannelloPersone()
     {
         var richiesta = ++_richiestaPersone;
+        if (_annullaPersone is { } annulla && annulla.Db != _db) NascondiAnnullaPersone(); // cartella cambiata
         RiconoscimentoPersoneSwitch.IsOn = _riconoscimentoPersone == true;
 
         var db = _db;
@@ -100,7 +103,8 @@ public partial class MainWindow
         }
         if (richiesta != _richiestaPersone) return;
 
-        PersoneList.ItemsSource = elenco.Select(e => e.Persona).ToList();
+        _personeCorrenti = elenco.Select(e => e.Persona).ToList();
+        PersoneList.ItemsSource = _personeCorrenti;
         var analizzate = _tutte.Count(f => f.PersoneAnalizzate);
         PersoneStatoText.Text = elenco.Count > 0
             ? (analizzate < _tutte.Count ? $"Analisi in corso: {analizzate} di {_tutte.Count} foto" : "")
@@ -113,7 +117,12 @@ public partial class MainWindow
     /// </summary>
     private static List<(PersonaUi, byte[]?)> CostruisciElencoPersone(LibrarySidecarDatabase db, ArchivioPersone archivio)
     {
-        var volti = db.GetVoltiPersone().Where(v => v.Impronta is not null).ToList();
+        // Persone unite: i volti della persona assorbita valgono come quelli della persona che resta.
+        var unioni = archivio.Unioni();
+        var volti = db.GetVoltiPersone()
+            .Where(v => v.Impronta is not null)
+            .Select(v => v.PersonaId is long id && unioni.TryGetValue(id, out var resta) ? v with { PersonaId = resta } : v)
+            .ToList();
         var persone = archivio.Elenco().ToDictionary(p => p.Id);
         var risultato = new List<(PersonaUi, byte[]?)>();
 
@@ -210,6 +219,20 @@ public partial class MainWindow
             Voce("Togli il nome da questi volti", "", () => _ = AssegnaEAggiornaAsync(persona.Volti, null, StatoPersona.Nessuno));
         }
 
+        var altre = _personeCorrenti.Where(p => p != persona).ToList();
+        if (altre.Count > 0)
+        {
+            menu.Items.Add(new MenuFlyoutSeparator());
+            var unisci = new MenuFlyoutSubItem { Text = "È la stessa persona di…", Icon = new FontIcon { Glyph = "\uE71B" } };
+            foreach (var altra in altre)
+            {
+                var voce = new MenuFlyoutItem { Text = $"{altra.Nome} · {altra.Dettaglio}" };
+                voce.Click += (_, _) => _ = UnisciPersoneAsync(persona, altra);
+                unisci.Items.Add(voce);
+            }
+            menu.Items.Add(unisci);
+        }
+
         menu.ShowAt(e.OriginalSource as FrameworkElement, e.GetPosition(e.OriginalSource as UIElement));
         e.Handled = true;
     }
@@ -258,9 +281,141 @@ public partial class MainWindow
             return;
         }
 
+        var dbCorrente = _db;
+        if (dbCorrente is null) return;
+        var esisteva = Archivio.EsisteNome(nome);
         var nuovaId = Archivio.TrovaOCrea(nome, persona.AvatarJpeg);
+        var campioniPrima = Archivio.Elenco().FirstOrDefault(p => p.Id == nuovaId)?.Campioni.ToList() ?? [];
+        var voltiPrima = await Task.Run(() => FotografaVolti(dbCorrente));
         AggiungiCampioni(nuovaId, persona.Impronte);
         await AssegnaEAggiornaAsync(persona.Volti, nuovaId, StatoPersona.Confermato);
+
+        ImpostaAnnulla(dbCorrente, $"Nome «{nome}» dato a {persona.Volti.Count} volti", async () =>
+        {
+            await Task.Run(() => RipristinaVolti(dbCorrente, voltiPrima));
+            if (esisteva) Archivio.ImpostaCampioni(nuovaId, campioniPrima); else Archivio.Elimina(nuovaId);
+        });
+    }
+
+    // ---------------------------------------------------------------- unione ("è la stessa persona") con annulla
+
+    private static List<(long Id, long? Persona, int Stato)> FotografaVolti(LibrarySidecarDatabase db) =>
+        db.GetVoltiPersone().Select(v => (v.Id, v.PersonaId, v.Stato)).ToList();
+
+    private static void RipristinaVolti(LibrarySidecarDatabase db, List<(long Id, long? Persona, int Stato)> prima)
+    {
+        var ora = db.GetVoltiPersone().ToDictionary(v => v.Id);
+        foreach (var gruppo in prima
+                     .Where(p => ora.TryGetValue(p.Id, out var v) && (v.PersonaId != p.Persona || v.Stato != p.Stato))
+                     .GroupBy(p => (p.Persona, p.Stato)))
+        {
+            db.AssegnaPersona(gruppo.Select(x => x.Id).ToList(), gruppo.Key.Persona, gruppo.Key.Stato);
+        }
+    }
+
+    private void ImpostaAnnulla(LibrarySidecarDatabase db, string testo, Func<Task> azione)
+    {
+        _annullaPersone = (db, azione);
+        PersoneAnnullaText.Text = testo;
+        PersoneAnnullaPanel.Visibility = Visibility.Visible;
+    }
+
+    private void NascondiAnnullaPersone()
+    {
+        _annullaPersone = null;
+        PersoneAnnullaPanel.Visibility = Visibility.Collapsed;
+    }
+
+    private async void PersoneAnnulla_Click(object sender, RoutedEventArgs e)
+    {
+        if (_annullaPersone is not { } annulla) return;
+        NascondiAnnullaPersone();
+        if (annulla.Db != _db) return;
+        if (_selectionManager is not null) await _selectionManager.SvuotaAsync();
+        await annulla.Azione();
+        AggiornaPannelloPersone();
+    }
+
+    /// <summary>
+    /// Due gruppi/persone sono la stessa persona. Nome + senza nome: i volti senza nome prendono il nome.
+    /// Due senza nome: si chiede il nome per tutti. Due con nome: si sceglie quale nome tenere; l'altra
+    /// non viene cancellata, confluisce (in tutte le cartelle) e si può separare con Annulla.
+    /// </summary>
+    private async Task UnisciPersoneAsync(PersonaUi cliccata, PersonaUi altra)
+    {
+        var db = _db;
+        if (db is null) return;
+
+        if (cliccata.SenzaNome && altra.SenzaNome)
+        {
+            await DaiNomeAsync(new PersonaUi
+            {
+                Nome = "Senza nome",
+                Dettaglio = "",
+                Volti = [.. cliccata.Volti, .. altra.Volti],
+                Proposte = [],
+                Foto = cliccata.Foto.Union(altra.Foto).ToHashSet(),
+                Impronte = [.. cliccata.Impronte, .. altra.Impronte],
+                Avatar = cliccata.Avatar,
+                AvatarJpeg = cliccata.AvatarJpeg,
+            }, null);
+            return;
+        }
+
+        if (cliccata.SenzaNome || altra.SenzaNome)
+        {
+            var (senzaNome, conNome) = cliccata.SenzaNome ? (cliccata, altra) : (altra, cliccata);
+            var id = conNome.PersonaId!.Value;
+            var campioniPrima = Archivio.Elenco().FirstOrDefault(p => p.Id == id)?.Campioni.ToList() ?? [];
+            if (_selectionManager is not null) await _selectionManager.SvuotaAsync();
+            var voltiPrima = await Task.Run(() => FotografaVolti(db));
+
+            AggiungiCampioni(id, senzaNome.Impronte);
+            await AssegnaEAggiornaAsync(senzaNome.Volti, id, StatoPersona.Confermato);
+            ImpostaAnnulla(db, $"Gruppo senza nome unito a «{conNome.Nome}»", async () =>
+            {
+                await Task.Run(() => RipristinaVolti(db, voltiPrima));
+                Archivio.ImpostaCampioni(id, campioniPrima);
+            });
+            return;
+        }
+
+        var dialogo = new ContentDialog
+        {
+            XamlRoot = Content.XamlRoot,
+            Title = "Unisci le persone",
+            Content = new TextBlock
+            {
+                TextWrapping = TextWrapping.Wrap, MaxWidth = 380,
+                Text = $"«{cliccata.Nome}» e «{altra.Nome}» sono la stessa persona? Scegli il nome da tenere: " +
+                       "l'unione vale in tutte le cartelle e puoi annullarla subito dopo.",
+            },
+            PrimaryButtonText = $"Tieni «{cliccata.Nome}»",
+            SecondaryButtonText = $"Tieni «{altra.Nome}»",
+            CloseButtonText = "Annulla",
+            DefaultButton = ContentDialogButton.Primary,
+        };
+        var scelta = await dialogo.ShowAsync();
+        if (scelta == ContentDialogResult.None) return;
+        var (tieni, assorbita) = scelta == ContentDialogResult.Primary ? (cliccata, altra) : (altra, cliccata);
+        var tieniId = tieni.PersonaId!.Value;
+        var assorbitaId = assorbita.PersonaId!.Value;
+
+        var elenco = Archivio.Elenco();
+        var campioniTieni = elenco.FirstOrDefault(p => p.Id == tieniId)?.Campioni.ToList() ?? [];
+        var campioniAssorbita = elenco.FirstOrDefault(p => p.Id == assorbitaId)?.Campioni.Select(Impronte.DaByte).ToList() ?? [];
+        var uniti = RiconoscimentoPersone.AggiornaCampioni(
+            campioniTieni.Select(Impronte.DaByte).ToList(), campioniAssorbita.Concat(assorbita.Impronte));
+        Archivio.ImpostaCampioni(tieniId, uniti.Select(Impronte.InByte).ToList());
+        Archivio.Unisci(assorbitaId, tieniId);
+
+        ImpostaAnnulla(db, $"«{assorbita.Nome}» unita a «{tieni.Nome}»", () =>
+        {
+            Archivio.AnnullaUnione(assorbitaId);
+            Archivio.ImpostaCampioni(tieniId, campioniTieni);
+            return Task.CompletedTask;
+        });
+        AggiornaPannelloPersone();
     }
 
     private async Task ConfermaProposteAsync(PersonaUi persona)
@@ -290,19 +445,23 @@ public partial class MainWindow
         await Task.Run(() =>
         {
             db.AssegnaPersona(volti, personaId, stato);
-
-            // Con un nome nuovo (o più campioni) altri volti possono ora essere riconosciuti.
-            foreach (var proposta in db.GetVoltiPersone()
-                         .Where(v => v.PersonaId is null && v.Stato == StatoPersona.Nessuno && v.Impronta is not null)
-                         .Select(v => (v.Id, Persona: RiconoscimentoPersone.Riconosci(Impronte.DaByte(v.Impronta!), persone)?.Persona))
-                         .Where(x => x.Persona is not null)
-                         .GroupBy(x => x.Persona!.Id))
-            {
-                db.AssegnaPersona(proposta.Select(x => x.Id).ToList(), proposta.Key, StatoPersona.Proposto);
-            }
+            RiproponiPersone(db, persone); // con un nome nuovo (o più campioni) altri volti possono ora essere riconosciuti
         });
 
         AggiornaPannelloPersone();
+    }
+
+    /// <summary>Propone la persona nota più somigliante ai volti ancora senza nome (da confermare a mano).</summary>
+    private static void RiproponiPersone(LibrarySidecarDatabase db, IReadOnlyList<PersonaNota> persone)
+    {
+        foreach (var proposta in db.GetVoltiPersone()
+                     .Where(v => v.PersonaId is null && v.Stato == StatoPersona.Nessuno && v.Impronta is not null)
+                     .Select(v => (v.Id, Persona: RiconoscimentoPersone.Riconosci(Impronte.DaByte(v.Impronta!), persone)?.Persona))
+                     .Where(x => x.Persona is not null)
+                     .GroupBy(x => x.Persona!.Id))
+        {
+            db.AssegnaPersona(proposta.Select(x => x.Id).ToList(), proposta.Key, StatoPersona.Proposto);
+        }
     }
 
     // ---------------------------------------------------------------- rianalisi

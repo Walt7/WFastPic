@@ -174,10 +174,15 @@ public partial class MainWindow
         el.PointerCaptureLost += Crop_PointerReleased;
     }
 
+    private bool _pannelloCartelleAperto = true;
+
     private void ApriViewer(PhotoGridItem? foto)
     {
         if (foto is null || _viewerAperto) return;
         _ = CaricaFotoNelViewerAsync(foto);
+        // Pannello cartelle nascosto mentre si edita: tutta la larghezza va alla foto. Si ripristina alla chiusura.
+        _pannelloCartelleAperto = RootSplitView.IsPaneOpen;
+        RootSplitView.IsPaneOpen = false;
         ViewerOverlay.Visibility = Visibility.Visible;
         _viewerAperto = true;
         ViewerOverlay.Focus(FocusState.Programmatic);
@@ -1159,6 +1164,7 @@ public partial class MainWindow
         if (_geometriaAttiva) EsciDaGeometria();
         SalvaRicettaCorrente();
         ViewerOverlay.Visibility = Visibility.Collapsed;
+        RootSplitView.IsPaneOpen = _pannelloCartelleAperto;
         _viewerAperto = false;
         _fotoViewerCorrente = null;
         _fotoRicetta = null;
