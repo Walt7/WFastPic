@@ -4,17 +4,10 @@ What is new in WFastPic, version by version. The newest is on top. ([Italiano](C
 Technical details (bug causes, files touched) are in [`doc/correzioni-e-novita.md`](doc/correzioni-e-novita.md) (in Italian).
 The app interface is in Italian: names of buttons and menus below are given as they appear in the app.
 
-## [Unreleased]
-
-### New
-- **New version notice**: when GitHub has a newer release, a small "New version X available" appears at
-  the bottom right and opens the download page. Nothing is downloaded on its own and no data is sent;
-  turn it off from About.
-
 ## [1.0.0] — 2026-10-10
 
 First stable version: automatic photo rating, reject suggestions, most important people, error
-reports without personal data and an installer.
+reports without personal data, an installer and a new version notice.
 
 ### New
 - **Automatic photo rating, all on your PC**: after thumbnails and faces, WFastPic measures every photo
@@ -38,6 +31,9 @@ reports without personal data and an installer.
   It needs no administrator rights, puts WFastPic in the Start menu (and on the desktop if you want),
   updates by installing the new version over it and uninstalls from "Installed apps", keeping photos,
   sidecars and settings.
+- **New version notice**: when GitHub has a newer release, a small "New version X available" appears at
+  the bottom right and opens the download page. Nothing is downloaded on its own and no data is sent;
+  turn it off from About.
 
 ## [0.9.2] — 2026-10-10
 

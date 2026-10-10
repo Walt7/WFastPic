@@ -3,17 +3,10 @@
 Le novità di WFastPic, versione per versione. La più recente è in cima. ([English](CHANGELOG.en.md))
 I dettagli tecnici (cause dei bug, file toccati) sono in [`doc/correzioni-e-novita.md`](doc/correzioni-e-novita.md).
 
-## [Non ancora rilasciato]
-
-### Novità
-- **Avviso di versione nuova**: quando su GitHub c'è una release più recente, in basso a destra compare
-  in piccolo "Nuova versione X disponibile", che apre la pagina per scaricarla. Non si scarica niente da
-  solo e non si invia nessun dato; si spegne dalle Informazioni.
-
 ## [1.0.0] — 2026-10-10
 
 Prima versione stabile: voto automatico delle foto, suggerimenti di scarto, persone più importanti,
-segnalazione degli errori senza dati personali e programma di installazione.
+segnalazione degli errori senza dati personali, programma di installazione e avviso di versione nuova.
 
 ### Novità
 - **Voto automatico delle foto, tutto sul PC**: dopo le miniature e i volti, WFastPic misura ogni foto
@@ -37,6 +30,9 @@ segnalazione degli errori senza dati personali e programma di installazione.
   (`WFastPic-<versione>-win-x64-setup.exe`). Non chiede permessi di amministratore, mette WFastPic nel
   menu Start (e sul desktop se vuoi), si aggiorna installando la versione nuova sopra e si disinstalla da
   "App installate" lasciando foto, sidecar e impostazioni.
+- **Avviso di versione nuova**: quando su GitHub c'è una release più recente, in basso a destra compare
+  in piccolo "Nuova versione X disponibile", che apre la pagina per scaricarla. Non si scarica niente da
+  solo e non si invia nessun dato; si spegne dalle Informazioni.
 
 ## [0.9.2] — 2026-10-10
 
