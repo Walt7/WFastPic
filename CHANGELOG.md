@@ -1,6 +1,6 @@
 # Changelog
 
-Le novità di WFastPic, versione per versione. La più recente è in cima.
+Le novità di WFastPic, versione per versione. La più recente è in cima. ([English](CHANGELOG.en.md))
 I dettagli tecnici (cause dei bug, file toccati) sono in [`doc/correzioni-e-novita.md`](doc/correzioni-e-novita.md).
 
 ## [0.9.1] — 2026-10-10
