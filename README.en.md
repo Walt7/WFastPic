@@ -102,7 +102,8 @@ From the [releases page](https://github.com/Walt7/WFastPic/releases/latest):
 - **`WFastPic-<version>-win-x64.zip`**: portable version, unzip it anywhere and run `WFastPic.App.exe`.
 
 The program is not digitally signed: on first start Windows may show "Windows protected your PC"; go on
-with "More info" → "Run anyway".
+with "More info" → "Run anyway". Signing has been requested from the SignPath Foundation: see the
+[Code signing policy](CODE_SIGNING.md).
 
 ## Requirements
 
@@ -155,6 +156,12 @@ The full list is in the app, under "Scorciatoie" (shortcuts) in the bottom bar.
 - What is new in each version: [`CHANGELOG.en.md`](CHANGELOG.en.md).
 - C# + WinUI 3 (Windows App SDK), HEIC decoding with WIC, one SQLite sidecar per folder. The logic lives
   in the `WFastPic.Core.*` projects, with no WinUI dependency, and is covered by xUnit tests.
+
+## Code signing policy
+
+Releases are built by GitHub Actions from this repository's source code. Free code signing has been
+requested from the SignPath Foundation and is pending: team roles, what is signed and how are in the
+[Code signing policy](CODE_SIGNING.md).
 
 ## License
 

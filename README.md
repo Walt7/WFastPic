@@ -100,7 +100,8 @@ Dalla [pagina delle release](https://github.com/Walt7/WFastPic/releases/latest):
   `WFastPic.App.exe`.
 
 Il programma non è firmato digitalmente: al primo avvio Windows può mostrare "Windows ha protetto il PC";
-si prosegue con "Ulteriori informazioni" → "Esegui comunque".
+si prosegue con "Ulteriori informazioni" → "Esegui comunque". La firma è stata richiesta alla SignPath Foundation: vedi la
+[Code signing policy](CODE_SIGNING.md).
 
 ## Requisiti
 
@@ -153,6 +154,12 @@ L'elenco completo è nell'app, sotto "Scorciatoie" nella barra in basso.
 - Novità di ogni versione: [`CHANGELOG.md`](CHANGELOG.md).
 - C# + WinUI 3 (Windows App SDK), decodifica HEIC con WIC, sidecar SQLite per cartella. La logica sta
   nei progetti `WFastPic.Core.*`, senza dipendenze da WinUI, ed è coperta da test xUnit.
+
+## Code signing policy
+
+Le release vengono costruite da GitHub Actions a partire dai sorgenti di questo repository. La firma
+gratuita del codice è stata richiesta alla SignPath Foundation ed è in attesa: ruoli del team, cosa viene
+firmato e come sono nella [Code signing policy](CODE_SIGNING.md).
 
 ## Licenza
 
