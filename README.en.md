@@ -4,12 +4,12 @@
 
 # WFastPic
 
-**The open source successor to Google Picasa for Windows: pick and fix hundreds of photos fast.**
+**An open source tribute to Google Picasa, for Windows: pick and fix hundreds of photos fast.**
 Current version: **0.9.1** · [Download](https://github.com/Walt7/WFastPic/releases/latest) ·
 [Changelog](CHANGELOG.en.md) · [Italiano](README.md)
 
 Google stopped developing Picasa in 2016, and it does not read the HEIC photos phones take today.
-WFastPic keeps the way Picasa worked — folders by year, the space bar to keep the good shots,
+WFastPic is a tribute to the way Picasa worked — folders by year, the space bar to keep the good shots,
 one-click fixes, people, map, export — and is built for large photo collections, especially **HEIC**
 (iPhones, drones, cameras): open the vacation folder, keep the best, reject the rest, make a few quick
 fixes and export. All from the keyboard, without ever waiting.
@@ -17,7 +17,8 @@ fixes and export. All from the keyboard, without ever waiting.
 It is not Lightroom and not a file manager: it is the tool for going from 1,300 shots to the 80 photos
 worth keeping, in as few gestures as possible.
 
-> The app interface is in Italian. Everything else (this page, the changelog) is available in both languages.
+> The app is available in Italian and English (language choice in the "About" window, bottom right: Automatic follows Windows).
+> This page and the changelog are available in both languages.
 
 ## Why it exists
 
@@ -122,4 +123,5 @@ The full list is in the app, under "Scorciatoie" (shortcuts) in the bottom bar.
 ## License
 
 [MIT](LICENSE): you can use, modify and redistribute it freely, keeping the copyright notice.
-Not affiliated with Google.
+Not affiliated with Google: Picasa is a trademark of Google LLC, mentioned only to say what inspired
+this project.

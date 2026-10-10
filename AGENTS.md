@@ -4,7 +4,7 @@ Guida per agenti AI (Claude Code e simili) che lavorano su questo repository.
 
 ## Cos'è WFastPic
 
-Successore open source moderno di Picasa: selezione velocissima e correzione rapida di grandi
+Tributo open source a Picasa: selezione velocissima e correzione rapida di grandi
 collezioni fotografiche HEIC su Windows. Riferimento UX: Picasa. Non Lightroom, non un file browser
 generico (FastStone).
 

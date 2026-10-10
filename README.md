@@ -4,11 +4,11 @@
 
 # WFastPic
 
-**L'erede open source di Picasa per Windows: scegliere e sistemare in fretta centinaia di foto.**
+**Un tributo open source a Picasa, per Windows: scegliere e sistemare in fretta centinaia di foto.**
 Versione attuale: **0.9.1** · [Scarica](https://github.com/Walt7/WFastPic/releases/latest) ·
 [novità](CHANGELOG.md) · [English version](README.en.md) · [English below](#english)
 
-Google ha smesso di sviluppare Picasa nel 2016 e non legge le foto HEIC dei telefoni di oggi. WFastPic ne riprende il modo di lavorare — cartelle per anno, la barra spaziatrice
+Google ha smesso di sviluppare Picasa nel 2016 e non legge le foto HEIC dei telefoni di oggi. WFastPic è un omaggio al suo modo di lavorare — cartelle per anno, la barra spaziatrice
 per tenere le foto buone, ritocchi con un clic, persone, mappa, export — ed è pensato per le grandi
 raccolte di foto HEIC (iPhone, droni, fotocamere): apri la cartella della vacanza, tieni le migliori,
 scarti le altre, dai una sistemata veloce ed esporti. Tutto da tastiera, senza mai aspettare.
@@ -121,14 +121,16 @@ L'elenco completo è nell'app, sotto "Scorciatoie" nella barra in basso.
 
 [MIT](LICENSE): puoi usarlo, modificarlo e ridistribuirlo liberamente, mantenendo l'avviso di copyright.
 
+Non è affiliato a Google: Picasa è un marchio di Google LLC, citato solo per dire a cosa si ispira questo
+progetto.
+
 ---
 
 ## English
 
-**WFastPic is an open source successor to Google Picasa for Windows** — a fast photo viewer,
+**WFastPic is an open source tribute to Google Picasa, for Windows** — a fast photo viewer,
 organizer and quick editor for large photo collections, especially **HEIC** photos from iPhones,
-drones and cameras. If you are looking for a **Picasa alternative** or **Picasa replacement** that
-runs on Windows 10/11, this is it.
+drones and cameras. If you are looking for a **Picasa alternative** that runs on Windows 10/11, this is it.
 
 Open a vacation folder, press `Space` to keep the good shots, `Delete` to reject the rest, fix a few
 photos in one click and export. Everything is keyboard-driven and never makes you wait.
@@ -146,6 +148,7 @@ photos in one click and export. Everything is keyboard-driven and never makes yo
 
 **Download:** [latest release](https://github.com/Walt7/WFastPic/releases/latest) — unzip and run
 `WFastPic.App.exe` (Windows 10 1809+ or Windows 11, x64). HEIC photos need the HEIF and HEVC extensions
-from the Microsoft Store if Windows does not already have them. The interface is in Italian.
+from the Microsoft Store if Windows does not already have them. The interface is in Italian and English.
 
-Built with C# and WinUI 3 (Windows App SDK). MIT licensed. Not affiliated with Google.
+Built with C# and WinUI 3 (Windows App SDK). MIT licensed. Not affiliated with Google: Picasa is a trademark of Google LLC, mentioned only to say
+what inspired this project.
