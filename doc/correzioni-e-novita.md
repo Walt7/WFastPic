@@ -57,6 +57,20 @@ Le scelte di architettura restano quelle di `AGENTS.md` (ADR-001).
 - Le ricette di editing già salvate non cambiano (sono frazioni 0..1 della foto); eventuali ritagli fatti
   su foto che apparivano stirate vanno verificati.
 
+### Export lento: ora più foto in parallelo
+- **Misura** (12 core, cartella Puglia, HEIC 12 MP): per foto la decodifica costa ~1,4 s (HEVC ~0,9 s +
+  gestione colore sRGB ~0,4 s), la ricetta ~0 ms, la codifica JPEG 50-130 ms. Il lavoro era tutto in
+  sequenza: una foto alla volta, quindi quasi tutto il tempo era decodifica.
+- **Fix** (`Exporter.EseguiAsync`): foto elaborate in parallelo con `Parallel.ForEachAsync`.
+  - 4 foto insieme (3 alle dimensioni originali, dove ogni foto occupa centinaia di MB), limitato a metà dei core.
+  - Risultati nell'ordine dell'elenco; nomi dei file unici (scelta del nome sotto lock); progresso
+    monotono (il conteggio non torna mai indietro); l'annullamento non avvia nuove foto e completa
+    quelle in corso (mai file a metà).
+- **Effetto misurato** (24 foto, 2048 px): 1385 → 748 ms/foto (**≈1,9×**); alle dimensioni originali
+  1609 → 529 ms/foto (**≈3×**). Oltre 4 foto insieme non si guadagna (la decodifica HEVC satura) e la
+  memoria sale.
+- Non toccato: la gestione colore (serve alle foto Display P3 degli iPhone: senza, i colori escono spenti).
+
 ### Avvisi/errori di Visual Studio dopo il pull
 - `CS0246` su `RitaglioSuggerito` / `CartellaArchivio` / `ArchivioCartelle` e `WMC1006` su
   `WFastPic.Core.Persone.dll`: non sono errori di codice. `dotnet build WFastPic.slnx` dà 0 errori;
@@ -75,6 +89,12 @@ Le scelte di architettura restano quelle di `AGENTS.md` (ADR-001).
 - Dialogo con messaggio e dettagli, pulsanti "Copia report", "Apri cartella report", "Chiudi". Un solo
   dialogo alla volta: una raffica di errori finisce comunque tutta su disco.
 - Nessun invio in rete. Il gestore non lancia mai eccezioni a sua volta.
+
+### Tempo previsto nell'esportazione
+- Nel dialogo di export il testo di avanzamento mostra `N di M · circa X rimanenti · file`; a fine export
+  `Completato: N foto esportate in <cartella> (in X)`. Stima a velocità media dall'inizio
+  (`StimaAvanzamento.TempoRimanente`, dopo almeno 5 foto e 1 s); `StimaAvanzamento.Durata` formatta secondi/minuti
+  ed è condivisa con scansione e miniature. Test `StimaAvanzamento_Durata`.
 
 ### Barra di stato
 - Formato: `Selezionate M di N · Scarti K` (N = tutte le foto della cartella, indipendente dal filtro).
@@ -102,7 +122,7 @@ Tasto destro su una persona o un gruppo nel pannello Persone → **È la stessa 
   `Elenco()` nasconde le persone unite; `TrovaOCrea` di un nome unito porta alla persona che resta.
 - I volti nei sidecar delle cartelle non vengono riscritti: l'alias si risolve in lettura
   (`CostruisciElencoPersone`), quindi l'unione vale subito ovunque e si annulla con una sola scrittura.
-- Test: `Archivio_persone_unione_reversibile` (catene, circolarità, annulla). Suite: 148 test.
+- Test: `Archivio_persone_unione_reversibile` (catene, circolarità, annulla). Suite: 152 test.
 
 ### Integrazione con l'elenco Persone a righe (sviluppato in parallelo)
 Due sessioni hanno sviluppato insieme il pannello Persone; nell'integrazione:
@@ -121,7 +141,7 @@ Due sessioni hanno sviluppato insieme il pannello Persone; nell'integrazione:
 ## Verifica
 
 - `dotnet build WFastPic.slnx`: 0 errori di codice (con l'app chiusa).
-- `dotnet test tests/WFastPic.Core.Tests`: 148 superati.
+- `dotnet test tests/WFastPic.Core.Tests`: 152 superati.
 - **Da verificare a mano** (nessun accesso a mouse/tastiera da CLI): bordo giallo e Space in griglia e in
   ritaglio, pannello cartelle nascosto nel viewer, menu di unione e pulsante Annulla, proposte di Laura
   dopo "Rianalizza le persone" o alla riapertura della cartella.

@@ -23,9 +23,11 @@ public static class StimaAvanzamento
         var rimanente = TempoRimanente(completate, totale, trascorso);
         if (rimanente is null) return testo;
 
-        var durata = rimanente.Value.TotalSeconds < 60
-            ? $"{Math.Max(1, (int)Math.Ceiling(rimanente.Value.TotalSeconds))} s"
-            : $"{(int)Math.Ceiling(rimanente.Value.TotalMinutes)} min";
-        return $"{testo} · circa {durata} rimanenti";
+        return $"{testo} · circa {Durata(rimanente.Value)} rimanenti";
     }
+
+    /// <summary>"12 s" sotto il minuto, "3 min" oltre (arrotondata per eccesso).</summary>
+    public static string Durata(TimeSpan durata) => durata.TotalSeconds < 60
+        ? $"{Math.Max(1, (int)Math.Ceiling(durata.TotalSeconds))} s"
+        : $"{(int)Math.Ceiling(durata.TotalMinutes)} min";
 }

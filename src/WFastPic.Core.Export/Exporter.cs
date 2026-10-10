@@ -25,9 +25,16 @@ public static class Exporter
             ? db.GetByStato(StatoSelezione.Selected)
             : db.GetAllPhotos().Where(p => p.Stato != StatoSelezione.Reject).ToList();
 
+    /// <summary>Foto elaborate insieme (misurato su 12 core: oltre 4 non si guadagna, la decodifica HEVC satura).</summary>
+    public const int FotoInParallelo = 4;
+
+    /// <summary>Alle dimensioni originali ogni foto occupa centinaia di MB (48 MP ≈ 190 MB per buffer): meno insieme.</summary>
+    public const int FotoInParalleloOriginali = 3;
+
     /// <summary>
-    /// Esporta le foto una alla volta. L'annullamento ferma l'export prima della foto successiva
-    /// (quella in corso viene completata, mai lasciata a metà) e restituisce i risultati fin lì.
+    /// Esporta più foto insieme (decodifica, ricetta e codifica sono indipendenti tra foto). L'annullamento
+    /// ferma l'avvio di nuove foto (quelle in corso vengono completate, mai lasciate a metà) e restituisce
+    /// i risultati fin lì, nell'ordine dell'elenco.
     /// </summary>
     public static async Task<IReadOnlyList<RisultatoExport>> EseguiAsync(
         LibrarySidecarDatabase db,
@@ -36,8 +43,7 @@ public static class Exporter
         CancellationToken ct = default)
     {
         var foto = FotoDaEsportare(db, opzioni);
-        var risultati = new List<RisultatoExport>();
-        if (foto.Count == 0) return risultati;
+        if (foto.Count == 0) return [];
 
         Directory.CreateDirectory(opzioni.CartellaOutput);
 
@@ -46,49 +52,75 @@ public static class Exporter
             ? Math.Clamp(lato, ExportOptions.LatoLungoMinimo, ExportOptions.LatoLungoMassimoConsentito)
             : int.MaxValue;
 
-        for (var i = 0; i < foto.Count; i++)
+        var risultati = new RisultatoExport?[foto.Count];
+        var completate = 0;
+        var bloccoProgresso = new object();
+
+        // Con più foto insieme i report arrivano da thread diversi: sotto lock, così il conteggio mostrato
+        // non torna mai indietro (barra e tempo previsto restano stabili).
+        void Segnala(string file, bool finita)
         {
-            if (ct.IsCancellationRequested) break;
-
-            var record = foto[i];
-            var percorsoOriginale = Path.Combine(db.CartellaFoto, record.PathRelativo);
-            progresso?.Report(new ProgressoExport(i, foto.Count, record.PathRelativo));
-
-            try
+            lock (bloccoProgresso)
             {
-                var ricettaJson = db.GetRecipeJson(record.Id);
-                var ricetta = ricettaJson is not null ? EditRecipeSerializer.FromJson(ricettaJson) : EditRecipe.Default;
-
-                var (bgra, w, h) = await DecodificaInSrgbAsync(percorsoOriginale, latoLungo).ConfigureAwait(false);
-
-                var (elaborato, ew, eh) = await Task.Run(() =>
-                {
-                    var r = RecipeApplier.Applica(bgra, w, h, ricetta);
-                    if (!string.IsNullOrWhiteSpace(opzioni.TestoWatermark))
-                        WatermarkRenderer.Applica(r.Bgra, r.Larghezza, r.Altezza, opzioni.TestoWatermark, opzioni.OpacitaWatermark, opzioni.PosizioneWatermark);
-                    return r;
-                }).ConfigureAwait(false);
-
-                var nomeBase = Path.GetFileNameWithoutExtension(record.PathRelativo);
-                var percorsoOutput = NomiFileExport.PercorsoOutput(
-                    opzioni.CartellaOutput, db.CartellaFoto, nomeBase, opzioni.SostituisciEsistenti, usati, File.Exists);
-
-                var (dataScatto, posizione) = MetadatiDaScrivere(record, percorsoOriginale, opzioni);
-
-                await JpegEncoder.SalvaAsync(percorsoOutput, elaborato, ew, eh, opzioni.QualitaJpeg,
-                    dataScatto, posizione, opzioni.Tag).ConfigureAwait(false);
-
-                risultati.Add(new RisultatoExport(record.Id, record.PathRelativo, percorsoOutput, true, null));
+                if (finita) completate++;
+                progresso?.Report(new ProgressoExport(completate, foto.Count, file));
             }
-            catch (Exception ex)
-            {
-                risultati.Add(new RisultatoExport(record.Id, record.PathRelativo, "", false, ex.Message));
-            }
-
-            progresso?.Report(new ProgressoExport(i + 1, foto.Count, record.PathRelativo));
         }
+        var grado = Math.Clamp(Environment.ProcessorCount / 2, 1,
+            latoLungo > 4096 ? FotoInParalleloOriginali : FotoInParallelo);
 
-        return risultati;
+        // Senza il token in Parallel: l'annullamento non deve lanciare, solo non far partire altre foto.
+        await Parallel.ForEachAsync(
+            Enumerable.Range(0, foto.Count),
+            new ParallelOptions { MaxDegreeOfParallelism = grado },
+            async (i, _) =>
+            {
+                if (ct.IsCancellationRequested) return;
+
+                var record = foto[i];
+                var percorsoOriginale = Path.Combine(db.CartellaFoto, record.PathRelativo);
+                Segnala(record.PathRelativo, finita: false);
+
+                try
+                {
+                    var ricettaJson = db.GetRecipeJson(record.Id);
+                    var ricetta = ricettaJson is not null ? EditRecipeSerializer.FromJson(ricettaJson) : EditRecipe.Default;
+
+                    var (bgra, w, h) = await DecodificaInSrgbAsync(percorsoOriginale, latoLungo).ConfigureAwait(false);
+
+                    var (elaborato, ew, eh) = await Task.Run(() =>
+                    {
+                        var r = RecipeApplier.Applica(bgra, w, h, ricetta);
+                        if (!string.IsNullOrWhiteSpace(opzioni.TestoWatermark))
+                            WatermarkRenderer.Applica(r.Bgra, r.Larghezza, r.Altezza, opzioni.TestoWatermark, opzioni.OpacitaWatermark, opzioni.PosizioneWatermark);
+                        return r;
+                    }).ConfigureAwait(false);
+
+                    var nomeBase = Path.GetFileNameWithoutExtension(record.PathRelativo);
+                    string percorsoOutput;
+                    // Nomi unici (foto con lo stesso nome in sottocartelle diverse): la scelta è una per volta.
+                    lock (usati)
+                    {
+                        percorsoOutput = NomiFileExport.PercorsoOutput(
+                            opzioni.CartellaOutput, db.CartellaFoto, nomeBase, opzioni.SostituisciEsistenti, usati, File.Exists);
+                    }
+
+                    var (dataScatto, posizione) = MetadatiDaScrivere(record, percorsoOriginale, opzioni);
+
+                    await JpegEncoder.SalvaAsync(percorsoOutput, elaborato, ew, eh, opzioni.QualitaJpeg,
+                        dataScatto, posizione, opzioni.Tag).ConfigureAwait(false);
+
+                    risultati[i] = new RisultatoExport(record.Id, record.PathRelativo, percorsoOutput, true, null);
+                }
+                catch (Exception ex)
+                {
+                    risultati[i] = new RisultatoExport(record.Id, record.PathRelativo, "", false, ex.Message);
+                }
+
+                Segnala(record.PathRelativo, finita: true);
+            }).ConfigureAwait(false);
+
+        return risultati.Where(r => r is not null).Select(r => r!).ToList();
     }
 
     /// <summary>

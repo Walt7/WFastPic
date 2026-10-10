@@ -4,6 +4,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Windows.Storage.Pickers;
 using WFastPic.Core.Export;
+using WFastPic.Core.Library;
 using WinRT.Interop;
 
 namespace WFastPic.App;
@@ -201,6 +202,7 @@ public partial class MainWindow
         ExportProgressBar.Visibility = Visibility.Visible;
         ExportProgressBar.Value = 0;
         ExportStatusText.Text = "Preparazione…";
+        var cronometro = Stopwatch.StartNew();
 
         try
         {
@@ -211,12 +213,15 @@ public partial class MainWindow
             {
                 if (p.Totale == 0) return;
                 ExportProgressBar.Value = 100.0 * p.Completate / p.Totale;
-                if (!cts.IsCancellationRequested)
-                    ExportStatusText.Text = $"{Math.Min(p.Completate + 1, p.Totale)} di {p.Totale} · {p.FileCorrente}";
+                if (cts.IsCancellationRequested) return;
+                // Tempo previsto: velocità media dall'inizio (le foto con filigrana o ridimensionamento pesano uguale).
+                var rimanente = StimaAvanzamento.TempoRimanente(p.Completate, p.Totale, cronometro.Elapsed);
+                var stima = rimanente is { } r ? $" · circa {StimaAvanzamento.Durata(r)} rimanenti" : "";
+                ExportStatusText.Text = $"{Math.Min(p.Completate + 1, p.Totale)} di {p.Totale}{stima} · {p.FileCorrente}";
             });
 
             var risultati = await Task.Run(() => Exporter.EseguiAsync(db, opzioni, progresso, cts.Token));
-            MostraEsitoExport(risultati, opzioni.CartellaOutput, cts.IsCancellationRequested);
+            MostraEsitoExport(risultati, opzioni.CartellaOutput, cts.IsCancellationRequested, cronometro.Elapsed);
         }
         catch (Exception ex)
         {
@@ -231,7 +236,7 @@ public partial class MainWindow
         }
     }
 
-    private void MostraEsitoExport(IReadOnlyList<RisultatoExport> risultati, string cartella, bool annullato)
+    private void MostraEsitoExport(IReadOnlyList<RisultatoExport> risultati, string cartella, bool annullato, TimeSpan durata)
     {
         var riuscite = risultati.Count(r => r.Successo);
         var fallite = risultati.Where(r => !r.Successo).ToList();
@@ -239,7 +244,7 @@ public partial class MainWindow
         ExportStatusText.Text = (annullato, fallite.Count) switch
         {
             (true, _) => $"Esportazione annullata: {riuscite} foto esportate in {cartella}",
-            (false, 0) => $"Completato: {riuscite} foto esportate in {cartella}",
+            (false, 0) => $"Completato: {riuscite} foto esportate in {cartella} (in {StimaAvanzamento.Durata(durata)})",
             _ => $"{riuscite} foto esportate, {fallite.Count} non riuscite:",
         };
 

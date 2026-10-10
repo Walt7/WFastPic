@@ -207,6 +207,14 @@ public sealed class GrigliaSupportTests : IDisposable
         Assert.Equal(attesi, stima?.TotalSeconds);
     }
 
+    [Theory]
+    [InlineData(0.2, "1 s")]
+    [InlineData(59, "59 s")]
+    [InlineData(61, "2 min")]
+    [InlineData(180, "3 min")]
+    public void StimaAvanzamento_Durata(double secondi, string atteso) =>
+        Assert.Equal(atteso, StimaAvanzamento.Durata(TimeSpan.FromSeconds(secondi)));
+
     [Fact]
     public void StimaAvanzamento_Descrivi_usa_secondi_o_minuti()
     {
