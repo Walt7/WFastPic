@@ -19,8 +19,19 @@ public sealed class VoceCartella : INotifyPropertyChanged
 
     public required string Percorso { get; init; }
     public required string Nome { get; init; }
-    public required string Dettaglio { get; init; }
     public required bool Esiste { get; init; }
+    public required string Periodo { get; init; }
+    public required CartellaArchivio Dati { get; init; }
+
+    private string _dettaglio = "";
+    /// <summary>"1.300 foto · 37 selezionate": per la cartella aperta segue le selezioni dal vivo.</summary>
+    public string Dettaglio
+    {
+        get => _dettaglio;
+        set { if (_dettaglio == value) return; _dettaglio = value; OnPropertyChanged(); }
+    }
+
+    public Visibility PeriodoVisibile => string.IsNullOrEmpty(Periodo) ? Visibility.Collapsed : Visibility.Visible;
 
     public double Opacita => Esiste ? 1.0 : 0.45;
 
@@ -76,7 +87,7 @@ public partial class MainWindow
         {
             var esiste = Directory.Exists(percorso);
             var riepilogo = esiste ? LibrarySidecarDatabase.LeggiRiepilogo(percorso) : null;
-            return new CartellaArchivio(percorso, riepilogo?.NumeroFoto, riepilogo?.PrimoScatto, riepilogo?.UltimoScatto, esiste);
+            return new CartellaArchivio(percorso, riepilogo?.NumeroFoto, riepilogo?.PrimoScatto, riepilogo?.UltimoScatto, esiste, riepilogo?.NumeroSelezionate);
         }).ToList());
 
         if (richiesta != _richiestaElencoCartelle) return;
@@ -93,6 +104,8 @@ public partial class MainWindow
                     Percorso = c.Percorso,
                     Nome = ArchivioCartelle.Nome(c.Percorso),
                     Dettaglio = ArchivioCartelle.Dettaglio(c),
+                    Periodo = ArchivioCartelle.PeriodoCartella(c),
+                    Dati = c,
                     Esiste = c.Esiste,
                     IsCorrente = corrente is not null && StessoPercorso(c.Percorso, corrente),
                 });
@@ -101,6 +114,20 @@ public partial class MainWindow
         }
 
         PannelloCartelleVuotoText.Visibility = cartelle.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        AggiornaCartellaCorrenteNelPannello();
+    }
+
+    /// <summary>
+    /// Numeri della cartella aperta dallo stato in memoria (il sidecar può essere indietro di qualche
+    /// scrittura in coda): chiamato a ogni cambio di selezione, senza rileggere i dischi.
+    /// </summary>
+    private void AggiornaCartellaCorrenteNelPannello()
+    {
+        if (_db?.CartellaFoto is not string corrente) return;
+        foreach (var voce in _gruppiCartelle.SelectMany(g => g).Where(v => v.IsCorrente && StessoPercorso(v.Percorso, corrente)))
+        {
+            voce.Dettaglio = ArchivioCartelle.Dettaglio(voce.Dati with { NumeroFoto = _tutte.Count, NumeroSelezionate = _conteggioSelezionate });
+        }
     }
 
     private static bool StessoPercorso(string a, string b) =>

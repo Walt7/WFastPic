@@ -44,7 +44,7 @@ public sealed record VoltoDaSalvare(
     byte[] Impronta, byte[] Miniatura, long? PersonaId, int Stato);
 
 /// <summary>Per il pannello cartelle: quante foto e in che periodo, dall'ultima apertura della cartella.</summary>
-public sealed record RiepilogoCartella(int NumeroFoto, DateTime? PrimoScatto, DateTime? UltimoScatto);
+public sealed record RiepilogoCartella(int NumeroFoto, DateTime? PrimoScatto, DateTime? UltimoScatto, int NumeroSelezionate = 0);
 
 /// <summary>
 /// Sidecar SQLite per cartella (.wfastpic/library.db). Nessuna libreria fotografica centrale:
@@ -117,19 +117,62 @@ public sealed class LibrarySidecarDatabase : IDisposable
             using var connection = new SqliteConnection(connectionString);
             connection.Open();
             using var cmd = connection.CreateCommand();
-            cmd.CommandText = "SELECT COUNT(*), MIN(capture_date), MAX(capture_date) FROM photos;";
+            cmd.CommandText = """
+                SELECT COUNT(*), MIN(p.capture_date), MAX(p.capture_date),
+                       (SELECT COUNT(*) FROM selection_state s WHERE s.stato = 'Selected')
+                FROM photos p;
+                """;
             using var reader = cmd.ExecuteReader();
             if (!reader.Read()) return null;
 
             return new RiepilogoCartella(
                 reader.GetInt32(0),
                 reader.IsDBNull(1) ? null : DateTime.Parse(reader.GetString(1)),
-                reader.IsDBNull(2) ? null : DateTime.Parse(reader.GetString(2)));
+                reader.IsDBNull(2) ? null : DateTime.Parse(reader.GetString(2)),
+                reader.GetInt32(3));
         }
         catch (Exception ex) when (ex is SqliteException or IOException or UnauthorizedAccessException or FormatException)
         {
             return null; // sidecar di un'altra versione, bloccato o su un disco scollegato
         }
+    }
+
+    /// <summary>
+    /// Per il pannello Persone (tutte le cartelle, come Picasa): in quante foto della cartella compare
+    /// ogni persona con nome, proposte comprese. Sola lettura, non crea mai il sidecar; vuoto se manca,
+    /// se è di una versione senza persone o se non è leggibile.
+    /// </summary>
+    public static IReadOnlyDictionary<long, int> LeggiFotoPerPersona(string cartellaFoto)
+    {
+        var percorsoDb = Path.Combine(cartellaFoto, CartellaSidecar, NomeFileDatabase);
+        var risultato = new Dictionary<long, int>();
+        if (!File.Exists(percorsoDb)) return risultato;
+
+        try
+        {
+            using var connection = new SqliteConnection(new SqliteConnectionStringBuilder
+            {
+                DataSource = percorsoDb,
+                Mode = SqliteOpenMode.ReadOnly,
+                Pooling = false,
+            }.ToString());
+            connection.Open();
+            using var cmd = connection.CreateCommand();
+            cmd.CommandText = """
+                SELECT persona_id, COUNT(DISTINCT photo_id) FROM volti
+                WHERE persona_id IS NOT NULL AND stato_persona IN ($proposto, $confermato)
+                GROUP BY persona_id;
+                """;
+            cmd.Parameters.AddWithValue("$proposto", StatoPersona.Proposto);
+            cmd.Parameters.AddWithValue("$confermato", StatoPersona.Confermato);
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read()) risultato[reader.GetInt64(0)] = reader.GetInt32(1);
+        }
+        catch (Exception ex) when (ex is SqliteException or IOException or UnauthorizedAccessException)
+        {
+            risultato.Clear(); // sidecar senza colonne persone, bloccato o su un disco scollegato
+        }
+        return risultato;
     }
 
     private void EnsureSchema()
@@ -744,6 +787,25 @@ public sealed class LibrarySidecarDatabase : IDisposable
             cmd.ExecuteNonQuery();
         }
         transaction.Commit();
+    }
+
+    /// <summary>
+    /// Persona unita a un'altra (<paramref name="nuova"/>) o eliminata (null: i volti tornano senza nome)
+    /// nell'archivio globale: allinea i volti di questa cartella.
+    /// </summary>
+    public void SostituisciPersona(long vecchia, long? nuova)
+    {
+        using var scope = _lock.EnterScope();
+        using var cmd = _connection.CreateCommand();
+        cmd.CommandText = """
+            UPDATE volti SET persona_id = $nuova,
+                             stato_persona = CASE WHEN $nuova IS NULL THEN $nessuno ELSE stato_persona END
+            WHERE persona_id = $vecchia;
+            """;
+        cmd.Parameters.AddWithValue("$nuova", (object?)nuova ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("$nessuno", StatoPersona.Nessuno);
+        cmd.Parameters.AddWithValue("$vecchia", vecchia);
+        cmd.ExecuteNonQuery();
     }
 
     /// <summary>Volti trovati nella foto (normalizzati, foto non raddrizzata); null se non è ancora stata analizzata.</summary>

@@ -102,6 +102,15 @@ Aggiunte fuori piano, su richiesta esplicita durante lo sviluppo:
   nell'archivio globale `persone.db` (`ArchivioPersone`), valide per tutte le cartelle. Gruppi senza
   nome per legame medio (centroidi oltre 300 volti), proposte automatiche oltre 0,42, conferma/
   rinomina/togli/ignora dal menu, filtro griglia per persona, "Rianalizza le persone".
+  Elenco Persone in cima al pannello cartelle a righe come Picasa: tutte le persone con nome in
+  ordine alfabetico, foto contate anche nei sidecar delle altre cartelle note
+  (`LeggiFotoPerPersona`, sola lettura); chi non è nella cartella aperta è attenuato e il clic apre
+  la sua cartella già filtrata. Gestione nomi: rinomina (nome di un'altra persona = unione), "È la
+  stessa persona di…" (nome + senza nome, due senza nome, due con nome), "Cambia immagine",
+  "Elimina la persona". Unione reversibile: la persona unita resta in `persone.db` con `unita_a` e
+  l'alias si risolve in lettura (`CostruisciElencoPersone`), i sidecar non vengono riscritti; dopo un
+  nome o un'unione il pannello offre "Annulla". Solo i volti di persone eliminate tornano senza nome
+  nel sidecar all'apertura della cartella (`SostituisciPersona`). Dettagli in `doc/correzioni-e-novita.md`.
   Senza l'opzione resta il rilevatore di Windows (solo volti, per ritagli e filtro "Con volti").
 - Proporzioni del ritaglio: anche "originale" (quelle della foto).- Versione dell'app nel `<Version>` del csproj, mostrata nel titolo della finestra (v0.8).
 - Griglia divisa per giorni (opzionale, "Per giorni"): vista raggruppata allineata a `_visibili`,
@@ -146,7 +155,7 @@ src/
 ├─ WFastPic.Core.Persistence/   (sidecar SQLite)
 └─ WFastPic.Core.Export/        (bake ricetta + watermark + tag EXIF + encode JPEG — Windows-targeted)
 tests/
-└─ WFastPic.Core.Tests/         (xUnit, 131 test — Library/Selection/Processing/Metadata/Export)
+└─ WFastPic.Core.Tests/         (xUnit, 138 test — Library/Selection/Processing/Metadata/Export)
 tools/
 ├─ HeicSmokeTest/                (Fase 0, smoke test decoding)
 └─ ScanSmokeTest/
@@ -179,7 +188,7 @@ Nota: `Z`/`F` zoom, `R` ruota rigida, `M` riproduci video, `Ctrl+C/V` copia rice
 
 ## Convenzioni per chi implementa
 
-- Test prima o insieme al codice per la logica in `Core.*` (xUnit) — 131 test attuali coprono
+- Test prima o insieme al codice per la logica in `Core.*` (xUnit) — 138 test attuali coprono
   scan/identità, raffiche, selezione, ricetta/crop/rotate/tono/geometria raddrizzamento, ordinamento
   cronologico, riapertura veloce, scarti, concorrenza sidecar, stima avanzamento, zoom/trascinamento viewer.
 - `LibrarySidecarDatabase` è condiviso tra thread UI e coda di scrittura: ogni metodo pubblico nuovo

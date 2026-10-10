@@ -48,25 +48,40 @@
                             <TextBlock x:Name="PersoneAnnullaText" Foreground="#CCCCCC" FontSize="12" TextWrapping="Wrap" VerticalAlignment="Center" />
                             <HyperlinkButton Grid.Column="1" Content="Annulla" FontSize="12" Padding="0" Click="PersoneAnnulla_Click" />
                         </Grid>
-                        <GridView
+                        <!--
+                            Come l'elenco Persone di Picasa: tutte le persone con nome (di tutte le cartelle,
+                            in ordine alfabetico) con miniatura quadrata e numero di foto, poi i gruppi senza
+                            nome della cartella aperta. Chi non compare qui è attenuato: il clic apre la sua cartella.
+                        -->
+                        <ListView
                             x:Name="PersoneList"
-                            MaxHeight="260"
+                            MaxHeight="300"
+                            Margin="-12,0,-12,0"
                             SelectionMode="None"
                             IsItemClickEnabled="True"
                             ItemClick="PersoneList_ItemClick"
                             RightTapped="PersoneList_RightTapped">
-                            <GridView.ItemTemplate>
+                            <ListView.ItemContainerStyle>
+                                <Style TargetType="ListViewItem">
+                                    <Setter Property="Padding" Value="12,0" />
+                                    <Setter Property="MinHeight" Value="0" />
+                                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                </Style>
+                            </ListView.ItemContainerStyle>
+                            <ListView.ItemTemplate>
                                 <DataTemplate x:DataType="local:PersonaUi">
-                                    <StackPanel Width="72" Spacing="2" Padding="0,4" ToolTipService.ToolTip="{x:Bind Dettaglio}">
-                                        <Border Width="56" Height="56" CornerRadius="28" Background="#2A2A2A" HorizontalAlignment="Center">
+                                    <Grid Padding="0,4" ColumnDefinitions="Auto,*" ColumnSpacing="10" Opacity="{x:Bind Opacita}">
+                                        <Border Width="40" Height="40" CornerRadius="4" Background="#2A2A2A">
                                             <Image Source="{x:Bind Avatar}" Stretch="UniformToFill" />
                                         </Border>
-                                        <TextBlock Text="{x:Bind Nome}" Foreground="White" FontSize="12" HorizontalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                                        <TextBlock Text="{x:Bind Dettaglio}" Foreground="#999999" FontSize="10" HorizontalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                                    </StackPanel>
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="1">
+                                            <TextBlock Text="{x:Bind Nome}" Foreground="{x:Bind ColoreNome}" FontSize="13" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Text="{x:Bind Dettaglio}" Foreground="#999999" FontSize="11" TextTrimming="CharacterEllipsis" />
+                                        </StackPanel>
+                                    </Grid>
                                 </DataTemplate>
-                            </GridView.ItemTemplate>
-                        </GridView>
+                            </ListView.ItemTemplate>
+                        </ListView>
                         <HyperlinkButton Content="Rianalizza le persone di questa cartella" FontSize="12" Padding="0" Click="RianalizzaPersone_Click" />
                     </StackPanel>
                 </Expander>
@@ -115,7 +130,8 @@
                                     <FontIcon Glyph="&#xE8B7;" Foreground="#F2C14E" FontSize="20" VerticalAlignment="Top" Margin="0,2,0,0" />
                                     <StackPanel Grid.Column="1" Spacing="1">
                                         <TextBlock Text="{x:Bind Nome}" Foreground="White" FontSize="14" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
-                                        <TextBlock Text="{x:Bind Dettaglio}" Foreground="#AAAAAA" FontSize="12" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Text="{x:Bind Dettaglio, Mode=OneWay}" Foreground="#AAAAAA" FontSize="12" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Text="{x:Bind Periodo}" Foreground="#888888" FontSize="11" TextTrimming="CharacterEllipsis" Visibility="{x:Bind PeriodoVisibile}" />
                                     </StackPanel>
                                     <Grid.ContextFlyout>
                                         <MenuFlyout Opening="MenuCartella_Opening">

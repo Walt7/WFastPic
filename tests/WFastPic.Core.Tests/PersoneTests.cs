@@ -160,6 +160,35 @@ public class PersoneTests
     }
 
     [Fact]
+    public void Archivio_persone_avatar_ed_eliminazione_con_le_unite()
+    {
+        var percorso = Path.Combine(Path.GetTempPath(), "wfastpic-persone-" + Guid.NewGuid() + ".db");
+        try
+        {
+            using var archivio = ArchivioPersone.Apri(percorso);
+            var marco = archivio.TrovaOCrea("Marco", null);
+            var marcoBis = archivio.TrovaOCrea("Marco B.", null);
+            var anna = archivio.TrovaOCrea("Anna", null);
+            archivio.ImpostaCampioni(marcoBis, [Impronte.InByte(Impronta(1, 0))]);
+
+            archivio.ImpostaAvatar(marco, [5]);
+            Assert.Equal([5], archivio.Elenco().Single(p => p.Id == marco).Avatar);
+
+            archivio.Unisci(marcoBis, marco);
+            archivio.Elimina(marco); // anche "Marco B.", confluito in lui
+            Assert.Equal(["Anna"], archivio.Elenco().Select(p => p.Nome));
+            Assert.False(archivio.EsisteNome("Marco B."));
+            Assert.NotEqual(marco, archivio.TrovaOCrea("Marco", null)); // id mai riusati
+            Assert.Equal(anna, archivio.TrovaOCrea("anna", null));
+            Assert.Empty(archivio.Unioni());
+        }
+        finally
+        {
+            foreach (var f in Directory.GetFiles(Path.GetTempPath(), Path.GetFileName(percorso) + "*")) File.Delete(f);
+        }
+    }
+
+    [Fact]
     public void Sidecar_salva_volti_con_impronta_e_nomi()
     {
         var cartella = Path.Combine(Path.GetTempPath(), "wfastpic-voltipersone-" + Guid.NewGuid());
@@ -187,6 +216,19 @@ public class PersoneTests
             db.AssegnaPersona([volti[0].Id], 7, StatoPersona.Confermato);
             Assert.All(db.GetVoltiPersone(), v => Assert.Equal(7, v.PersonaId));
             Assert.Equal(2, db.GetVolti(foto.Id)!.Count); // i ritagli suggeriti continuano a vederli
+
+            db.AssegnaPersona([volti[1].Id], 8, StatoPersona.Rifiutato);
+            var perPersona = LibrarySidecarDatabase.LeggiFotoPerPersona(cartella);
+            Assert.Equal(1, perPersona[7]);
+            Assert.False(perPersona.ContainsKey(8)); // i rifiutati non contano
+            Assert.Empty(LibrarySidecarDatabase.LeggiFotoPerPersona(Path.Combine(cartella, "mai-aperta")));
+
+            db.SostituisciPersona(7, 9);
+            Assert.All(db.GetVoltiPersone().Where(v => v.Stato != StatoPersona.Rifiutato), v => Assert.Equal(9, v.PersonaId));
+            db.SostituisciPersona(9, null);
+            var senzaNome = db.GetVoltiPersone().Single(v => v.Id == volti[0].Id);
+            Assert.Null(senzaNome.PersonaId);
+            Assert.Equal(StatoPersona.Nessuno, senzaNome.Stato);
         }
         finally
         {

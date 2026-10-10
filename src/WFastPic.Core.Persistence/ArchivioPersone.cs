@@ -150,6 +150,16 @@ public sealed class ArchivioPersone : IDisposable
         cmd.ExecuteNonQuery();
     }
 
+    public void ImpostaAvatar(long personaId, byte[] avatar)
+    {
+        using var scope = _lock.EnterScope();
+        using var cmd = _connection.CreateCommand();
+        cmd.CommandText = "UPDATE persone SET avatar = $avatar WHERE id = $id;";
+        cmd.Parameters.AddWithValue("$avatar", avatar);
+        cmd.Parameters.AddWithValue("$id", personaId);
+        cmd.ExecuteNonQuery();
+    }
+
     /// <summary>
     /// Unisce <paramref name="daId"/> in <paramref name="aId"/>: da ora i volti della prima valgono come
     /// della seconda, in tutte le cartelle. Niente viene cancellato: <see cref="AnnullaUnione"/> la separa.
@@ -189,14 +199,32 @@ public sealed class ArchivioPersone : IDisposable
         return diretti.Keys.ToDictionary(k => k, k => Risolvi(diretti, k));
     }
 
-    /// <summary>Elimina una persona (solo per annullare la creazione di una persona appena fatta).</summary>
+    /// <summary>
+    /// Dimentica la persona, insieme a quelle confluite in lei (sono la stessa persona con un altro
+    /// nome). Gli id non vengono riusati (AUTOINCREMENT): nei sidecar delle cartelle i suoi volti
+    /// restano con un id sconosciuto e tornano senza nome quando la cartella viene aperta.
+    /// </summary>
     public void Elimina(long personaId)
     {
         using var scope = _lock.EnterScope();
-        using var cmd = _connection.CreateCommand();
-        cmd.CommandText = "DELETE FROM persone WHERE id = $id;";
-        cmd.Parameters.AddWithValue("$id", personaId);
-        cmd.ExecuteNonQuery();
+        var diretti = new Dictionary<long, long>();
+        using (var leggi = _connection.CreateCommand())
+        {
+            leggi.CommandText = "SELECT id, unita_a FROM persone WHERE unita_a IS NOT NULL;";
+            using var reader = leggi.ExecuteReader();
+            while (reader.Read()) diretti[reader.GetInt64(0)] = reader.GetInt64(1);
+        }
+
+        using var transaction = _connection.BeginTransaction();
+        foreach (var id in diretti.Keys.Where(k => Risolvi(diretti, k) == personaId).Append(personaId))
+        {
+            using var cmd = _connection.CreateCommand();
+            cmd.Transaction = transaction;
+            cmd.CommandText = "DELETE FROM persone WHERE id = $id;";
+            cmd.Parameters.AddWithValue("$id", id);
+            cmd.ExecuteNonQuery();
+        }
+        transaction.Commit();
     }
 
     private long RisolviSenzaLock(long id)

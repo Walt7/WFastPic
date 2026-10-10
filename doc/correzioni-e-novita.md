@@ -90,6 +90,20 @@ Tasto destro su una persona o un gruppo nel pannello Persone → **È la stessa 
   (`CostruisciElencoPersone`), quindi l'unione vale subito ovunque e si annulla con una sola scrittura.
 - Test: `Archivio_persone_unione_reversibile` (catene, circolarità, annulla). Suite: 132 test.
 
+### Integrazione con l'elenco Persone a righe (sviluppato in parallelo)
+Due sessioni hanno sviluppato insieme il pannello Persone; nell'integrazione:
+- **Modello di unione unico: quello reversibile** (`unita_a`, alias risolto in lettura, Annulla). La
+  tabella `unioni` e la riscrittura dei sidecar alla riapertura, dell'altra versione, non ci sono più.
+- **Dall'altra versione restano:** elenco a righe con tutte le persone con nome di tutte le cartelle
+  (`LeggiFotoPerPersona`), chi non è nella cartella aperta attenuato e cliccabile per aprirla,
+  "Apri la cartella", "Cambia immagine" (`ArchivioPersone.ImpostaAvatar`), "Elimina la persona",
+  rinomina con il nome di un'altra persona = unione (senza chiedere quale nome tenere), numero di
+  selezionate e periodo nel pannello cartelle.
+- **Menu unico "È la stessa persona di…"** per gruppi senza nome e persone con nome (sostituisce "Unisci con").
+- **Elimina la persona** cancella anche le persone confluite in lei; gli id non vengono riusati, quindi i
+  volti con un id che non esiste più tornano senza nome quando la loro cartella viene aperta
+  (`SostituisciPersona`, unico caso in cui il sidecar viene riscritto). L'Annulla in sospeso sparisce.
+- Test: `Archivio_persone_avatar_ed_eliminazione_con_le_unite`. Suite: 138 test.
 ## Verifica
 
 - `dotnet build WFastPic.slnx`: 0 errori di codice (con l'app chiusa).

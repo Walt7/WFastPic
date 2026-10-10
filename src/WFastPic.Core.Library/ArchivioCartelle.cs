@@ -3,7 +3,8 @@ using System.Globalization;
 namespace WFastPic.Core.Library;
 
 /// <summary>Una cartella dell'elenco, con le informazioni lette dal suo sidecar (se è già stata aperta).</summary>
-public sealed record CartellaArchivio(string Percorso, int? NumeroFoto, DateTime? PrimoScatto, DateTime? UltimoScatto, bool Esiste);
+public sealed record CartellaArchivio(
+    string Percorso, int? NumeroFoto, DateTime? PrimoScatto, DateTime? UltimoScatto, bool Esiste, int? NumeroSelezionate = null);
 
 /// <summary>
 /// Pannello cartelle stile Picasa: le cartelle di foto raggruppate per anno di scatto (le più recenti
@@ -35,15 +36,24 @@ public static class ArchivioCartelle
 
     public static string TitoloAnno(int? anno) => anno?.ToString(CultureInfo.InvariantCulture) ?? "Senza data";
 
-    /// <summary>"1.300 foto · 12–20 lug 2026", "45 foto · 30 giu – 2 lug 2026", "Non ancora aperta".</summary>
+    /// <summary>"1.300 foto · 37 selezionate" (le selezionate solo se ce ne sono), "Non ancora aperta".</summary>
     public static string Dettaglio(CartellaArchivio cartella)
     {
         if (!cartella.Esiste) return "Cartella non trovata";
         if (cartella.NumeroFoto is not int numero) return "Non ancora aperta";
 
         var foto = numero == 1 ? "1 foto" : string.Format(Italiano, "{0:N0} foto", numero);
-        return Periodo(cartella.PrimoScatto, cartella.UltimoScatto) is string periodo ? $"{foto} · {periodo}" : foto;
+        return cartella.NumeroSelezionate switch
+        {
+            null or 0 => foto,
+            1 => $"{foto} · 1 selezionata",
+            var n => string.Format(Italiano, "{0} · {1:N0} selezionate", foto, n),
+        };
     }
+
+    /// <summary>Seconda riga: il periodo di scatto ("12–20 lug 2026"), vuota se non noto.</summary>
+    public static string PeriodoCartella(CartellaArchivio cartella) =>
+        cartella.Esiste ? Periodo(cartella.PrimoScatto, cartella.UltimoScatto) ?? "" : "";
 
     public static string? Periodo(DateTime? primo, DateTime? ultimo)
     {

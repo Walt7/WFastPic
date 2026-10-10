@@ -1,5 +1,6 @@
 using WFastPic.Core.Library;
 using WFastPic.Core.Persistence;
+using WFastPic.Core.Selection;
 using Xunit;
 
 namespace WFastPic.Core.Tests;
@@ -25,16 +26,27 @@ public class ArchivioCartelleTests
     }
 
     [Theory]
-    [InlineData(1300, "2026-07-12", "2026-07-20", "1.300 foto · 12–20 lug 2026")]
-    [InlineData(45, "2026-06-30", "2026-07-02", "45 foto · 30 giu – 2 lug 2026")]
-    [InlineData(1, "2026-07-12", "2026-07-12", "1 foto · 12 lug 2026")]
-    [InlineData(10, "2025-12-30", "2026-01-02", "10 foto · dic 2025 – gen 2026")]
-    public void Dettaglio_con_numero_di_foto_e_periodo(int numero, string primo, string ultimo, string atteso)
+    [InlineData(1300, 37, "1.300 foto · 37 selezionate")]
+    [InlineData(1300, 1, "1.300 foto · 1 selezionata")]
+    [InlineData(45, 0, "45 foto")]
+    [InlineData(1, null, "1 foto")]
+    [InlineData(2500, 1200, "2.500 foto · 1.200 selezionate")]
+    public void Dettaglio_con_numero_di_foto_e_selezionate(int numero, int? selezionate, string atteso)
     {
-        var cartella = new CartellaArchivio(@"E:\Foto\X", numero, DateTime.Parse(primo), DateTime.Parse(ultimo), true);
+        var cartella = new CartellaArchivio(@"E:\Foto\X", numero, null, null, true, selezionate);
         Assert.Equal(atteso, ArchivioCartelle.Dettaglio(cartella));
     }
 
+    [Theory]
+    [InlineData("2026-07-12", "2026-07-20", "12–20 lug 2026")]
+    [InlineData("2026-06-30", "2026-07-02", "30 giu – 2 lug 2026")]
+    [InlineData("2026-07-12", "2026-07-12", "12 lug 2026")]
+    [InlineData("2025-12-30", "2026-01-02", "dic 2025 – gen 2026")]
+    public void Periodo_di_scatto_sulla_seconda_riga(string primo, string ultimo, string atteso)
+    {
+        var cartella = new CartellaArchivio(@"E:\Foto\X", 10, DateTime.Parse(primo), DateTime.Parse(ultimo), true);
+        Assert.Equal(atteso, ArchivioCartelle.PeriodoCartella(cartella));
+    }
     [Fact]
     public void Dettaglio_per_cartelle_mai_aperte_o_sparite()
     {
@@ -70,11 +82,13 @@ public class ArchivioCartelleTests
                     new ScannedPhoto(identita[0], new DateTime(2026, 7, 12, 9, 0, 0)),
                     new ScannedPhoto(identita[1], new DateTime(2026, 7, 20, 18, 0, 0)),
                 ]);
+                db.UpdateStato(db.GetAllPhotos()[0].Id, StatoSelezione.Selected);
             }
 
             var riepilogo = LibrarySidecarDatabase.LeggiRiepilogo(cartella);
             Assert.NotNull(riepilogo);
             Assert.Equal(2, riepilogo.NumeroFoto);
+            Assert.Equal(1, riepilogo.NumeroSelezionate);
             Assert.Equal(new DateTime(2026, 7, 12, 9, 0, 0), riepilogo.PrimoScatto);
             Assert.Equal(new DateTime(2026, 7, 20, 18, 0, 0), riepilogo.UltimoScatto);
         }

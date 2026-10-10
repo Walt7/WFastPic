@@ -549,6 +549,7 @@ public partial class MainWindow : Window
     private void AggiornaStatusBar()
     {
         StatusText.Text = $"Selezionate {_conteggioSelezionate} di {_tutte.Count} · Scarti {_conteggioScarti}";
+        AggiornaCartellaCorrenteNelPannello();
     }
 
     private readonly Stopwatch _cronometroMiniature = new();
