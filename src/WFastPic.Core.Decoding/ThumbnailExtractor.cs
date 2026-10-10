@@ -50,8 +50,9 @@ public static class ThumbnailExtractor
         var transform = new BitmapTransform
         {
             InterpolationMode = BitmapInterpolationMode.Fant,
-            ScaledWidth = (uint)Math.Max(1, Math.Round(ow * scale)),
-            ScaledHeight = (uint)Math.Max(1, Math.Round(oh * scale)),
+            // La scala WIC si applica prima della rotazione EXIF: misure sul file non ruotato.
+            ScaledWidth = (uint)Math.Max(1, Math.Round(decoder.PixelWidth * scale)),
+            ScaledHeight = (uint)Math.Max(1, Math.Round(decoder.PixelHeight * scale)),
         };
 
         using var bitmap = await decoder.GetSoftwareBitmapAsync(

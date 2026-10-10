@@ -24,8 +24,10 @@ public static class PreviewDecoder
         var transform = new BitmapTransform
         {
             InterpolationMode = BitmapInterpolationMode.Fant,
-            ScaledWidth = (uint)Math.Max(1, Math.Round(ow * scale)),
-            ScaledHeight = (uint)Math.Max(1, Math.Round(oh * scale)),
+            // WIC applica la scala PRIMA della rotazione EXIF: le misure vanno date sul file non ruotato
+            // (PixelWidth/Height), altrimenti una foto con orientamento 90° esce stirata.
+            ScaledWidth = (uint)Math.Max(1, Math.Round(decoder.PixelWidth * scale)),
+            ScaledHeight = (uint)Math.Max(1, Math.Round(decoder.PixelHeight * scale)),
         };
 
         using var bitmap = await decoder.GetSoftwareBitmapAsync(

@@ -43,6 +43,20 @@ Le scelte di architettura restano quelle di `AGENTS.md` (ADR-001).
   coppie di volti già confermati sta sotto 0,42 (occhiali, cappelli, angolazioni): se dopo il fix mancano
   ancora riconoscimenti, abbassare la soglia di proposta verso 0,38 è il passo successivo.
 
+### Foto verticali stirate nel viewer (proporzioni sbagliate)
+- **Sintomo:** una foto verticale (es. `20260808_112049.jpg`) appariva in un riquadro orizzontale, con il
+  soggetto allargato. Le miniature erano corrette.
+- **Causa:** il file è 4000×3000 con orientamento EXIF 6 (da ruotare di 90°). `PreviewDecoder` dava a WIC
+  le dimensioni di scala già "ruotate" (1536×2048), ma WIC applica la scala **prima** della rotazione:
+  il file veniva ridotto a 1536×2048 e poi ruotato, uscendo 2048×1536 con i pixel stirati.
+- **Fix:** le dimensioni di scala si calcolano sul file non ruotato (`decoder.PixelWidth/PixelHeight`).
+  Stessa correzione nel ripiego di `ThumbnailExtractor`. `PreviewDecoder` serve anche editing ed export,
+  quindi anche questi ricevevano pixel stirati su foto con orientamento EXIF.
+- **Test:** `DecodingOrientamentoTests` crea un JPEG 400×300 con orientamento 6 e controlla che la preview
+  sia verticale 3:4, sia senza riduzione sia con riduzione. Il test fallisce senza la correzione.
+- Le ricette di editing già salvate non cambiano (sono frazioni 0..1 della foto); eventuali ritagli fatti
+  su foto che apparivano stirate vanno verificati.
+
 ### Avvisi/errori di Visual Studio dopo il pull
 - `CS0246` su `RitaglioSuggerito` / `CartellaArchivio` / `ArchivioCartelle` e `WMC1006` su
   `WFastPic.Core.Persone.dll`: non sono errori di codice. `dotnet build WFastPic.slnx` dà 0 errori;
@@ -88,7 +102,7 @@ Tasto destro su una persona o un gruppo nel pannello Persone → **È la stessa 
   `Elenco()` nasconde le persone unite; `TrovaOCrea` di un nome unito porta alla persona che resta.
 - I volti nei sidecar delle cartelle non vengono riscritti: l'alias si risolve in lettura
   (`CostruisciElencoPersone`), quindi l'unione vale subito ovunque e si annulla con una sola scrittura.
-- Test: `Archivio_persone_unione_reversibile` (catene, circolarità, annulla). Suite: 132 test.
+- Test: `Archivio_persone_unione_reversibile` (catene, circolarità, annulla). Suite: 148 test.
 
 ### Integrazione con l'elenco Persone a righe (sviluppato in parallelo)
 Due sessioni hanno sviluppato insieme il pannello Persone; nell'integrazione:
@@ -107,7 +121,7 @@ Due sessioni hanno sviluppato insieme il pannello Persone; nell'integrazione:
 ## Verifica
 
 - `dotnet build WFastPic.slnx`: 0 errori di codice (con l'app chiusa).
-- `dotnet test tests/WFastPic.Core.Tests`: 132 superati.
+- `dotnet test tests/WFastPic.Core.Tests`: 148 superati.
 - **Da verificare a mano** (nessun accesso a mouse/tastiera da CLI): bordo giallo e Space in griglia e in
   ritaglio, pannello cartelle nascosto nel viewer, menu di unione e pulsante Annulla, proposte di Laura
   dopo "Rianalizza le persone" o alla riapertura della cartella.
