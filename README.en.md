@@ -17,7 +17,7 @@
 </p>
 
 **An open source tribute to Google Picasa, for Windows: pick and fix hundreds of photos fast.**
-Current version: **0.9.2** · [Download](https://github.com/Walt7/WFastPic/releases/latest) ·
+Current version: **1.0.0** · [Download](https://github.com/Walt7/WFastPic/releases/latest) ·
 [Changelog](CHANGELOG.en.md) · [Italiano](README.md)
 
 Google stopped developing Picasa in 2016, and it does not read the HEIC photos phones take today.

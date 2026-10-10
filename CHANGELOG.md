@@ -3,7 +3,10 @@
 Le novità di WFastPic, versione per versione. La più recente è in cima. ([English](CHANGELOG.en.md))
 I dettagli tecnici (cause dei bug, file toccati) sono in [`doc/correzioni-e-novita.md`](doc/correzioni-e-novita.md).
 
-## [Non ancora rilasciato]
+## [1.0.0] — 2026-10-10
+
+Prima versione stabile: voto automatico delle foto, suggerimenti di scarto, persone più importanti,
+segnalazione degli errori senza dati personali e programma di installazione.
 
 ### Novità
 - **Voto automatico delle foto, tutto sul PC**: dopo le miniature e i volti, WFastPic misura ogni foto

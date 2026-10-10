@@ -4,7 +4,10 @@ What is new in WFastPic, version by version. The newest is on top. ([Italiano](C
 Technical details (bug causes, files touched) are in [`doc/correzioni-e-novita.md`](doc/correzioni-e-novita.md) (in Italian).
 The app interface is in Italian: names of buttons and menus below are given as they appear in the app.
 
-## [Unreleased]
+## [1.0.0] — 2026-10-10
+
+First stable version: automatic photo rating, reject suggestions, most important people, error
+reports without personal data and an installer.
 
 ### New
 - **Automatic photo rating, all on your PC**: after thumbnails and faces, WFastPic measures every photo

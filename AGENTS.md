@@ -114,7 +114,7 @@ Aggiunte fuori piano, su richiesta esplicita durante lo sviluppo:
   nel sidecar all'apertura della cartella (`SostituisciPersona`). Dettagli in `doc/correzioni-e-novita.md`.
   Senza l'opzione resta il rilevatore di Windows (solo volti, per ritagli e filtro "Con volti").
 - Proporzioni del ritaglio: anche "originale" (quelle della foto).
-- Versione dell'app nel `<Version>` del csproj, mostrata nel titolo della finestra ("v. 0.9.2");
+- Versione dell'app nel `<Version>` del csproj, mostrata nel titolo della finestra ("v. 1.0.0");
   novità di ogni versione in `CHANGELOG.md`.
 - Griglia divisa per giorni (opzionale, "Per giorni"): vista raggruppata allineata a `_visibili`,
   che resta l'unico elenco di riferimento.

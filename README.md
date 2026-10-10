@@ -17,7 +17,7 @@
 </p>
 
 **Un tributo open source a Picasa, per Windows: scegliere e sistemare in fretta centinaia di foto.**
-Versione attuale: **0.9.2** · [Scarica](https://github.com/Walt7/WFastPic/releases/latest) ·
+Versione attuale: **1.0.0** · [Scarica](https://github.com/Walt7/WFastPic/releases/latest) ·
 [novità](CHANGELOG.md) · [English version](README.en.md) · [English below](#english)
 
 Google ha smesso di sviluppare Picasa nel 2016 e non legge le foto HEIC dei telefoni di oggi. WFastPic è un omaggio al suo modo di lavorare — cartelle per anno, la barra spaziatrice
