@@ -1,5 +1,6 @@
 using System.Runtime.InteropServices.WindowsRuntime;
 using Microsoft.UI.Input;
+using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
@@ -129,6 +130,11 @@ public partial class MainWindow
 
         _gestoTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(600) };
         _gestoTimer.Tick += (_, _) => { _gestoTimer.Stop(); _gestoInCorso = false; };
+
+        // A schermo intero la barra in alto è nascosta: la posizione "N di M" si vede nel pannello.
+        ViewerStatusText.RegisterPropertyChangedCallback(TextBlock.TextProperty,
+            (_, _) => ViewerPosizioneSchermoInteroText.Text = ViewerStatusText.Text);
+        AppWindow.Changed += AppWindow_Changed;
 
         // B tenuto premuto e finestra che perde il focus: il KeyUp non arriverebbe mai.
         Activated += (_, a) =>
@@ -723,7 +729,7 @@ public partial class MainWindow
         // Come Picasa: durante ritaglio/raddrizza si vede solo la foto. Il filmstrip sparisce (più
         // spazio, nessun click accidentale che cambia foto a metà ritaglio); il SizeChanged
         // dell'area ridimensiona l'immagine e riposiziona le maniglie.
-        Filmstrip.Visibility = attiva ? Visibility.Collapsed : Visibility.Visible;
+        Filmstrip.Visibility = attiva || _schermoIntero ? Visibility.Collapsed : Visibility.Visible;
         PannelloLuogo.Visibility = attiva ? Visibility.Collapsed : Visibility.Visible;
         ViewerHintText.Text = attiva ? HintGeometria : HintViewer;
 
@@ -732,7 +738,7 @@ public partial class MainWindow
     }
 
     private const string HintViewer =
-        "←/→ foto · Space seleziona · Delete scarta · 0-5 rating · rotella zoom, trascina per spostare · X ritaglia · L raddrizza · U ho fortuna · Ctrl+Z/Y annulla/ripeti · B originale · Esc chiudi";
+        "←/→ foto · Space seleziona · Delete scarta · 0-5 rating · rotella zoom, trascina per spostare · X ritaglia · L raddrizza · U ho fortuna · Ctrl+Z/Y annulla/ripeti · B originale · F11 schermo intero · Esc chiudi";
     private const string HintGeometria =
         "Trascina gli angoli o i lati per ritagliare, trascina dentro per spostare · L / frecce raddrizza · Invio o X applica · Esc annulla";
 
@@ -1080,8 +1086,50 @@ public partial class MainWindow
 
     private void ViewerCloseButton_Click(object sender, RoutedEventArgs e) => ChiudiViewer();
 
+    // ---------------------------------------------------------------- schermo intero
+
+    private bool _schermoIntero;
+
+    private void ViewerSchermoIntero_Click(object sender, RoutedEventArgs e) => ImpostaSchermoIntero(!_schermoIntero);
+
+    /// <summary>
+    /// Finestra a tutto schermo con la sola foto e il pannello di modifica: barra in alto, filmstrip
+    /// e suggerimenti spariscono; la posizione "N di M" passa in cima al pannello. Il ridimensionamento
+    /// dell'area arriva da ViewerArea_SizeChanged, che riadatta foto e maniglie del ritaglio.
+    /// </summary>
+    private void ImpostaSchermoIntero(bool attivo)
+    {
+        if (_schermoIntero == attivo) { ViewerSchermoInteroToggle.IsChecked = attivo; return; }
+        _schermoIntero = attivo;
+
+        try
+        {
+            AppWindow.SetPresenter(attivo ? AppWindowPresenterKind.FullScreen : AppWindowPresenterKind.Overlapped);
+        }
+        catch
+        {
+            // Presenter non disponibile: si nasconde comunque il superfluo per dare spazio alla foto.
+        }
+
+        ViewerSchermoInteroToggle.IsChecked = attivo;
+        var visibileFuori = attivo ? Visibility.Collapsed : Visibility.Visible;
+        ViewerBarraSuperiore.Visibility = visibileFuori;
+        ViewerHintText.Visibility = visibileFuori;
+        ViewerPosizioneSchermoInteroText.Visibility = attivo ? Visibility.Visible : Visibility.Collapsed;
+        Filmstrip.Visibility = attivo || _geometriaAttiva ? Visibility.Collapsed : Visibility.Visible;
+        ViewerOverlay.Focus(FocusState.Programmatic);
+    }
+
+    // Uscita dallo schermo intero fatta da Windows (es. Win+Shift+Invio): il viewer si riallinea.
+    private void AppWindow_Changed(AppWindow sender, AppWindowChangedEventArgs args)
+    {
+        if (args.DidPresenterChange && _schermoIntero && sender.Presenter.Kind != AppWindowPresenterKind.FullScreen)
+            ImpostaSchermoIntero(false);
+    }
+
     private void ChiudiViewer()
     {
+        ImpostaSchermoIntero(false);
         _ctsLuogo?.Cancel();
         ImpostaModificaLuogo(false);
         _richiestaCaricamentoViewer++;
@@ -1211,6 +1259,13 @@ public partial class MainWindow
             return;
         }
 
+        if (e.Key == VirtualKey.F11)
+        {
+            ImpostaSchermoIntero(!_schermoIntero);
+            e.Handled = true;
+            return;
+        }
+
         if (_geometriaAttiva)
         {
             GestisciTastoGeometria(e);
@@ -1220,8 +1275,8 @@ public partial class MainWindow
         switch (e.Key)
         {
             case VirtualKey.Escape:
-                ChiudiViewer();
-
+                // Come Picasa: Esc prima esce dallo schermo intero, poi chiude il viewer.
+                if (_schermoIntero) ImpostaSchermoIntero(false); else ChiudiViewer();
                 e.Handled = true;
                 break;
 
