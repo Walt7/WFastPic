@@ -31,6 +31,8 @@ I dettagli tecnici (cause dei bug, file toccati) sono in [`doc/correzioni-e-novi
   il filtro non trova niente.
 - Conteggi (foto, selezionate, scarti) nella barra in basso; tutte le scorciatoie in un riquadro
   "Scorciatoie".
+- **Informazioni su WFastPic** (in basso a destra): versione, licenza, link al progetto e alle novità,
+  crediti, cartella dei dati dell'app.
 - **Si riprende da dove si era rimasti**: al riavvio si torna sull'ultima foto guardata, nel viewer
   se era aperto.
 

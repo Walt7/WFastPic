@@ -509,12 +509,13 @@
             </Button>
         </StackPanel>
 
-        <Grid Grid.Row="2" ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="12" Padding="14,6,8,6" BorderBrush="{StaticResource BordoContenutoBrush}" BorderThickness="0,1,0,0">
+        <Grid Grid.Row="2" ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="4" Padding="14,6,8,6" BorderBrush="{StaticResource BordoContenutoBrush}" BorderThickness="0,1,0,0">
             <TextBlock x:Name="StatusText" Foreground="{StaticResource TestoSecondarioBrush}" FontSize="12" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
             <!-- Come Picasa: la griglia è già usabile mentre le miniature arrivano, l'avanzamento sta in basso. -->
             <StackPanel
                 x:Name="MiniaturePanel"
                 Grid.Column="2"
+                Margin="12,0,8,0"
                 Orientation="Horizontal"
                 Spacing="10"
                 Visibility="Collapsed">
@@ -560,6 +561,20 @@
                         </Grid>
                     </Flyout>
                 </Button.Flyout>
+            </Button>
+            <Button
+                Grid.Column="4"
+                Padding="8,4"
+                MinHeight="0"
+                Style="{StaticResource BarraButtonStyle}"
+                IsTabStop="False"
+                AllowFocusOnInteraction="False"
+                Click="InformazioniButton_Click"
+                ToolTipService.ToolTip="Informazioni su WFastPic">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <FontIcon Glyph="&#xE946;" FontSize="14" Foreground="{StaticResource TestoSecondarioBrush}" />
+                    <TextBlock Text="Informazioni" FontSize="12" Foreground="{StaticResource TestoSecondarioBrush}" />
+                </StackPanel>
             </Button>
         </Grid>
 
