@@ -101,6 +101,18 @@
                         <ComboBoxItem Content="Scarti" />
                         <ComboBoxItem Content="Geolocalizzate" />
                     </ComboBox>
+                    <ToggleButton
+                        x:Name="DividiPerGiorniToggle"
+                        Margin="12,0,0,0"
+                        Click="DividiPerGiorniToggle_Click"
+                        IsTabStop="False"
+                        AllowFocusOnInteraction="False"
+                        ToolTipService.ToolTip="Divide la griglia per giorno di scatto">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <FontIcon Glyph="&#xE787;" FontSize="14" />
+                            <TextBlock Text="Per giorni" />
+                        </StackPanel>
+                    </ToggleButton>
                 </StackPanel>
             </StackPanel>
 
@@ -126,6 +138,16 @@
                     <ItemsWrapGrid Orientation="Horizontal" ItemWidth="160" ItemHeight="160" />
                 </ItemsPanelTemplate>
             </ListView.ItemsPanel>
+            <!-- Usato solo con "Dividi per giorni" (sorgente raggruppata): intestazione per data come Picasa. -->
+            <ListView.GroupStyle>
+                <GroupStyle HidesIfEmpty="True">
+                    <GroupStyle.HeaderTemplate>
+                        <DataTemplate x:DataType="local:GruppoGiorno">
+                            <TextBlock Text="{x:Bind Titolo, Mode=OneWay}" Foreground="White" FontSize="15" FontWeight="SemiBold" Margin="2,10,0,2" />
+                        </DataTemplate>
+                    </GroupStyle.HeaderTemplate>
+                </GroupStyle>
+            </ListView.GroupStyle>
             <ListView.ItemTemplate>
                 <DataTemplate x:DataType="local:PhotoGridItem">
                     <Grid Margin="4">

@@ -8,6 +8,9 @@ public sealed record Impostazioni(int DimensioneCellaGriglia = 160)
 
     /// <summary>Nomi dei luoghi chiesti a OpenStreetMap (le coordinate escono dal PC); spento = solo cache.</summary>
     public bool NomiLuoghiOnline { get; init; } = true;
+
+    /// <summary>Griglia divisa per giorno di scatto.</summary>
+    public bool DividiPerGiorni { get; init; }
 }
 
 /// <summary>

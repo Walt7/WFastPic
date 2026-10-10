@@ -55,7 +55,9 @@ public partial class MainWindow : Window
         _cellSize = Math.Clamp(impostazioni.DimensioneCellaGriglia, CellSizeMin, CellSizeMax);
         _impostazioniExport = impostazioni.Export ?? new ImpostazioniExport();
         _nomiLuoghiOnline = impostazioni.NomiLuoghiOnline;
+        _dividiPerGiorni = impostazioni.DividiPerGiorni;
         Griglia.ItemsSource = _visibili;
+        InizializzaGiorni();
         AggiornaStatusBar();
         AggiornaFiltroUI();
 
@@ -91,7 +93,7 @@ public partial class MainWindow : Window
     /// </summary>
     private void ChiudiSessione()
     {
-        ImpostazioniStore.Salva(new Impostazioni(_cellSize) { Export = _impostazioniExport, NomiLuoghiOnline = _nomiLuoghiOnline });
+        ImpostazioniStore.Salva(new Impostazioni(_cellSize) { Export = _impostazioniExport, NomiLuoghiOnline = _nomiLuoghiOnline, DividiPerGiorni = _dividiPerGiorni });
         _thumbnailLoader?.Annulla();
         _exportCts?.Cancel();
         // Finestra chiusa col viewer aperto: le modifiche alla foto corrente vanno in coda prima
