@@ -58,4 +58,20 @@
     <ProjectReference Include="..\WFastPic.Core.Persone\WFastPic.Core.Persone.csproj" />
   </ItemGroup>
 
+  <!--
+    Un'app WinUI 3 non pacchettizzata ha bisogno, accanto all'exe, del PRI (WFastPic.App.pri) e dei file XAML
+    compilati (*.xbf). "dotnet publish" non li copia: il pacchetto si chiudeva all'avvio con 0xC000027B
+    (eccezione in Microsoft.UI.Xaml.dll). Li aggiungiamo noi, dalla cartella di compilazione.
+  -->
+  <Target Name="IncludiRisorseXamlNelPublish" AfterTargets="ComputeResolvedFilesToPublishList">
+    <ItemGroup>
+      <_RisorsaXaml Include="$(OutDir)WFastPic.App.pri" />
+      <_RisorsaXaml Include="$(OutDir)**\*.xbf" />
+      <ResolvedFileToPublish Include="@(_RisorsaXaml)">
+        <RelativePath>%(RecursiveDir)%(Filename)%(Extension)</RelativePath>
+        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      </ResolvedFileToPublish>
+    </ItemGroup>
+  </Target>
+
 </Project>

@@ -14,6 +14,11 @@ I dettagli tecnici (cause dei bug, file toccati) sono in [`doc/correzioni-e-novi
   obiettivo.
 - README con i badge di GitHub; il progetto si presenta come un tributo a Picasa (non affiliato a Google).
 
+### Correzioni
+- **Lo zip della release non partiva**: `dotnet publish` non copiava i file XAML compilati (`*.xbf` e
+  `WFastPic.App.pri`) e l'app si chiudeva subito dopo l'avvio. Ora il progetto li include nel pacchetto.
+  (La release 0.9.1 aveva lo stesso difetto ed è stata sostituita da questa.)
+
 ## [0.9.1] — 2026-10-10
 
 ### Novità

@@ -15,6 +15,11 @@ The app interface is in Italian: names of buttons and menus below are given as t
 - README with the usual GitHub badges; the project presents itself as a tribute to Picasa (not affiliated
   with Google).
 
+### Fixed
+- **The release zip did not start**: `dotnet publish` did not copy the compiled XAML files (`*.xbf` and
+  `WFastPic.App.pri`) and the app closed right after launching. The project now includes them in the
+  package. (Release 0.9.1 had the same defect and has been replaced by this one.)
+
 ## [0.9.1] — 2026-10-10
 
 ### New
