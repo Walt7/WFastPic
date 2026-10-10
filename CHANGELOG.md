@@ -44,6 +44,8 @@ I dettagli tecnici (cause dei bug, file toccati) sono in [`doc/correzioni-e-novi
 
 **Altro**
 - Proporzione "originale" (quelle della foto) tra i ritagli.
+- Ritaglio e raddrizzamento insieme, come in Picasa: durante il ritaglio il cursore per raddrizzare
+  sta sotto la foto (più largo e preciso, con le tacche ogni 5° e "0°" per toglierlo).
 - Ritaglio: il riquadro si può girare da orizzontale a verticale (4:3 ↔ 3:4, 16:9 ↔ 9:16) col
   pulsante accanto a "Proporzioni" o col tasto `O`.
 - Pannello cartelle nascosto mentre si usa l'editor, ripristinato all'uscita.

@@ -150,15 +150,6 @@
                                 </FontIcon>
                             </Button>
                         </Grid>
-                        <TextBlock Text="Raddrizza (L)" Foreground="{StaticResource TestoSecondarioBrush}" FontSize="12" Margin="0,4,0,0" />
-                        <Grid ColumnDefinitions="*,48">
-                            <Slider
-                                x:Name="ViewerStraightenSlider"
-                                Minimum="-15" Maximum="15" StepFrequency="0.1"
-                                IsTabStop="False"
-                                ValueChanged="ViewerStraightenSlider_ValueChanged" />
-                            <TextBlock x:Name="ViewerAngleText" Grid.Column="1" Text="0.0°" VerticalAlignment="Center" HorizontalAlignment="Right" />
-                        </Grid>
                         <Grid ColumnDefinitions="*,*" ColumnSpacing="6">
                             <Button Grid.Column="0" Content="Applica (Invio)" Click="ViewerGeometriaApplica_Click" HorizontalAlignment="Stretch" Style="{StaticResource AccentButtonStyle}" IsTabStop="False" AllowFocusOnInteraction="False" />
                             <Button Grid.Column="1" Content="Annulla (Esc)" Click="ViewerGeometriaAnnulla_Click" HorizontalAlignment="Stretch" IsTabStop="False" AllowFocusOnInteraction="False" />
@@ -583,6 +574,48 @@
                 </DataTemplate>
             </ListView.ItemTemplate>
         </ListView>
+
+        <!--
+            Come Picasa: durante il ritaglio il cursore per raddrizzare sta sotto la foto, al posto del
+            filmstrip (nascosto in ritaglio). Ritaglio e raddrizzamento si fanno insieme e si applicano
+            insieme con Invio. Frecce = ±0,1° (Shift ±1°), L porta qui il focus.
+        -->
+        <Grid
+            x:Name="ViewerBarraRaddrizza"
+            Grid.Column="1"
+            Grid.Row="1"
+            Margin="8,4,8,6"
+            MaxWidth="820"
+            ColumnDefinitions="Auto,*,Auto,Auto"
+            ColumnSpacing="12"
+            Visibility="Collapsed">
+            <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                <FontIcon Glyph="&#xE7AD;" FontSize="14" Foreground="{StaticResource TestoSecondarioBrush}" />
+                <TextBlock Text="Raddrizza" Foreground="{StaticResource TestoSecondarioBrush}" VerticalAlignment="Center" />
+            </StackPanel>
+            <Slider
+                x:Name="ViewerStraightenSlider"
+                Grid.Column="1"
+                HorizontalAlignment="Stretch"
+                Minimum="-15"
+                Maximum="15"
+                StepFrequency="0.1"
+                TickFrequency="5"
+                TickPlacement="Outside"
+                VerticalAlignment="Center"
+                IsTabStop="False"
+                ValueChanged="ViewerStraightenSlider_ValueChanged" />
+            <TextBlock x:Name="ViewerAngleText" Grid.Column="2" Text="0.0°" MinWidth="44" FontWeight="SemiBold" VerticalAlignment="Center" TextAlignment="Right" />
+            <Button
+                Grid.Column="3"
+                Content="0°"
+                Padding="10,4"
+                Style="{StaticResource BarraButtonStyle}"
+                Click="ViewerRaddrizzaAzzera_Click"
+                IsTabStop="False"
+                AllowFocusOnInteraction="False"
+                ToolTipService.ToolTip="Togli il raddrizzamento" />
+        </Grid>
 
         <TextBlock
             x:Name="ViewerHintText"

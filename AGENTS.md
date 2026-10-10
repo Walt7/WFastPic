@@ -38,7 +38,8 @@ Aggiunte fuori piano, su richiesta esplicita durante lo sviluppo:
   quante miniature entrano nella larghezza, max ±12), più grande, a piena opacità, bordo bianco e
   linea verde "corrente"; le altre attenuate. Colori coerenti con la griglia (giallo = selezionata,
   azzurro = stessa raffica, verde = corrente). Posizione "N di M" nella barra in alto. In
-  ritaglio/raddrizza il filmstrip sparisce, i margini si allargano per le maniglie e l'area foto ha
+  ritaglio/raddrizza il filmstrip sparisce e al suo posto, sotto la foto, compare il cursore per
+  raddrizzare (come Picasa: ritaglio e raddrizzamento insieme), i margini si allargano per le maniglie e l'area foto ha
   un clip: zoom e rotazione non disegnano mai sopra pannello o barre. Rotella = zoom verso il
   cursore (100-400%); con foto zoomata si trascina col tasto sinistro, sempre entro i bordi
   (`PanZoomGeometry`, testata). In ritaglio zoom e trascinamento sono disattivati.

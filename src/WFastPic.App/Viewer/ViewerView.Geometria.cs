@@ -138,6 +138,8 @@ public sealed partial class ViewerView
         // spazio, nessun click accidentale che cambia foto a metà ritaglio); il SizeChanged
         // dell'area ridimensiona l'immagine e riposiziona le maniglie.
         Filmstrip.Visibility = attiva || _schermoIntero ? Visibility.Collapsed : Visibility.Visible;
+        // Come Picasa: in ritaglio il cursore per raddrizzare sta sotto la foto, al posto del filmstrip.
+        ViewerBarraRaddrizza.Visibility = attiva ? Visibility.Visible : Visibility.Collapsed;
         PannelloLuogo.Visibility = attiva ? Visibility.Collapsed : Visibility.Visible;
         ViewerHintText.Text = attiva ? HintGeometria : HintViewer;
 
@@ -419,6 +421,13 @@ public sealed partial class ViewerView
         _cropAutoPieno = false;
         ImpostaCropPx(fx0, fy0, fx1, fy1);
         _cropVoluto = (_cropN0X, _cropN0Y, _cropN1X, _cropN1Y);
+    }
+
+    private void ViewerRaddrizzaAzzera_Click(object sender, RoutedEventArgs e)
+    {
+        if (!_geometriaAttiva) return;
+        ViewerStraightenSlider.Value = 0; // ValueChanged riadatta il ritaglio
+        ViewerOverlay.Focus(FocusState.Programmatic);
     }
 
     private void ViewerStraightenSlider_ValueChanged(object sender, RangeBaseValueChangedEventArgs e)
