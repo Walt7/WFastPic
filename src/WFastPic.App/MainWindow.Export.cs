@@ -55,6 +55,10 @@ public partial class MainWindow
                 ExportStatusText.Text = $"{p.Completate}/{p.Totale} · {p.FileCorrente}";
             });
 
+            // L'export legge ricette e selezioni dal DB: prima vanno scritte quelle ancora in coda.
+            if (_selectionManager is not null) await _selectionManager.SvuotaAsync();
+            if (_db is null) return;
+
             var risultati = await Exporter.EseguiAsync(_db, opzioni, progresso);
 
             var errori = risultati.Count(r => !r.Successo);

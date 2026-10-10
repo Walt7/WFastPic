@@ -1,6 +1,16 @@
 <Solution>
+  <Configurations>
+    <Platform Name="Any CPU" />
+    <Platform Name="x64" />
+    <Platform Name="ARM64" />
+  </Configurations>
   <Folder Name="/src/">
-    <Project Path="src/WFastPic.App/WFastPic.App.csproj" />
+    <!-- L'app WinUI esiste solo per x64/arm64: "Any CPU" della soluzione la compila come x64. -->
+    <Project Path="src/WFastPic.App/WFastPic.App.csproj">
+      <Platform Solution="*|Any CPU" Project="x64" />
+      <Platform Solution="*|x64" Project="x64" />
+      <Platform Solution="*|ARM64" Project="arm64" />
+    </Project>
     <Project Path="src/WFastPic.Core.Decoding/WFastPic.Core.Decoding.csproj" />
     <Project Path="src/WFastPic.Core.Export/WFastPic.Core.Export.csproj" />
     <Project Path="src/WFastPic.Core.Library/WFastPic.Core.Library.csproj" />

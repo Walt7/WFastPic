@@ -17,6 +17,17 @@
     <SelfContained>true</SelfContained>
   </PropertyGroup>
 
+  <!--
+    Visual Studio senza carico di lavoro C++: il target GetVCInstallPath del Windows App SDK
+    (Microsoft.UI.Xaml.Markup.Compiler.interop.targets) enumera $(VsInstallRoot)\VC\Tools\MSVC e
+    fallisce con MSB4018 se la cartella non esiste. vcmeta.dll serve solo ai progetti C++: per un
+    progetto C# basta un VCToolsInstallDir non vuoto per saltare la ricerca. Da riga di comando
+    (dotnet build) VsInstallRoot è vuoto e questo blocco non si applica.
+  -->
+  <PropertyGroup Condition="'$(VsInstallRoot)' != '' and !Exists('$(VsInstallRoot)\VC\Tools\MSVC')">
+    <VCToolsInstallDir>$(VsInstallRoot)\VC\Tools\MSVC\non-installato\</VCToolsInstallDir>
+  </PropertyGroup>
+
   <ItemGroup>
     <Content Include="..\..\assets\icon.ico" Link="icon.ico">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>

@@ -33,6 +33,34 @@ public static class StraightenGeometry
     }
 
     /// <summary>
+    /// Trascinamento del crop: se il rettangolo richiesto esce dall'immagine ruotata, si ferma
+    /// esattamente sul bordo lungo il percorso da quello attuale (valido) invece di restare indietro.
+    /// L'interpolazione lineare conserva ancora e proporzioni di entrambi i rettangoli.
+    /// </summary>
+    public static (double X0, double Y0, double X1, double Y1) AvvicinaRect(
+        double larghezza, double altezza, double angoloGradi,
+        (double X0, double Y0, double X1, double Y1) da,
+        (double X0, double Y0, double X1, double Y1) verso)
+    {
+        if (ContainsRect(larghezza, altezza, angoloGradi, verso.X0, verso.Y0, verso.X1, verso.Y1)) return verso;
+        if (!ContainsRect(larghezza, altezza, angoloGradi, da.X0, da.Y0, da.X1, da.Y1)) return da;
+
+        (double, double, double, double) Interpola(double t) => (
+            da.X0 + (verso.X0 - da.X0) * t, da.Y0 + (verso.Y0 - da.Y0) * t,
+            da.X1 + (verso.X1 - da.X1) * t, da.Y1 + (verso.Y1 - da.Y1) * t);
+
+        double lo = 0, hi = 1;
+        for (var i = 0; i < 30; i++)
+        {
+            var t = (lo + hi) / 2;
+            var (x0, y0, x1, y1) = Interpola(t);
+            if (ContainsRect(larghezza, altezza, angoloGradi, x0, y0, x1, y1)) lo = t; else hi = t;
+        }
+
+        return Interpola(lo);
+    }
+
+    /// <summary>
     /// Restringe il rettangolo (stesse proporzioni, attorno al suo centro) finche sta dentro
     /// l'immagine ruotata. Se il centro e fuori, si riparte dal centro della tela.
     /// </summary>

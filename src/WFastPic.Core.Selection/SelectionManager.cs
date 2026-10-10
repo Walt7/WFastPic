@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Threading.Channels;
 using WFastPic.Core.Persistence;
 
@@ -13,6 +14,7 @@ public sealed class SelectionManager : IAsyncDisposable
     private readonly LibrarySidecarDatabase _db;
     private readonly Channel<Action> _codaScritture = Channel.CreateUnbounded<Action>();
     private readonly Task _writerTask;
+    private readonly ConcurrentDictionary<long, string> _ricettePendenti = new();
 
     /// <summary>Notifica l'applicazione solo dopo tre tentativi falliti di persistenza.</summary>
     public event Action<Exception>? ScritturaFallita;
@@ -29,8 +31,32 @@ public sealed class SelectionManager : IAsyncDisposable
     public void SetRating(long photoId, int rating) =>
         _codaScritture.Writer.TryWrite(() => _db.UpdateRating(photoId, rating));
 
-    public void SaveRecipe(long photoId, string recipeJson, int schemaVersion) =>
-        _codaScritture.Writer.TryWrite(() => _db.SaveRecipe(photoId, recipeJson, schemaVersion));
+    /// <summary>
+    /// La ricetta resta leggibile da <see cref="GetRecipeJson"/> finché la coda non l'ha scritta:
+    /// tornando subito su una foto appena modificata non si rilegge la versione vecchia dal DB.
+    /// </summary>
+    public void SaveRecipe(long photoId, string recipeJson, int schemaVersion)
+    {
+        _ricettePendenti[photoId] = recipeJson;
+        _codaScritture.Writer.TryWrite(() =>
+        {
+            _db.SaveRecipe(photoId, recipeJson, schemaVersion);
+            // Solo se nel frattempo non ne è stata accodata una più recente per la stessa foto.
+            _ricettePendenti.TryRemove(new KeyValuePair<long, string>(photoId, recipeJson));
+        });
+    }
+
+    public string? GetRecipeJson(long photoId) =>
+        _ricettePendenti.TryGetValue(photoId, out var json) ? json : _db.GetRecipeJson(photoId);
+
+    /// <summary>Completa quando tutte le scritture accodate finora sono su disco (es. prima di un export).</summary>
+    public Task SvuotaAsync()
+    {
+        var completata = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        if (!_codaScritture.Writer.TryWrite(() => completata.TrySetResult()))
+            completata.TrySetResult(); // coda già chiusa: non c'è più niente da aspettare
+        return completata.Task;
+    }
 
     private async Task ProcessQueueAsync()
     {

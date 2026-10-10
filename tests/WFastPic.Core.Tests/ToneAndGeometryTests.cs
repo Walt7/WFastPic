@@ -195,6 +195,40 @@ public class ToneAndGeometryTests
     }
 
     [Fact]
+    public void AvvicinaRect_trascinando_oltre_il_bordo_si_ferma_sul_bordo_dell_immagine_ruotata()
+    {
+        const double w = 1000, h = 800, angolo = 5;
+        var da = (400.0, 300.0, 600.0, 500.0);
+        var verso = (400.0, 300.0, 1000.0, 800.0); // angolo BR trascinato nell'angolo vuoto
+
+        var (x0, y0, x1, y1) = StraightenGeometry.AvvicinaRect(w, h, angolo, da, verso);
+
+        Assert.True(StraightenGeometry.ContainsRect(w, h, angolo, x0, y0, x1, y1));
+        Assert.Equal((400.0, 300.0), (x0, y0)); // l'ancora non si muove
+        // Sul bordo: un pixel più in là lungo lo stesso percorso è già fuori.
+        Assert.False(StraightenGeometry.ContainsRect(w, h, angolo, x0, y0, x1 + 4, y1 + 3));
+        Assert.True(x1 > 900);
+    }
+
+    [Fact]
+    public void AvvicinaRect_conserva_le_proporzioni()
+    {
+        var da = (400.0, 300.0, 560.0, 420.0);    // 4:3
+        var verso = (400.0, 300.0, 1200.0, 900.0); // 4:3, fuori tela
+
+        var (x0, y0, x1, y1) = StraightenGeometry.AvvicinaRect(1000, 800, -4, da, verso);
+
+        Assert.Equal(4.0 / 3, (x1 - x0) / (y1 - y0), 6);
+    }
+
+    [Fact]
+    public void AvvicinaRect_con_destinazione_valida_la_restituisce_invariata()
+    {
+        var verso = (100.0, 100.0, 300.0, 300.0);
+        Assert.Equal(verso, StraightenGeometry.AvvicinaRect(1000, 800, 3, (200, 200, 250, 250), verso));
+    }
+
+    [Fact]
     public void RecipeApplier_con_raddrizzamento_non_lascia_angoli_trasparenti()
     {
         const int w = 200, h = 150;

@@ -87,6 +87,9 @@ public partial class MainWindow : Window
     {
         ImpostazioniStore.Salva(new Impostazioni(_cellSize));
         _thumbnailLoader?.Annulla();
+        // Finestra chiusa col viewer aperto: le modifiche alla foto corrente vanno in coda prima
+        // che la coda venga svuotata (un ritaglio non ancora applicato si perde, come in Picasa).
+        if (_viewerAperto) SalvaRicettaCorrente();
 
         var selectionManager = _selectionManager;
         var db = _db;
@@ -239,6 +242,7 @@ public partial class MainWindow : Window
 
         // Si staccano subito le risorse correnti: un secondo caricamento partito mentre questo è in
         // attesa (doppio click su una recente) non deve rilasciarle una seconda volta.
+        if (_viewerAperto) ChiudiViewer(); // salva la ricetta sul sidecar della cartella che si lascia
         var selectionManagerPrecedente = _selectionManager;
         var dbPrecedente = _db;
         _selectionManager = null;

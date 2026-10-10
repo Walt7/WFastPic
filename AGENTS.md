@@ -21,8 +21,8 @@ Aggiunte fuori piano, su richiesta esplicita durante lo sviluppo:
   scarta il resto del gruppo" (Shift+Space).
 - Icona/logo app.
 - Sidebar cartelle recenti (persistita su disco) + barra percorso stile Explorer.
-- Badge presenza video abbinato (Apple Live Photo / Motion Photo) — solo rilevamento, **nessuna
-  riproduzione** (resta fuori scope).
+- Badge presenza video abbinato (Apple Live Photo / Motion Photo) in griglia, filmstrip e
+  sull'angolo della foto nel viewer — solo rilevamento, **nessuna riproduzione** (resta fuori scope).
 - Export: watermark testuale configurabile, tag personalizzati scritti come Keywords EXIF,
   cartella di output scelta o default `<cartella>/Export`.
 - Caricamento stile Picasa: overlay con barra determinata "N di M · circa X rimanenti" durante la
@@ -39,7 +39,16 @@ Aggiunte fuori piano, su richiesta esplicita durante lo sviluppo:
   linea verde "corrente"; le altre attenuate. Colori coerenti con la griglia (giallo = selezionata,
   azzurro = stessa raffica, verde = corrente). Posizione "N di M" nella barra in alto. In
   ritaglio/raddrizza il filmstrip sparisce, i margini si allargano per le maniglie e l'area foto ha
-  un clip: zoom e rotazione non disegnano mai sopra pannello o barre.
+  un clip: zoom e rotazione non disegnano mai sopra pannello o barre. Rotella = zoom verso il
+  cursore (100-400%); con foto zoomata si trascina col tasto sinistro, sempre entro i bordi
+  (`PanZoomGeometry`, testata). In ritaglio zoom e trascinamento sono disattivati.
+- Editor, robustezza: le ricette si rileggono da `SelectionManager.GetRecipeJson` (ricetta ancora
+  in coda inclusa), mai direttamente dal DB; l'export chiama prima `SvuotaAsync`. Chiudere l'app o
+  cambiare cartella col viewer aperto salva la ricetta. Durante il decode della foto successiva
+  l'editing è bloccato (`EditingPronto`). In ritaglio, come Picasa, si lavora solo su quella foto:
+  niente navigazione/selezione/scarto, frecce = raddrizza ±0,1° (Shift ±1°); il riquadro trascinato
+  si ferma esattamente sul bordo dell'immagine ruotata (`StraightenGeometry.AvvicinaRect`) e
+  raddrizzando si adatta sempre al riquadro voluto, quindi tornando verso 0° si riallarga.
 
 Non ancora implementato / verificato: nessuna fase residua del piano. Resta da fare solo verifica
 manuale interattiva utente su una cartella reale (drag crop, straighten, export end-to-end) — un
@@ -80,7 +89,7 @@ src/
 ├─ WFastPic.Core.Persistence/   (sidecar SQLite)
 └─ WFastPic.Core.Export/        (bake ricetta + watermark + tag EXIF + encode JPEG — Windows-targeted)
 tests/
-└─ WFastPic.Core.Tests/         (xUnit, 61 test — Library/Selection/Processing)
+└─ WFastPic.Core.Tests/         (xUnit, 70 test — Library/Selection/Processing)
 tools/
 ├─ HeicSmokeTest/                (Fase 0, smoke test decoding)
 └─ ScanSmokeTest/
@@ -104,8 +113,8 @@ assets/                          (icon.ico, logo.png)
 `Delete`/`Backspace` scarta (mai cancellazione fisica) · `0-5` rating · `Tab` filtro
 tutte/selezionate/scarti · `Ctrl+A` seleziona tutte visibili · `Shift+rotella` dimensione cella
 griglia · `Enter` / doppio click apri viewer. Nel Viewer: `←/→` naviga · `Space` seleziona ·
-`Delete` scarta · `0-5` rating · `X` ritaglia (di nuovo = applica) · `L` raddrizza (poi frecce/rotella
-sullo slider) · `Invio` applica / `Esc` annulla ritaglio · `U` "Ho fortuna" (auto contrasto+colore) ·
+`Delete` scarta · `0-5` rating · `X` ritaglia (di nuovo = applica) · `L` raddrizza (in ritaglio
+frecce = ±0,1°, Shift ±1°) · `Invio` applica / `Esc` annulla ritaglio · `U` "Ho fortuna" (auto contrasto+colore) ·
 `Ctrl+Z`/`Ctrl+Y` annulla/ripeti · `B` (tenuto premuto) mostra l'originale · `Esc` chiudi. Non introdurre nuovi shortcut senza verificarne il conflitto
 con questa mappa.
 
@@ -113,9 +122,9 @@ Nota: `Z`/`F` zoom, `R` ruota rigida, `M` riproduci video, `Ctrl+C/V` copia rice
 
 ## Convenzioni per chi implementa
 
-- Test prima o insieme al codice per la logica in `Core.*` (xUnit) — 61 test attuali coprono
+- Test prima o insieme al codice per la logica in `Core.*` (xUnit) — 70 test attuali coprono
   scan/identità, raffiche, selezione, ricetta/crop/rotate/tono/geometria raddrizzamento, ordinamento
-  cronologico, riapertura veloce, scarti, concorrenza sidecar, stima avanzamento.
+  cronologico, riapertura veloce, scarti, concorrenza sidecar, stima avanzamento, zoom/trascinamento viewer.
 - `LibrarySidecarDatabase` è condiviso tra thread UI e coda di scrittura: ogni metodo pubblico nuovo
   deve prendere `_lock` (`using var scope = _lock.EnterScope();`).
 - Nessuna dipendenza da WinUI nei progetti `Core.*` — se serve, è un segnale che la logica è nel

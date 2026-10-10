@@ -117,6 +117,34 @@ public class SelectionTests
     }
 
     [Fact]
+    public async Task SaveRecipe_e_subito_rileggibile_e_SvuotaAsync_la_porta_su_disco()
+    {
+        var cartella = CreaCartellaTemporaneaConFoto("a.jpg");
+        try
+        {
+            using var db = LibrarySidecarDatabase.OpenOrCreate(cartella);
+            db.SyncScan(FolderScanner.Scan(cartella));
+            var foto = db.GetAllPhotos().Single();
+            await using (var manager = new SelectionManager(db))
+            {
+                manager.SaveRecipe(foto.Id, "{\"v\":1}", 2);
+                manager.SaveRecipe(foto.Id, "{\"v\":2}", 2);
+
+                // Anche se la coda non ha ancora scritto, si legge l'ultima versione.
+                Assert.Equal("{\"v\":2}", manager.GetRecipeJson(foto.Id));
+
+                await manager.SvuotaAsync();
+                Assert.Equal("{\"v\":2}", db.GetRecipeJson(foto.Id));
+                Assert.Equal("{\"v\":2}", manager.GetRecipeJson(foto.Id));
+            }
+        }
+        finally
+        {
+            Directory.Delete(cartella, recursive: true);
+        }
+    }
+
+    [Fact]
     public void RejectManager_Lascia_riporta_lo_stato_a_None_senza_toccare_il_file()
     {
         var cartella = CreaCartellaTemporaneaConFoto("dubbio.jpg");

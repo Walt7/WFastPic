@@ -333,13 +333,24 @@
                     </StackPanel>
                 </ScrollViewer>
 
-                <Grid x:Name="ViewerArea" Grid.Column="1" SizeChanged="ViewerArea_SizeChanged">
+                <!-- Background trasparente: tutta l'area (anche fuori dalla foto) riceve trascinamento e rotella. -->
+                <Grid
+                    x:Name="ViewerArea"
+                    Grid.Column="1"
+                    Background="Transparent"
+                    SizeChanged="ViewerArea_SizeChanged"
+                    PointerPressed="ViewerArea_PointerPressed"
+                    PointerMoved="ViewerArea_PointerMoved"
+                    PointerReleased="ViewerArea_PointerReleased"
+                    PointerCaptureLost="ViewerArea_PointerReleased">
                     <Grid x:Name="ViewerImageContainer" HorizontalAlignment="Center" VerticalAlignment="Center">
                         <Grid x:Name="ViewerImageHost">
                             <Grid.RenderTransform>
                                 <TransformGroup>
                                     <ScaleTransform x:Name="ViewerZoomTransform" ScaleX="1" ScaleY="1" />
                                     <RotateTransform x:Name="ViewerRotateTransform" Angle="0" />
+                                    <!-- Trascinamento quando è zoomata (pixel schermo, applicato dopo lo zoom). -->
+                                    <TranslateTransform x:Name="ViewerPanTransform" X="0" Y="0" />
                                 </TransformGroup>
                             </Grid.RenderTransform>
                             <Grid.RenderTransformOrigin>0.5,0.5</Grid.RenderTransformOrigin>
@@ -364,6 +375,19 @@
                             <Line x:Name="DiagLine2" Stroke="#88FFFFFF" StrokeThickness="1" IsHitTestVisible="False" />
                             <Border x:Name="CropRectBorder" Tag="M" BorderBrush="#FFB300" BorderThickness="2" Background="#11FFB300" Visibility="Collapsed" />
                         </Canvas>
+                        <!-- Come nella griglia: icona video sull'angolo della foto, riquadro scuro per restare leggibile. -->
+                        <Border
+                            x:Name="ViewerFotoVideoBadge"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            Margin="10"
+                            Padding="6,4"
+                            CornerRadius="4"
+                            Background="#B3000000"
+                            IsHitTestVisible="False"
+                            Visibility="Collapsed">
+                            <FontIcon Glyph="&#xE714;" Foreground="White" FontSize="18" />
+                        </Border>
                     </Grid>
                 </Grid>
             </Grid>
@@ -419,6 +443,16 @@
                                 <Border BorderBrush="White" BorderThickness="3" CornerRadius="3" Visibility="{x:Bind IsCorrenteViewer, Mode=OneWay}" />
                                 <FontIcon Glyph="&#xE73E;" Foreground="LimeGreen" FontSize="14" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="4" Visibility="{x:Bind IsSelected, Mode=OneWay}" />
                                 <FontIcon Glyph="&#xE711;" Foreground="OrangeRed" FontSize="14" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="4" Visibility="{x:Bind IsReject, Mode=OneWay}" />
+                                <Border
+                                    Background="#B3000000"
+                                    CornerRadius="3"
+                                    Padding="2,1"
+                                    HorizontalAlignment="Left"
+                                    VerticalAlignment="Bottom"
+                                    Margin="6,0,0,4"
+                                    Visibility="{x:Bind HasVideo, Mode=OneWay}">
+                                    <FontIcon Glyph="&#xE714;" Foreground="White" FontSize="10" />
+                                </Border>
                             </Grid>
                             <!-- Spazio sempre riservato: le miniature restano allineate in basso con o senza linea. -->
                             <Grid Height="4">
@@ -435,7 +469,7 @@
                 Foreground="#888888"
                 FontSize="12"
                 Padding="12,6"
-                Text="←/→ foto · Space seleziona · Delete scarta · 0-5 rating · X ritaglia · L raddrizza · U ho fortuna · Ctrl+Z/Y annulla/ripeti · B originale · Esc chiudi" />
+                Text="←/→ foto · Space seleziona · Delete scarta · 0-5 rating · rotella zoom, trascina per spostare · X ritaglia · L raddrizza · U ho fortuna · Ctrl+Z/Y annulla/ripeti · B originale · Esc chiudi" />
         </Grid>
 
         <ContentDialog
