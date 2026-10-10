@@ -4,6 +4,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.Web.WebView2.Core;
 using WFastPic.Core.Metadata;
 using static WFastPic.App.MappeComuni;
+using static WFastPic.Core.Localizzazione.Testi;
 
 namespace WFastPic.App;
 
@@ -36,9 +37,9 @@ public sealed partial class ViewerView
         if (foto is null) return;
 
         var coordinate = foto is { Latitude: double lat0, Longitude: double lon0 } ? TestoCoordinate(lat0, lon0) : null;
-        ViewerLuogoNome.Text = coordinate is null ? "Nessuna posizione" : foto.GpsManuale ? "Posizione corretta a mano" : "…";
+        ViewerLuogoNome.Text = coordinate is null ? T("Nessuna posizione") : foto.GpsManuale ? T("Posizione corretta a mano") : "…";
         ViewerLuogoDettagli.Text = coordinate ?? "";
-        ViewerLuogoCorreggiButton.Content = foto.HasGps ? "Correggi" : "Aggiungi";
+        ViewerLuogoCorreggiButton.Content = foto.HasGps ? T("Correggi") : T("Aggiungi");
         ViewerLuogoRimuoviButton.IsEnabled = foto.HasGps;
         ViewerLuogoRipristinaButton.Visibility = foto.GpsManuale ? Visibility.Visible : Visibility.Collapsed;
 
@@ -58,7 +59,7 @@ public sealed partial class ViewerView
                 await Task.Delay(350, ct);
                 var nome = await Host.NomeLuogoAsync(lat, lon, ct);
                 if (!ct.IsCancellationRequested)
-                    ViewerLuogoNome.Text = nome ?? (foto.GpsManuale ? "Posizione corretta a mano" : "Luogo sconosciuto");
+                    ViewerLuogoNome.Text = nome ?? (foto.GpsManuale ? T("Posizione corretta a mano") : T("Luogo sconosciuto"));
             }
         }
         catch (OperationCanceledException)
@@ -106,7 +107,7 @@ public sealed partial class ViewerView
             // riquadri non hanno Referer e i server di OpenStreetMap possono rifiutarle.
             var cartellaWeb = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "WFastPic", "web");
             Directory.CreateDirectory(cartellaWeb);
-            await File.WriteAllTextAsync(Path.Combine(cartellaWeb, "minimappa.html"), HtmlMiniMappa);
+            await File.WriteAllTextAsync(Path.Combine(cartellaWeb, "minimappa.html"), Segnaposti(HtmlMiniMappa));
             webView.CoreWebView2.SetVirtualHostNameToFolderMapping("app.wfastpic", cartellaWeb, CoreWebView2HostResourceAccessKind.Allow);
             webView.CoreWebView2.Navigate(grande ? "https://app.wfastpic/minimappa.html?grande" : "https://app.wfastpic/minimappa.html");
             await caricata.Task;
@@ -167,7 +168,7 @@ public sealed partial class ViewerView
             _posizioneProposta = (lat, lon);
             var testo = TestoCoordinate(lat, lon);
             ViewerLuogoDettagli.Text = $"Nuova posizione:\n{testo}";
-            ViewerMappaGrandeInfo.Text = $"Nuova posizione {testo} · Salva per confermare";
+            ViewerMappaGrandeInfo.Text = T("Nuova posizione {0} · Salva per confermare", testo);
         }
         catch
         {
@@ -185,7 +186,7 @@ public sealed partial class ViewerView
         {
             _posizioneProposta = null;
             ViewerMappaGrandeOverlay.Visibility = Visibility.Collapsed;
-            ViewerMappaGrandeInfo.Text = "Trascina il segnaposto o clicca nel punto giusto. In alto a destra: mappa o satellite.";
+            ViewerMappaGrandeInfo.Text = T("Trascina il segnaposto o clicca nel punto giusto. In alto a destra: mappa o satellite.");
         }
     }
 
@@ -281,13 +282,13 @@ public sealed partial class ViewerView
                     maxZoom: 19, attribution: '&copy; OpenStreetMap'
                 });
                 const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-                    maxZoom: 19, attribution: 'Immagini &copy; Esri'
+                    maxZoom: 19, attribution: '@@Immagini@@ &copy; Esri'
                 });
                 const nomi = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
                     maxZoom: 19
                 });
                 stradale.addTo(map);
-                L.control.layers({ 'Mappa': stradale, 'Satellite': satellite }, { 'Nomi dei luoghi': nomi },
+                L.control.layers({ '@@Mappa@@': stradale, '@@Satellite@@': satellite }, { '@@Nomi dei luoghi@@': nomi },
                     { position: 'topright', collapsed: !grande }).addTo(map);
 
                 // Senza posizione: si parte vicino alle altre foto della cartella, già ingranditi.

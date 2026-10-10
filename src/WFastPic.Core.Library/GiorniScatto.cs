@@ -1,4 +1,5 @@
 using System.Globalization;
+using static WFastPic.Core.Localizzazione.Testi;
 
 namespace WFastPic.Core.Library;
 
@@ -9,8 +10,6 @@ namespace WFastPic.Core.Library;
 /// </summary>
 public static class GiorniScatto
 {
-    private static readonly CultureInfo Italiano = CultureInfo.GetCultureInfo("it-IT");
-
     public static DateOnly? Giorno(DateTime? dataScatto) =>
         dataScatto is DateTime data ? DateOnly.FromDateTime(data) : null;
 
@@ -53,10 +52,10 @@ public static class GiorniScatto
     /// <summary>"Mercoledì 15 luglio 2026 · 37 foto", oppure "Senza data · 3 foto".</summary>
     public static string Titolo(DateOnly? giorno, int numeroFoto)
     {
-        var conteggio = numeroFoto == 1 ? "1 foto" : $"{numeroFoto} foto";
-        if (giorno is not DateOnly g) return $"Senza data · {conteggio}";
+        var conteggio = Foto(numeroFoto);
+        if (giorno is not DateOnly g) return $"{T("Senza data")} · {conteggio}";
 
-        var testo = g.ToString("dddd d MMMM yyyy", Italiano);
-        return $"{char.ToUpper(testo[0], Italiano)}{testo[1..]} · {conteggio}";
+        var testo = g.ToString("dddd d MMMM yyyy", Cultura);
+        return $"{char.ToUpper(testo[0], Cultura)}{testo[1..]} · {conteggio}";
     }
 }

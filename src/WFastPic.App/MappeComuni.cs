@@ -1,6 +1,7 @@
 using System.Globalization;
 using Microsoft.UI.Xaml.Controls;
 using WFastPic.Core.Metadata;
+using static WFastPic.Core.Localizzazione.Testi;
 
 namespace WFastPic.App;
 
@@ -35,8 +36,8 @@ internal static class MappeComuni
         {
             var (icona, tipo) = dati.Tipo switch
             {
-                TipoDispositivo.Drone => ("🚁", " · drone"),
-                TipoDispositivo.Telefono => ("📱", " · telefono"),
+                TipoDispositivo.Drone => ("🚁", " · " + T("drone")),
+                TipoDispositivo.Telefono => ("📱", " · " + T("telefono")),
                 _ => ("📷", ""),
             };
             righe.Add($"{icona} {dispositivo}{tipo}");
@@ -44,14 +45,14 @@ internal static class MappeComuni
 
         // Una posizione corretta a mano non ha più l'altitudine/direzione del file.
         var altitudine = foto.GpsManuale ? null : foto.Altitude ?? dati.AltitudineMetri;
-        if (altitudine is double alt) righe.Add($"⛰ {alt.ToString("F0", CultureInfo.CurrentCulture)} m s.l.m.");
-        if (dati.AltezzaDalDecolloMetri is double decollo) righe.Add($"🛫 {decollo.ToString("F0", CultureInfo.CurrentCulture)} m dal decollo");
+        if (altitudine is double alt) righe.Add("⛰ " + T("{0} m s.l.m.", alt.ToString("F0", Cultura)));
+        if (dati.AltezzaDalDecolloMetri is double decollo) righe.Add("🛫 " + T("{0} m dal decollo", decollo.ToString("F0", Cultura)));
 
         var direzione = foto.GpsManuale ? null : foto.Direction ?? dati.DirezioneGradi;
-        if (direzione is double dir) righe.Add($"🧭 direzione {dir:F0}° {DatiRipresa.PuntoCardinale(dir)}");
+        if (direzione is double dir) righe.Add("🧭 " + T("direzione {0}° {1}", dir.ToString("F0", Cultura), DatiRipresa.PuntoCardinale(dir)));
 
         if (dati.InclinazioneGradi is double incl)
-            righe.Add($"📐 camera {incl:F0}°{(incl <= -80 ? " (verso il basso)" : incl >= -5 ? " (orizzontale)" : "")}");
+            righe.Add("📐 " + T("camera {0}°", incl.ToString("F0", Cultura)) + (incl <= -80 ? " " + T("(verso il basso)") : incl >= -5 ? " " + T("(orizzontale)") : ""));
 
         return righe;
     }

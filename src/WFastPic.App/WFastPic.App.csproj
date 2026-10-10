@@ -16,7 +16,7 @@
     <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
     <SelfContained>true</SelfContained>
     <!-- Versione dell'app: mostrata nel titolo della finestra. -->
-    <Version>0.9.1</Version>
+    <Version>0.9.2</Version>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
   </PropertyGroup>
 
@@ -47,6 +47,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\WFastPic.Core.Localizzazione\WFastPic.Core.Localizzazione.csproj" />
     <ProjectReference Include="..\WFastPic.Core.Library\WFastPic.Core.Library.csproj" />
     <ProjectReference Include="..\WFastPic.Core.Decoding\WFastPic.Core.Decoding.csproj" />
     <ProjectReference Include="..\WFastPic.Core.Processing\WFastPic.Core.Processing.csproj" />

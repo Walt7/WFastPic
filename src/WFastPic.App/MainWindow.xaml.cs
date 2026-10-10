@@ -15,6 +15,7 @@ using WFastPic.Core.Persistence;
 using WFastPic.Core.Processing;
 using WFastPic.Core.Selection;
 using WinRT.Interop;
+using static WFastPic.Core.Localizzazione.Testi;
 
 namespace WFastPic.App;
 
@@ -49,7 +50,7 @@ public partial class MainWindow : Window
     private int _miniatureTotali;
     private int _richiestaCaricamentoCartella;
 
-    /// <summary>"v. 0.9.1" dalla &lt;Version&gt; del progetto (0.9.1): basta cambiarla lì (e aggiungere la voce in CHANGELOG.md).</summary>
+    /// <summary>"v. 0.9.2" dalla &lt;Version&gt; del progetto (0.9.2): basta cambiarla lì (e aggiungere la voce in CHANGELOG.md).</summary>
     private static string VersioneApp
     {
         get
@@ -63,6 +64,7 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        Localizzatore.Applica(Content);
         Title = $"WFastPic {VersioneApp}";
         AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "icon.ico"));
         InizializzaBarraTitolo();
@@ -72,6 +74,7 @@ public partial class MainWindow : Window
         _nomiLuoghiOnline = impostazioni.NomiLuoghiOnline;
         _dividiPerGiorni = impostazioni.DividiPerGiorni;
         _riconoscimentoPersone = impostazioni.RiconoscimentoPersone;
+        _preferenzaLingua = impostazioni.Lingua;
         Griglia.ItemsSource = _visibili;
         InizializzaGiorni();
         AggiornaStatusBar();
@@ -117,6 +120,7 @@ public partial class MainWindow : Window
             DividiPerGiorni = _dividiPerGiorni,
             PannelloCartelleAperto = Viewer.IsAperto ? _pannelloCartelleAperto : RootSplitView.IsPaneOpen,
             RiconoscimentoPersone = _riconoscimentoPersone,
+            Lingua = _preferenzaLingua,
             ViewerPannelloModifiche = Viewer.PannelloModificheAperto,
             ViewerPannelloDettagli = Viewer.PannelloDettagliAperto,
             UltimaCartella = _db?.CartellaFoto,
@@ -226,7 +230,7 @@ public partial class MainWindow : Window
         _miniatureTotali = 0;
         AggiornaAvanzamentoMiniature();
 
-        using var overlayDelay = MostraCaricamentoConRitardo("Lettura foto…");
+        using var overlayDelay = MostraCaricamentoConRitardo(T("Lettura foto…"));
 
         // Progress<T> riporta sul thread UI; si aggiorna al massimo ogni 100ms per non intasare il
         // dispatcher con un evento per file su cartelle da migliaia di foto.
@@ -289,7 +293,7 @@ public partial class MainWindow : Window
             // Cartella senza permessi, disco scollegato, DB bloccato: messaggio, mai crash.
             if (richiesta == _richiestaCaricamentoCartella)
             {
-                StatusText.Text = $"Impossibile aprire «{cartella}»: {ex.Message}";
+                StatusText.Text = T("Impossibile aprire «{0}»: {1}", cartella, ex.Message);
             }
             return;
         }
@@ -614,7 +618,7 @@ public partial class MainWindow : Window
     {
         StatusText.Text = _db is null && _tutte.Count == 0
             ? ""
-            : $"{_tutte.Count} foto · {_conteggioSelezionate} selezionate · {_conteggioScarti} scarti";
+            : T("{0} · {1} selezionate · {2} scarti", Foto(_tutte.Count), _conteggioSelezionate, _conteggioScarti);
         AggiornaCartellaCorrenteNelPannello();
         AggiornaStatoVuoto();
     }
@@ -636,11 +640,11 @@ public partial class MainWindow : Window
         StatoVuotoApriButton.Visibility = benvenuto || cartellaVuota ? Visibility.Visible : Visibility.Collapsed;
         (StatoVuotoTitolo.Text, StatoVuotoTesto.Text) = (benvenuto, cartellaVuota) switch
         {
-            (true, _) => ("Benvenuto in WFastPic",
-                "Apri una cartella di foto per iniziare: scegli le migliori con Space, scarta con Canc, sistema ed esporta. " +
-                "Le cartelle aperte restano nel pannello a sinistra, divise per anno."),
-            (_, true) => ("Nessuna foto in questa cartella", "Scegli un'altra cartella dal pannello a sinistra o aprine una nuova."),
-            _ => ("Nessuna foto con questo filtro", "Premi Tab o scegli «Tutte» nel filtro in alto per rivederle tutte."),
+            (true, _) => (T("Benvenuto in WFastPic"),
+                T("Apri una cartella di foto per iniziare: scegli le migliori con Space, scarta con Canc, sistema ed esporta. " +
+                "Le cartelle aperte restano nel pannello a sinistra, divise per anno.")),
+            (_, true) => (T("Nessuna foto in questa cartella"), T("Scegli un'altra cartella dal pannello a sinistra o aprine una nuova.")),
+            _ => (T("Nessuna foto con questo filtro"), T("Premi Tab o scegli «Tutte» nel filtro in alto per rivederle tutte.")),
         };
         StatoVuotoPanel.Visibility = Visibility.Visible;
     }
@@ -672,7 +676,7 @@ public partial class MainWindow : Window
         MiniaturePanel.Visibility = Visibility.Visible;
         MiniatureProgressBar.Maximum = _miniatureTotali;
         MiniatureProgressBar.Value = _miniatureCompletate;
-        MiniatureText.Text = "Miniature " + StimaAvanzamento.Descrivi(
+        MiniatureText.Text = T("Miniature") + " " + StimaAvanzamento.Descrivi(
             _miniatureCompletate, _miniatureTotali, _cronometroMiniature.Elapsed);
     }
 
@@ -680,7 +684,7 @@ public partial class MainWindow : Window
     {
         DispatcherQueue.TryEnqueue(() =>
         {
-            StatusText.Text = $"Errore nel salvare le modifiche: {ex.Message}";
+            StatusText.Text = T("Errore nel salvare le modifiche: {0}", ex.Message);
         });
     }
 
@@ -872,8 +876,8 @@ public partial class MainWindow : Window
 
         var conVideo = _tutte.Count(i => i.IsReject && i.HasVideo);
         AggiornaDialogoScarti(conVideo > 0
-            ? $"{_scartiCorrenti.Count} foto in scarto ({conVideo} con video abbinato, che verrà spostato insieme)"
-            : $"{_scartiCorrenti.Count} foto in scarto");
+            ? T("{0} in scarto ({1} con video abbinato, che verrà spostato insieme)", Foto(_scartiCorrenti.Count), conVideo)
+            : T("{0} in scarto", Foto(_scartiCorrenti.Count)));
 
         DialogScarti.XamlRoot = Content.XamlRoot;
         await DialogScarti.ShowAsync();
@@ -884,11 +888,11 @@ public partial class MainWindow : Window
     private void AggiornaDialogoScarti(string riepilogo)
     {
         _confermaCestinoRichiesta = false;
-        CestinoButton.Content = "Sposta nel Cestino";
+        CestinoButton.Content = T("Sposta nel Cestino");
         ScartiSummary.Text = riepilogo;
         // Il video abbinato segue la foto (Cestino o Scarti/): va detto prima di confermare.
         ScartiList.ItemsSource = _scartiCorrenti?
-            .Select(s => _perId.TryGetValue(s.Id, out var item) && item.HasVideo ? $"{s.PathRelativo}  + video" : s.PathRelativo)
+            .Select(s => _perId.TryGetValue(s.Id, out var item) && item.HasVideo ? $"{s.PathRelativo}  + {T("video")}" : s.PathRelativo)
             .ToList();
     }
 
@@ -900,19 +904,19 @@ public partial class MainWindow : Window
         if (!_confermaCestinoRichiesta)
         {
             _confermaCestinoRichiesta = true;
-            CestinoButton.Content = $"Conferma: {_scartiCorrenti.Count} foto nel Cestino";
+            CestinoButton.Content = T("Conferma: {0} nel Cestino", Foto(_scartiCorrenti.Count));
             return;
         }
 
         var rejectManager = _rejectManagerCorrente;
-        EseguiSuScarti(rejectManager.SpostaNelCestino, "nel Cestino");
+        EseguiSuScarti(rejectManager.SpostaNelCestino, T("nel Cestino"));
     }
 
     private void SpostaInScartiButton_Click(object sender, RoutedEventArgs e)
     {
         if (_rejectManagerCorrente is null) return;
         var rejectManager = _rejectManagerCorrente;
-        EseguiSuScarti(foto => rejectManager.SpostaInScarti(foto), "in Scarti/");
+        EseguiSuScarti(foto => rejectManager.SpostaInScarti(foto), T("in Scarti/"));
     }
 
     /// <summary>
@@ -954,9 +958,9 @@ public partial class MainWindow : Window
 
         _scartiCorrenti = _scartiCorrenti.Where(f => _perId.ContainsKey(f.Id)).ToList();
         AggiornaDialogoScarti(
-            $"{rimosse.Count} spostate {destinazione}, {errori.Count} non riuscite:\n" +
+            T("{0} spostate {1}, {2} non riuscite:", rimosse.Count, destinazione, errori.Count) + "\n" +
             string.Join("\n", errori.Take(5)) +
-            (errori.Count > 5 ? $"\n… e altre {errori.Count - 5}" : ""));
+            (errori.Count > 5 ? "\n" + T("… e altre {0}", errori.Count - 5) : ""));
     }
 
     private void LasciaButton_Click(object sender, RoutedEventArgs e)

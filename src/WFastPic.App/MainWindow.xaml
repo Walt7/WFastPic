@@ -151,12 +151,12 @@
                                     </StackPanel>
                                     <Grid.ContextFlyout>
                                         <MenuFlyout Opening="MenuCartella_Opening">
-                                            <MenuFlyoutItem Text="Apri in Esplora file" Click="CartellaApriInEsplora_Click">
+                                            <MenuFlyoutItem Text="{x:Bind local:Etichette.ApriInEsplora}" Click="CartellaApriInEsplora_Click">
                                                 <MenuFlyoutItem.Icon>
                                                     <FontIcon Glyph="&#xEC50;" />
                                                 </MenuFlyoutItem.Icon>
                                             </MenuFlyoutItem>
-                                            <MenuFlyoutItem Text="Togli dall'elenco" Click="CartellaRimuoviDallElenco_Click">
+                                            <MenuFlyoutItem Text="{x:Bind local:Etichette.TogliDallElenco}" Click="CartellaRimuoviDallElenco_Click">
                                                 <MenuFlyoutItem.Icon>
                                                     <FontIcon Glyph="&#xE711;" />
                                                 </MenuFlyoutItem.Icon>
@@ -433,7 +433,7 @@
                                 CornerRadius="3"
                                 Padding="3,2"
                                 Visibility="{x:Bind HasVideo, Mode=OneWay}"
-                                ToolTipService.ToolTip="Live Photo: video abbinato (.mov/.mp4)">
+                                ToolTipService.ToolTip="{x:Bind local:Etichette.LivePhoto}">
                                 <FontIcon Glyph="&#xE714;" Foreground="White" FontSize="12" />
                             </Border>
                             <Border
@@ -441,7 +441,7 @@
                                 CornerRadius="3"
                                 Padding="3,2"
                                 Visibility="{x:Bind HasGps, Mode=OneWay}"
-                                ToolTipService.ToolTip="Foto con coordinate GPS">
+                                ToolTipService.ToolTip="{x:Bind local:Etichette.FotoConGps}">
                                 <FontIcon Glyph="&#xE707;" Foreground="#4FC3F7" FontSize="12" />
                             </Border>
                             <!-- Modifiche fatte nell'editor: ritaglio, raddrizzamento, colore/tono. -->
@@ -450,7 +450,7 @@
                                 CornerRadius="3"
                                 Padding="3,2"
                                 Visibility="{x:Bind HaModifiche, Mode=OneWay}"
-                                ToolTipService.ToolTip="Foto modificata (ritaglio, raddrizzamento, colore)">
+                                ToolTipService.ToolTip="{x:Bind local:Etichette.FotoModificata}">
                                 <StackPanel Orientation="{x:Bind OrientamentoBadge, Mode=OneWay}" Spacing="4">
                                     <FontIcon Glyph="&#xE7A8;" Foreground="#FFB300" FontSize="12" Visibility="{x:Bind HaRitaglio, Mode=OneWay}" />
                                     <FontIcon Glyph="&#xE7AD;" Foreground="#FFB300" FontSize="12" Visibility="{x:Bind HaRaddrizzamento, Mode=OneWay}" />

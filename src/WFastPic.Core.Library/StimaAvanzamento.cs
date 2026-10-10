@@ -1,3 +1,4 @@
+using static WFastPic.Core.Localizzazione.Testi;
 namespace WFastPic.Core.Library;
 
 /// <summary>
@@ -19,15 +20,15 @@ public static class StimaAvanzamento
     /// <summary>"340 di 1300 · circa 12 s rimanenti" (la stima compare solo quando è disponibile).</summary>
     public static string Descrivi(int completate, int totale, TimeSpan trascorso)
     {
-        var testo = $"{completate} di {totale}";
+        var testo = T("{0} di {1}", completate, totale);
         var rimanente = TempoRimanente(completate, totale, trascorso);
         if (rimanente is null) return testo;
 
-        return $"{testo} · circa {Durata(rimanente.Value)} rimanenti";
+        return $"{testo} · {T("circa {0} rimanenti", Durata(rimanente.Value))}";
     }
 
     /// <summary>"12 s" sotto il minuto, "3 min" oltre (arrotondata per eccesso).</summary>
     public static string Durata(TimeSpan durata) => durata.TotalSeconds < 60
-        ? $"{Math.Max(1, (int)Math.Ceiling(durata.TotalSeconds))} s"
-        : $"{(int)Math.Ceiling(durata.TotalMinutes)} min";
+        ? T("{0} s", Math.Max(1, (int)Math.Ceiling(durata.TotalSeconds)))
+        : T("{0} min", (int)Math.Ceiling(durata.TotalMinutes));
 }

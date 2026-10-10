@@ -3,6 +3,17 @@
 Le novità di WFastPic, versione per versione. La più recente è in cima. ([English](CHANGELOG.en.md))
 I dettagli tecnici (cause dei bug, file toccati) sono in [`doc/correzioni-e-novita.md`](doc/correzioni-e-novita.md).
 
+## [0.9.2] — 2026-10-10
+
+### Novità
+- **App in italiano e inglese**: tutta l'interfaccia (menu, dialoghi, messaggi, mappe, date) ha la sua
+  versione inglese. All'avvio segue la lingua di Windows; si cambia da "Informazioni" (in basso a
+  destra → Lingua: Automatica / Italiano / English) e si applica al riavvio. I nomi dei luoghi sulla mappa
+  seguono la lingua (quelli già salvati restano in italiano, in inglese si chiedono di nuovo).
+- **Nuova icona**: il sole è ora un sole-obiettivo, con anello, diaframma e raggi come le lamelle di un
+  obiettivo.
+- README con i badge di GitHub; il progetto si presenta come un tributo a Picasa (non affiliato a Google).
+
 ## [0.9.1] — 2026-10-10
 
 ### Novità

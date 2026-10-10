@@ -15,6 +15,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\WFastPic.Core.Localizzazione\WFastPic.Core.Localizzazione.csproj" />
     <ProjectReference Include="..\WFastPic.Core.Library\WFastPic.Core.Library.csproj" />
     <ProjectReference Include="..\WFastPic.Core.Processing\WFastPic.Core.Processing.csproj" />
     <ProjectReference Include="..\WFastPic.Core.Decoding\WFastPic.Core.Decoding.csproj" />

@@ -9,6 +9,7 @@ using Windows.Storage.Pickers;
 using WFastPic.Core.Library;
 using WFastPic.Core.Persistence;
 using WinRT.Interop;
+using static WFastPic.Core.Localizzazione.Testi;
 
 namespace WFastPic.App;
 
@@ -146,7 +147,7 @@ public partial class MainWindow
         if (e.ClickedItem is not VoceCartella voce) return;
         if (!voce.Esiste)
         {
-            StatusText.Text = $"Cartella non trovata: {voce.Percorso} (disco scollegato o cartella spostata)";
+            StatusText.Text = T("Cartella non trovata: {0} (disco scollegato o cartella spostata)", voce.Percorso);
             return;
         }
         await CaricaCartellaAsync(voce.Percorso);

@@ -14,6 +14,7 @@
     <Project Path="src/WFastPic.Core.Decoding/WFastPic.Core.Decoding.csproj" />
     <Project Path="src/WFastPic.Core.Export/WFastPic.Core.Export.csproj" />
     <Project Path="src/WFastPic.Core.Library/WFastPic.Core.Library.csproj" />
+    <Project Path="src/WFastPic.Core.Localizzazione/WFastPic.Core.Localizzazione.csproj" />
     <Project Path="src/WFastPic.Core.Metadata/WFastPic.Core.Metadata.csproj" />
     <Project Path="src/WFastPic.Core.Persistence/WFastPic.Core.Persistence.csproj" />
     <Project Path="src/WFastPic.Core.Persone/WFastPic.Core.Persone.csproj" />

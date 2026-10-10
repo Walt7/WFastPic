@@ -8,6 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\WFastPic.Core.Localizzazione\WFastPic.Core.Localizzazione.csproj" />
     <ProjectReference Include="..\WFastPic.Core.Metadata\WFastPic.Core.Metadata.csproj" />
   </ItemGroup>
 

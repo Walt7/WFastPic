@@ -5,6 +5,7 @@ using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Shapes;
 using Windows.Foundation;
 using WFastPic.Core.Processing;
+using static WFastPic.Core.Localizzazione.Testi;
 
 namespace WFastPic.App;
 
@@ -148,10 +149,10 @@ public sealed partial class ViewerView
         if (attiva) AggiornaOverlayCrop();
     }
 
-    private const string HintViewer =
-        "←/→ foto · Space seleziona · Delete scarta · 0-5 rating · rotella zoom, trascina per spostare · X ritaglia · L raddrizza · U ho fortuna · Ctrl+Z/Y annulla/ripeti · B originale · F11 schermo intero · Esc chiudi";
-    private const string HintGeometria =
-        "Trascina gli angoli o i lati per ritagliare, trascina dentro per spostare · L / frecce raddrizza · O riquadro orizzontale/verticale · Invio o X applica · Esc annulla";
+    private static string HintViewer =>
+        T("←/→ foto · Space seleziona · Delete scarta · 0-5 rating · rotella zoom, trascina per spostare · X ritaglia · L raddrizza · U ho fortuna · Ctrl+Z/Y annulla/ripeti · B originale · F11 schermo intero · Esc chiudi");
+    private static string HintGeometria =>
+        T("Trascina gli angoli o i lati per ritagliare, trascina dentro per spostare · L / frecce raddrizza · O riquadro orizzontale/verticale · Invio o X applica · Esc annulla");
 
     private void EsciDaGeometria()
     {
@@ -277,9 +278,10 @@ public sealed partial class ViewerView
         var etichetta = ProporzioniDisponibili[_proporzioneIndice].Etichetta;
         var parti = etichetta.Split(':');
         if (RiquadroVerticale && parti.Length == 2) etichetta = $"{parti[1]}:{parti[0]}";
-        else if (etichetta == "originale" && RiquadroVerticale != _viewerImgH > _viewerImgW) etichetta = "originale, girata";
+        else if (etichetta == "originale" && RiquadroVerticale != _viewerImgH > _viewerImgW) etichetta = T("originale, girata");
+        else etichetta = T(etichetta); // "libera", "originale"; i rapporti (4:3…) restano uguali
 
-        ViewerProporzioneToggle.Content = $"Proporzioni: {etichetta}";
+        ViewerProporzioneToggle.Content = T("Proporzioni: {0}", etichetta);
         ViewerOrientamentoRiquadroButton.IsEnabled = ProporzioneCorrente is double rapporto && Math.Abs(rapporto - 1) > 0.001;
     }
 

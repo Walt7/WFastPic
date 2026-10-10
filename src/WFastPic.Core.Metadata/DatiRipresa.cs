@@ -1,4 +1,5 @@
 using System.Globalization;
+using static WFastPic.Core.Localizzazione.Testi;
 
 namespace WFastPic.Core.Metadata;
 
@@ -83,7 +84,7 @@ public sealed record DatiRipresa(
     /// <summary>"NE", "SO"…: punto cardinale a 8 settori, come si legge su una bussola.</summary>
     public static string PuntoCardinale(double gradi)
     {
-        string[] settori = ["N", "NE", "E", "SE", "S", "SO", "O", "NO"];
+        string[] settori = [T("N"), T("NE"), T("E"), T("SE"), T("S"), T("SO"), T("O"), T("NO")];
         return settori[(int)Math.Round(NormalizzaDirezione(gradi) / 45) % 8];
     }
 }

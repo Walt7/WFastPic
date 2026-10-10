@@ -13,6 +13,7 @@ using Windows.System;
 using WFastPic.Core.Decoding;
 using WFastPic.Core.Processing;
 using WFastPic.Core.Selection;
+using static WFastPic.Core.Localizzazione.Testi;
 
 namespace WFastPic.App;
 
@@ -39,6 +40,7 @@ public sealed partial class ViewerView : UserControl
     public ViewerView()
     {
         InitializeComponent();
+        Localizzatore.Applica(this);
     }
 
     private bool _viewerAperto;
@@ -180,7 +182,7 @@ public sealed partial class ViewerView : UserControl
         AggiornaPannelloLuogo();
         AggiornaDettagli(foto);
         AggiornaRaffica(foto);
-        ViewerStatusText.Text = $"{TestoPosizioneViewer(foto)} · caricamento…";
+        ViewerStatusText.Text = $"{TestoPosizioneViewer(foto)} · {T("caricamento…")}";
 
         // Preview già pronta (precaricata): niente segnaposto, si eviterebbe solo un lampo sfocato.
         if (!_previewCache.ContainsKey(foto.PercorsoCompleto)) MostraSegnaposto(foto);
@@ -254,7 +256,7 @@ public sealed partial class ViewerView : UserControl
         ViewerImage.Source = null;
         NascondiSegnaposto();
         SincronizzaPannello();
-        ViewerStatusText.Text = $"{TestoPosizioneViewer(foto)} · impossibile leggere la foto";
+        ViewerStatusText.Text = $"{TestoPosizioneViewer(foto)} · {T("impossibile leggere la foto")}";
         AggiornaBadgeFoto(foto);
         ViewerSelectionBorder.Visibility = Visibility.Collapsed;
         ViewerOverlay.Focus(FocusState.Programmatic);
@@ -264,7 +266,7 @@ public sealed partial class ViewerView : UserControl
     private string TestoPosizioneViewer(PhotoGridItem foto)
     {
         var indice = Host.Visibili.IndexOf(foto);
-        return indice < 0 ? foto.PathRelativo : $"{foto.PathRelativo} · {indice + 1} di {Host.Visibili.Count}";
+        return indice < 0 ? foto.PathRelativo : $"{foto.PathRelativo} · {T("{0} di {1}", indice + 1, Host.Visibili.Count)}";
     }
 
     /// <summary>
@@ -542,9 +544,9 @@ public sealed partial class ViewerView : UserControl
 
         ViewerGrigliaToggle.Content = _grigliaModo switch
         {
-            GrigliaComposizione.Terzi => "Griglia: terzi",
-            GrigliaComposizione.Meta => "Griglia: metà",
-            _ => "Griglia: diagonali",
+            GrigliaComposizione.Terzi => T("Griglia: terzi"),
+            GrigliaComposizione.Meta => T("Griglia: metà"),
+            _ => T("Griglia: diagonali"),
         };
 
         AggiornaGriglia();
@@ -758,7 +760,7 @@ public sealed partial class ViewerView : UserControl
         _viewerZoom = Math.Clamp(zoom, 1, 4);
         ViewerZoomTransform.ScaleX = _viewerZoom;
         ViewerZoomTransform.ScaleY = _viewerZoom;
-        ViewerZoomText.Text = $"Zoom {_viewerZoom * 100:F0}%";
+        ViewerZoomText.Text = T("Zoom {0}%", (_viewerZoom * 100).ToString("F0", Cultura));
 
         var (tx, ty) = (ViewerPanTransform.X, ViewerPanTransform.Y);
         if (verso is Point p)

@@ -1,4 +1,5 @@
 using System.Globalization;
+using static WFastPic.Core.Localizzazione.Testi;
 
 namespace WFastPic.Core.Library;
 
@@ -12,8 +13,6 @@ public sealed record CartellaArchivio(
 /// </summary>
 public static class ArchivioCartelle
 {
-    private static readonly CultureInfo Italiano = CultureInfo.GetCultureInfo("it-IT");
-
     /// <summary>Gruppi per anno dell'ultimo scatto, dal più recente; in fondo le cartelle senza date.</summary>
     public static List<(int? Anno, List<CartellaArchivio> Cartelle)> RaggruppaPerAnno(IEnumerable<CartellaArchivio> cartelle) =>
         cartelle
@@ -34,20 +33,20 @@ public static class ArchivioCartelle
         return string.IsNullOrEmpty(nome) ? percorso : nome;
     }
 
-    public static string TitoloAnno(int? anno) => anno?.ToString(CultureInfo.InvariantCulture) ?? "Senza data";
+    public static string TitoloAnno(int? anno) => anno?.ToString(CultureInfo.InvariantCulture) ?? T("Senza data");
 
     /// <summary>"1.300 foto · 37 selezionate" (le selezionate solo se ce ne sono), "Non ancora aperta".</summary>
     public static string Dettaglio(CartellaArchivio cartella)
     {
-        if (!cartella.Esiste) return "Cartella non trovata";
-        if (cartella.NumeroFoto is not int numero) return "Non ancora aperta";
+        if (!cartella.Esiste) return T("Cartella non trovata");
+        if (cartella.NumeroFoto is not int numero) return T("Non ancora aperta");
 
-        var foto = numero == 1 ? "1 foto" : string.Format(Italiano, "{0:N0} foto", numero);
+        var foto = Foto(numero);
         return cartella.NumeroSelezionate switch
         {
             null or 0 => foto,
-            1 => $"{foto} · 1 selezionata",
-            var n => string.Format(Italiano, "{0} · {1:N0} selezionate", foto, n),
+            1 => T("{0} · 1 selezionata", foto),
+            var n => T("{0} · {1:N0} selezionate", foto, n),
         };
     }
 
@@ -58,10 +57,10 @@ public static class ArchivioCartelle
     public static string? Periodo(DateTime? primo, DateTime? ultimo)
     {
         if (primo is not DateTime a || ultimo is not DateTime b) return null;
-        if (a.Date == b.Date) return a.ToString("d MMM yyyy", Italiano);
-        if (a.Year == b.Year && a.Month == b.Month) return $"{a.Day}–{b.ToString("d MMM yyyy", Italiano)}";
-        if (a.Year == b.Year) return $"{a.ToString("d MMM", Italiano)} – {b.ToString("d MMM yyyy", Italiano)}";
-        return $"{a.ToString("MMM yyyy", Italiano)} – {b.ToString("MMM yyyy", Italiano)}";
+        if (a.Date == b.Date) return a.ToString("d MMM yyyy", Cultura);
+        if (a.Year == b.Year && a.Month == b.Month) return $"{a.Day}–{b.ToString("d MMM yyyy", Cultura)}";
+        if (a.Year == b.Year) return $"{a.ToString("d MMM", Cultura)} – {b.ToString("d MMM yyyy", Cultura)}";
+        return $"{a.ToString("MMM yyyy", Cultura)} – {b.ToString("MMM yyyy", Cultura)}";
     }
 
     /// <summary>

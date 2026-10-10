@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text;
+using WFastPic.Core.Localizzazione;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Windows.ApplicationModel.DataTransfer;
@@ -62,15 +63,15 @@ public static class ErrorReporter
     private static string ScriviReport(Exception? eccezione, string origine, out string testo)
     {
         var sb = new StringBuilder();
-        sb.AppendLine("WFastPic — report errore");
-        sb.AppendLine($"Data:      {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
-        sb.AppendLine($"Origine:   {origine}");
-        sb.AppendLine($"Versione:  {typeof(ErrorReporter).Assembly.GetName().Version}");
+        sb.AppendLine(Testi.T("WFastPic — report errore"));
+        sb.AppendLine($"{Testi.T("Data:"),-11}{DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+        sb.AppendLine($"{Testi.T("Origine:"),-11}{origine}");
+        sb.AppendLine($"{Testi.T("Versione:"),-11}{typeof(ErrorReporter).Assembly.GetName().Version}");
         sb.AppendLine($"OS:        {Environment.OSVersion}");
         sb.AppendLine($"Runtime:   {Environment.Version}");
-        sb.AppendLine($"Memoria:   {Process.GetCurrentProcess().WorkingSet64 / (1024 * 1024)} MB");
+        sb.AppendLine($"{Testi.T("Memoria:"),-11}{Process.GetCurrentProcess().WorkingSet64 / (1024 * 1024)} MB");
         sb.AppendLine();
-        sb.AppendLine(eccezione?.ToString() ?? "(eccezione nulla)");
+        sb.AppendLine(eccezione?.ToString() ?? Testi.T("(eccezione nulla)"));
         testo = sb.ToString();
 
         lock (_lock)
@@ -131,7 +132,7 @@ public static class ErrorReporter
             });
             contenuto.Children.Add(new TextBlock
             {
-                Text = "Le foto originali non sono state toccate. Il report è stato salvato; puoi continuare a lavorare.",
+                Text = Testi.T("Le foto originali non sono state toccate. Il report è stato salvato; puoi continuare a lavorare."),
                 TextWrapping = TextWrapping.Wrap,
                 Opacity = 0.7,
             });
@@ -140,11 +141,11 @@ public static class ErrorReporter
             var dialogo = new ContentDialog
             {
                 XamlRoot = xamlRoot,
-                Title = "Si è verificato un errore inatteso",
+                Title = Testi.T("Si è verificato un errore inatteso"),
                 Content = contenuto,
-                PrimaryButtonText = "Copia report",
-                SecondaryButtonText = "Apri cartella report",
-                CloseButtonText = "Chiudi",
+                PrimaryButtonText = Testi.T("Copia report"),
+                SecondaryButtonText = Testi.T("Apri cartella report"),
+                CloseButtonText = Testi.T("Chiudi"),
                 DefaultButton = ContentDialogButton.Close,
             };
 

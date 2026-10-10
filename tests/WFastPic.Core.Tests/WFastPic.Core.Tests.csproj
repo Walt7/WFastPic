@@ -15,6 +15,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\src\WFastPic.Core.Localizzazione\WFastPic.Core.Localizzazione.csproj" />
     <ProjectReference Include="..\..\src\WFastPic.Core.Library\WFastPic.Core.Library.csproj" />
     <ProjectReference Include="..\..\src\WFastPic.Core.Metadata\WFastPic.Core.Metadata.csproj" />
     <ProjectReference Include="..\..\src\WFastPic.Core.Persistence\WFastPic.Core.Persistence.csproj" />

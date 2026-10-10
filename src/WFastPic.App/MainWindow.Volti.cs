@@ -8,6 +8,7 @@ using WFastPic.Core.Library;
 using WFastPic.Core.Persistence;
 using WFastPic.Core.Persone;
 using WFastPic.Core.Selection;
+using static WFastPic.Core.Localizzazione.Testi;
 
 namespace WFastPic.App;
 
@@ -65,7 +66,7 @@ public partial class MainWindow
                 return;
             }
             if (token.IsCancellationRequested) return;
-            StatusText.Text = "Riconoscimento persone non disponibile (modelli non scaricati): solo rilevamento dei volti.";
+            StatusText.Text = T("Riconoscimento persone non disponibile (modelli non scaricati): solo rilevamento dei volti.");
         }
 
         AvviaRilevamentoVoltiWindows(manager, token);
@@ -78,22 +79,22 @@ public partial class MainWindow
         var dialogo = new ContentDialog
         {
             XamlRoot = Content.XamlRoot,
-            Title = "Riconoscere le persone?",
-            PrimaryButtonText = "Attiva",
-            CloseButtonText = "Non ora",
+            Title = T("Riconoscere le persone?"),
+            PrimaryButtonText = T("Attiva"),
+            CloseButtonText = T("Non ora"),
             DefaultButton = ContentDialogButton.Primary,
             Content = new TextBlock
             {
                 TextWrapping = TextWrapping.Wrap,
                 MaxWidth = 460,
-                Text =
+                Text = T(
                     "WFastPic può riconoscere le persone nelle foto, come Picasa: raggruppa i volti simili, " +
                     "tu dai un nome e la ritrova da solo anche nelle altre cartelle.\n\n" +
                     "• Funziona tutto sul PC: nessuna foto esce.\n" +
                     "• Al primo uso scarica due modelli (38 MB) da Hugging Face (OpenCV).\n" +
                     "• Analizza le foto in background, dopo le miniature: con tante foto può richiedere " +
                     "qualche minuto e usare il processore. Si ferma mentre guardi le foto nel viewer.\n\n" +
-                    "Puoi cambiare idea quando vuoi dall'interruttore nella sezione Persone a sinistra.",
+                    "Puoi cambiare idea quando vuoi dall'interruttore nella sezione Persone a sinistra."),
             },
         };
 
@@ -122,7 +123,7 @@ public partial class MainWindow
             MiniaturePanel.Visibility = Visibility.Visible;
             MiniatureProgressBar.Maximum = p.Totale;
             MiniatureProgressBar.Value = p.Scaricati;
-            MiniatureText.Text = $"Scarico i modelli per le persone · {p.Scaricati / 1_048_576} di {p.Totale / 1_048_576} MB";
+            MiniatureText.Text = T("Scarico i modelli per le persone · {0} di {1} MB", p.Scaricati / 1_048_576, p.Totale / 1_048_576);
         });
 
         try
@@ -201,7 +202,7 @@ public partial class MainWindow
                             if (token.IsCancellationRequested) return;
                             foto.NumeroVolti = daSalvare.Count;
                             foto.PersoneAnalizzate = true;
-                            MostraAvanzamentoVolti(completate, daAnalizzare.Count, cronometro.Elapsed, "Persone ");
+                            MostraAvanzamentoVolti(completate, daAnalizzare.Count, cronometro.Elapsed, T("Persone") + " ");
                             // Il pannello si riempie mentre l'analisi va avanti, non solo alla fine.
                             if (completate % 25 == 0) AggiornaPannelloPersone();
                         });
@@ -215,7 +216,7 @@ public partial class MainWindow
             catch (Exception) when (!token.IsCancellationRequested)
             {
                 // Modelli non caricabili (file danneggiato, runtime mancante): resta il rilevamento di base.
-                DispatcherQueue.TryEnqueue(() => StatusText.Text = "Riconoscimento persone non disponibile su questo PC.");
+                DispatcherQueue.TryEnqueue(() => StatusText.Text = T("Riconoscimento persone non disponibile su questo PC."));
             }
 
             // Ultimo giro: volti analizzati prima che un nome fosse dato o prima dell'ultimo aggiornamento.
@@ -278,7 +279,7 @@ public partial class MainWindow
                     {
                         if (token.IsCancellationRequested) return;
                         foto.NumeroVolti = volti.Count;
-                        MostraAvanzamentoVolti(completate, daAnalizzare.Count, cronometro.Elapsed, "Volti ");
+                        MostraAvanzamentoVolti(completate, daAnalizzare.Count, cronometro.Elapsed, T("Volti") + " ");
                     });
                 }
                 catch (Exception) when (!token.IsCancellationRequested)

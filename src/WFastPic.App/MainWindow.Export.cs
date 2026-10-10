@@ -6,6 +6,7 @@ using Windows.Storage.Pickers;
 using WFastPic.Core.Export;
 using WFastPic.Core.Library;
 using WinRT.Interop;
+using static WFastPic.Core.Localizzazione.Testi;
 
 namespace WFastPic.App;
 
@@ -42,8 +43,8 @@ public partial class MainWindow
         _aggiornandoDialogExport = true;
         try
         {
-            ExportAmbitoSelezionateRadio.Content = $"Solo le foto selezionate ({_conteggioSelezionate})";
-            ExportAmbitoTutteRadio.Content = $"Tutte tranne gli scarti ({FotoNonScartate()})";
+            ExportAmbitoSelezionateRadio.Content = T("Solo le foto selezionate ({0})", _conteggioSelezionate);
+            ExportAmbitoTutteRadio.Content = T("Tutte tranne gli scarti ({0})", FotoNonScartate());
             // Nessuna selezionata: si propone direttamente "tutte", invece di un export vuoto.
             ExportAmbitoSelezionateRadio.IsChecked = _conteggioSelezionate > 0;
             ExportAmbitoTutteRadio.IsChecked = _conteggioSelezionate == 0;
@@ -107,12 +108,12 @@ public partial class MainWindow
         ExportPosizioneCombo.IsEnabled = modificabile && filigrana;
 
         var cartella = CartellaOutputDialog(out var errore);
-        ExportDestinazioneText.Text = cartella is not null ? $"Le foto verranno salvate in {cartella}" : errore;
+        ExportDestinazioneText.Text = cartella is not null ? T("Le foto verranno salvate in {0}", cartella) : errore;
 
         var numero = FotoDaEsportareNelDialog();
-        DialogExport.PrimaryButtonText = numero == 1 ? "Esporta 1 foto" : $"Esporta {numero} foto";
+        DialogExport.PrimaryButtonText = T("Esporta {0}", Foto(numero));
         DialogExport.IsPrimaryButtonEnabled = modificabile && numero > 0 && cartella is not null;
-        DialogExport.CloseButtonText = _exportInCorso ? "Annulla esportazione" : "Chiudi";
+        DialogExport.CloseButtonText = _exportInCorso ? T("Annulla esportazione") : T("Chiudi");
     }
 
     private int QualitaScelta() => ExportQualitaCombo.SelectedIndex is >= 0 and < QualitaPersonalizzataIndice
@@ -126,12 +127,12 @@ public partial class MainWindow
 
         if (!Path.IsPathFullyQualified(posizione))
         {
-            errore = "Indica un percorso completo, ad esempio D:\\Foto.";
+            errore = T("Indica un percorso completo, ad esempio D:\\Foto.");
             return null;
         }
         if (nome.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
         {
-            errore = "Il nome della cartella contiene caratteri non validi.";
+            errore = T("Il nome della cartella contiene caratteri non validi.");
             return null;
         }
 
@@ -201,7 +202,7 @@ public partial class MainWindow
         ExportErroriList.Visibility = Visibility.Collapsed;
         ExportProgressBar.Visibility = Visibility.Visible;
         ExportProgressBar.Value = 0;
-        ExportStatusText.Text = "Preparazione…";
+        ExportStatusText.Text = T("Preparazione…");
         var cronometro = Stopwatch.StartNew();
 
         try
@@ -216,8 +217,8 @@ public partial class MainWindow
                 if (cts.IsCancellationRequested) return;
                 // Tempo previsto: velocità media dall'inizio (le foto con filigrana o ridimensionamento pesano uguale).
                 var rimanente = StimaAvanzamento.TempoRimanente(p.Completate, p.Totale, cronometro.Elapsed);
-                var stima = rimanente is { } r ? $" · circa {StimaAvanzamento.Durata(r)} rimanenti" : "";
-                ExportStatusText.Text = $"{Math.Min(p.Completate + 1, p.Totale)} di {p.Totale}{stima} · {p.FileCorrente}";
+                var stima = rimanente is { } r ? " · " + T("circa {0} rimanenti", StimaAvanzamento.Durata(r)) : "";
+                ExportStatusText.Text = T("{0} di {1}", Math.Min(p.Completate + 1, p.Totale), p.Totale) + stima + " · " + p.FileCorrente;
             });
 
             var risultati = await Task.Run(() => Exporter.EseguiAsync(db, opzioni, progresso, cts.Token));
@@ -225,7 +226,7 @@ public partial class MainWindow
         }
         catch (Exception ex)
         {
-            ExportStatusText.Text = $"Errore: {ex.Message}";
+            ExportStatusText.Text = T("Errore: {0}", ex.Message);
         }
         finally
         {
@@ -243,9 +244,9 @@ public partial class MainWindow
 
         ExportStatusText.Text = (annullato, fallite.Count) switch
         {
-            (true, _) => $"Esportazione annullata: {riuscite} foto esportate in {cartella}",
-            (false, 0) => $"Completato: {riuscite} foto esportate in {cartella} (in {StimaAvanzamento.Durata(durata)})",
-            _ => $"{riuscite} foto esportate, {fallite.Count} non riuscite:",
+            (true, _) => T("Esportazione annullata: {0} esportate in {1}", Foto(riuscite), cartella),
+            (false, 0) => T("Completato: {0} esportate in {1} (in {2})", Foto(riuscite), cartella, StimaAvanzamento.Durata(durata)),
+            _ => T("{0} esportate, {1} non riuscite:", Foto(riuscite), fallite.Count),
         };
 
         if (fallite.Count > 0)
@@ -274,7 +275,7 @@ public partial class MainWindow
 
         args.Cancel = true;
         _exportCts?.Cancel();
-        ExportStatusText.Text = "Annullamento… si completa la foto in corso";
+        ExportStatusText.Text = T("Annullamento… si completa la foto in corso");
     }
 
     private ExportOptions LeggiOpzioniDalDialog(string cartellaOutput)

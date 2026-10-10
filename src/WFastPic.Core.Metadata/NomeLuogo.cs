@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Globalization;
 using System.Text.Json;
+using WFastPic.Core.Localizzazione;
 
 namespace WFastPic.Core.Metadata;
 
@@ -61,7 +62,7 @@ public sealed class RisolutoreLuoghi
             if (attesa > TimeSpan.Zero) await Task.Delay(attesa, ct).ConfigureAwait(false);
 
             var url = string.Create(CultureInfo.InvariantCulture,
-                $"reverse?format=jsonv2&zoom=16&accept-language=it&lat={latitudine:F6}&lon={longitudine:F6}");
+                $"reverse?format=jsonv2&zoom=16&accept-language={(Testi.Corrente == Lingua.Inglese ? "en" : "it")}&lat={latitudine:F6}&lon={longitudine:F6}");
             var json = await _http.GetStringAsync(url, ct).ConfigureAwait(false);
             _ultimaRichiestaUtc = DateTime.UtcNow;
 
@@ -84,8 +85,12 @@ public sealed class RisolutoreLuoghi
 
 public static class NomeLuogo
 {
-    /// <summary>Cella di ~100 m (3 decimali): foto scattate nello stesso posto condividono il nome.</summary>
+    /// <summary>
+    /// Cella di ~100 m (3 decimali): foto scattate nello stesso posto condividono il nome. I nomi inglesi
+    /// hanno la loro chiave ("en|"): cambiando lingua si chiedono di nuovo, senza toccare quelli italiani già salvati.
+    /// </summary>
     public static string Chiave(double latitudine, double longitudine) =>
+        (Testi.Corrente == Lingua.Inglese ? "en|" : "") +
         string.Create(CultureInfo.InvariantCulture, $"{Math.Round(latitudine, 3):F3},{Math.Round(longitudine, 3):F3}");
 
     /// <summary>

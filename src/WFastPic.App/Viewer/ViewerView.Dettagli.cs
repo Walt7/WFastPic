@@ -1,6 +1,7 @@
 using System.Globalization;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using static WFastPic.Core.Localizzazione.Testi;
 
 namespace WFastPic.App;
 
@@ -10,8 +11,6 @@ namespace WFastPic.App;
 /// </summary>
 public sealed partial class ViewerView
 {
-    private static readonly CultureInfo Italiano = CultureInfo.GetCultureInfo("it-IT");
-
     // ---------------------------------------------------------------- colonne comprimibili
 
     /// <summary>Ricordate tra una sessione e l'altra (MainWindow le salva nelle impostazioni).</summary>
@@ -46,18 +45,18 @@ public sealed partial class ViewerView
     {
         if (foto.CaptureDate is DateTime scatto)
         {
-            var giorno = scatto.ToString("dddd", Italiano);
-            ViewerGiornoSettimanaText.Text = char.ToUpper(giorno[0], Italiano) + giorno[1..];
-            ViewerDataText.Text = scatto.ToString("d MMMM yyyy", Italiano);
-            ViewerOraText.Text = scatto.ToString("HH:mm:ss", Italiano);
+            var giorno = scatto.ToString("dddd", Cultura);
+            ViewerGiornoSettimanaText.Text = char.ToUpper(giorno[0], Cultura) + giorno[1..];
+            ViewerDataText.Text = scatto.ToString("d MMMM yyyy", Cultura);
+            ViewerOraText.Text = scatto.ToString("HH:mm:ss", Cultura);
         }
         else
         {
             // Senza EXIF: si dice chiaramente che la data è quella del file, non dello scatto.
             var file = foto.LastWriteUtc.ToLocalTime();
-            ViewerGiornoSettimanaText.Text = "Data di scatto sconosciuta";
-            ViewerDataText.Text = $"File modificato {file.ToString("dddd d MMMM yyyy", Italiano)}";
-            ViewerOraText.Text = file.ToString("HH:mm:ss", Italiano);
+            ViewerGiornoSettimanaText.Text = T("Data di scatto sconosciuta");
+            ViewerDataText.Text = T("File modificato {0}", file.ToString("dddd d MMMM yyyy", Cultura));
+            ViewerOraText.Text = file.ToString("HH:mm:ss", Cultura);
         }
 
         ViewerFileNomeText.Text = foto.PathRelativo;
@@ -65,14 +64,14 @@ public sealed partial class ViewerView
         ViewerFileInfoText.Text = $"{DimensioneLeggibile(foto.FileSize)} · {estensione}";
 
         ViewerRafficaInfoText.Visibility = foto.HasGroup ? Visibility.Visible : Visibility.Collapsed;
-        ViewerRafficaInfoText.Text = foto.HasGroup ? $"Raffica: foto {foto.PosizioneNelGruppo} di {foto.DimensioneGruppo}" : "";
+        ViewerRafficaInfoText.Text = foto.HasGroup ? T("Raffica: foto {0} di {1}", foto.PosizioneNelGruppo, foto.DimensioneGruppo) : "";
     }
 
     private static string DimensioneLeggibile(long byteFile) => byteFile switch
     {
-        >= 1024 * 1024 => string.Format(Italiano, "{0:0.0} MB", byteFile / (1024.0 * 1024)),
-        >= 1024 => string.Format(Italiano, "{0:0} KB", byteFile / 1024.0),
-        _ => $"{byteFile} byte",
+        >= 1024 * 1024 => string.Format(Cultura, "{0:0.0} MB", byteFile / (1024.0 * 1024)),
+        >= 1024 => string.Format(Cultura, "{0:0} KB", byteFile / 1024.0),
+        _ => T("{0} byte", byteFile),
     };
 
     // ---------------------------------------------------------------- raffica accanto alla foto

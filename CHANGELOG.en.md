@@ -4,6 +4,17 @@ What is new in WFastPic, version by version. The newest is on top. ([Italiano](C
 Technical details (bug causes, files touched) are in [`doc/correzioni-e-novita.md`](doc/correzioni-e-novita.md) (in Italian).
 The app interface is in Italian: names of buttons and menus below are given as they appear in the app.
 
+## [0.9.2] — 2026-10-10
+
+### New
+- **App in Italian and English**: the whole interface (menus, dialogs, messages, maps, dates) has an
+  English version. At startup it follows the Windows language; change it from "About" (bottom right →
+  Language: Automatic / Italiano / English), applied at the next start. Place names on the map follow the
+  language (names already saved stay in Italian; in English they are requested again).
+- **New icon**: the sun is now a lens-sun, with a ring, an aperture and rays like the blades of a lens.
+- README with the usual GitHub badges; the project presents itself as a tribute to Picasa (not affiliated
+  with Google).
+
 ## [0.9.1] — 2026-10-10
 
 ### New

@@ -114,7 +114,7 @@ Aggiunte fuori piano, su richiesta esplicita durante lo sviluppo:
   nel sidecar all'apertura della cartella (`SostituisciPersona`). Dettagli in `doc/correzioni-e-novita.md`.
   Senza l'opzione resta il rilevatore di Windows (solo volti, per ritagli e filtro "Con volti").
 - Proporzioni del ritaglio: anche "originale" (quelle della foto).
-- Versione dell'app nel `<Version>` del csproj, mostrata nel titolo della finestra ("v. 0.9.1");
+- Versione dell'app nel `<Version>` del csproj, mostrata nel titolo della finestra ("v. 0.9.2");
   novità di ogni versione in `CHANGELOG.md`.
 - Griglia divisa per giorni (opzionale, "Per giorni"): vista raggruppata allineata a `_visibili`,
   che resta l'unico elenco di riferimento.
@@ -223,6 +223,18 @@ Nota: `Z`/`F` zoom, `M` riproduci video, `Ctrl+C/V` copia ricetta — presenti n
 
 ## Convenzioni per chi implementa
 
+- **Testi dell'interfaccia in italiano e inglese** (`WFastPic.Core.Localizzazione`): il testo italiano è la
+  chiave. Nel codice si scrive `T("Apri cartella…")`; con valori `T("{0} di {1}", a, b)` (formato composto,
+  mai `T($"…")`); i conteggi di foto con `Foto(n)` ("1 photo"/"340 photos"); le date con `Cultura`
+  (it-IT / en-GB), non con `CultureInfo` fisse. Ogni testo nuovo ha la sua voce inglese in
+  `TestiEn.*.cs`, altrimenti `TraduzioniTests` fallisce (controlla anche i testi letterali negli XAML e che
+  i segnaposto `{0}` coincidano). Lo XAML resta in italiano e viene tradotto da `Localizzatore.Applica` dopo
+  `InitializeComponent()`; dentro i `DataTemplate` si usa `{x:Bind local:Etichette.…}`. Nelle pagine HTML
+  delle mappe i testi sono `{{T("…")}}` (stringhe raw interpolate) o `@@testo@@` + `Segnaposti()`. La
+  lingua si sceglie all'avvio (`Testi.Risolvi`, preferenza "auto"/"it"/"en" in `settings.json`) e non
+  cambia mentre l'app gira. I test non vanno in parallelo (la lingua è uno stato globale).
+- Icone e logo: `assets/sorgenti/` (`python assets/sorgenti/genera-icone.py` rigenera `icon-*.png`,
+  `icon.ico`, `logo.png`).
 - Il viewer (`Viewer/ViewerView*`) non tocca i campi di `MainWindow`: quello che gli serve dalla
   finestra (elenco visibile, sidecar, selezione, miniature, stato/rating, nomi dei luoghi) passa da
   `IViewerHost`; la finestra lo usa con `Viewer.Apri/Chiudi/IsAperto/SalvaRicettaCorrente` e l'evento

@@ -6,6 +6,9 @@ public sealed record Impostazioni(int DimensioneCellaGriglia = 160)
 {
     public ImpostazioniExport Export { get; init; } = new();
 
+    /// <summary>"auto" (lingua di Windows), "it" o "en": si applica al prossimo avvio.</summary>
+    public string Lingua { get; init; } = "auto";
+
     /// <summary>Nomi dei luoghi chiesti a OpenStreetMap (le coordinate escono dal PC); spento = solo cache.</summary>
     public bool NomiLuoghiOnline { get; init; } = true;
 

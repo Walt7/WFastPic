@@ -4,8 +4,20 @@
 
 # WFastPic
 
+<p align="center">
+  <a href="https://github.com/Walt7/WFastPic/releases/latest"><img src="https://img.shields.io/github/v/release/Walt7/WFastPic?label=release&color=2ea44f" alt="Ultima release"></a>
+  <a href="https://github.com/Walt7/WFastPic/releases"><img src="https://img.shields.io/github/downloads/Walt7/WFastPic/total?color=blue" alt="Download"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/Walt7/WFastPic" alt="Licenza MIT"></a>
+  <img src="https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0078D6?logo=windows&logoColor=white" alt="Windows 10 e 11">
+  <img src="https://img.shields.io/badge/.NET-10-512BD4?logo=dotnet&logoColor=white" alt=".NET 10">
+  <img src="https://img.shields.io/badge/WinUI-3-0078D6" alt="WinUI 3">
+  <img src="https://img.shields.io/badge/lingua-IT%20%7C%20EN-orange" alt="Italiano e inglese">
+  <a href="https://github.com/Walt7/WFastPic/commits/master"><img src="https://img.shields.io/github/last-commit/Walt7/WFastPic" alt="Ultimo commit"></a>
+  <a href="https://github.com/Walt7/WFastPic/stargazers"><img src="https://img.shields.io/github/stars/Walt7/WFastPic?style=flat&logo=github" alt="Stelle"></a>
+</p>
+
 **Un tributo open source a Picasa, per Windows: scegliere e sistemare in fretta centinaia di foto.**
-Versione attuale: **0.9.1** · [Scarica](https://github.com/Walt7/WFastPic/releases/latest) ·
+Versione attuale: **0.9.2** · [Scarica](https://github.com/Walt7/WFastPic/releases/latest) ·
 [novità](CHANGELOG.md) · [English version](README.en.md) · [English below](#english)
 
 Google ha smesso di sviluppare Picasa nel 2016 e non legge le foto HEIC dei telefoni di oggi. WFastPic è un omaggio al suo modo di lavorare — cartelle per anno, la barra spaziatrice

@@ -5,6 +5,7 @@ using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
 using WFastPic.Core.Decoding;
 using WFastPic.Core.Processing;
+using static WFastPic.Core.Localizzazione.Testi;
 
 namespace WFastPic.App;
 
@@ -88,15 +89,15 @@ public sealed partial class ViewerView
             ViewerSuggerimentiList.ItemsSource = risultato.Miniature.Select(m => new SuggerimentoRitaglioUi
             {
                 Anteprima = CreaBitmap(m.Miniatura.Bgra, m.Miniatura.Larghezza, m.Miniatura.Altezza),
-                Etichetta = m.Proposta.Etichetta,
+                Etichetta = T(m.Proposta.Etichetta),
                 Ritaglio = m.Proposta,
             }).ToList();
 
             ViewerSuggerimentiVolti.Text = risultato.Volti switch
             {
                 0 => "",
-                1 => "Tiene conto di 1 volto.",
-                var n => $"Tiene conto di {n} volti.",
+                1 => T("Tiene conto di 1 volto."),
+                var n => T("Tiene conto di {0} volti.", n),
             };
             ViewerSuggerimentiVolti.Visibility = risultato.Volti > 0 ? Visibility.Visible : Visibility.Collapsed;
         }

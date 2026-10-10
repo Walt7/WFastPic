@@ -7,6 +7,7 @@ using Microsoft.UI.Xaml.Media.Imaging;
 using WFastPic.Core.Library;
 using WFastPic.Core.Persistence;
 using WFastPic.Core.Persone;
+using static WFastPic.Core.Localizzazione.Testi;
 
 namespace WFastPic.App;
 
@@ -103,7 +104,7 @@ public partial class MainWindow
         if (db is null || _riconoscimentoPersone != true)
         {
             PersoneList.ItemsSource = null;
-            PersoneStatoText.Text = _riconoscimentoPersone == true ? "" : "Attiva il riconoscimento per raggruppare i volti per persona.";
+            PersoneStatoText.Text = _riconoscimentoPersone == true ? "" : T("Attiva il riconoscimento per raggruppare i volti per persona.");
             return;
         }
 
@@ -147,8 +148,8 @@ public partial class MainWindow
         var analizzate = _tutte.Count(f => f.PersoneAnalizzate);
         var quiQualcuno = elenco.Any(e => e.Persona.Foto.Count > 0);
         PersoneStatoText.Text = analizzate < _tutte.Count
-            ? (quiQualcuno ? $"Analisi in corso: {analizzate} di {_tutte.Count} foto" : "Analisi delle foto in corso…")
-            : quiQualcuno ? "" : "Nessun gruppo di volti trovato in questa cartella.";
+            ? (quiQualcuno ? T("Analisi in corso: {0} di {1}", analizzate, Foto(_tutte.Count)) : T("Analisi delle foto in corso…"))
+            : quiQualcuno ? "" : T("Nessun gruppo di volti trovato in questa cartella.");
 
         if (_personaDaFiltrare is { } daFiltrare && StessoPercorso(daFiltrare.Cartella, corrente))
         {
@@ -214,10 +215,10 @@ public partial class MainWindow
             if (totale == 0) continue; // nome rimasto senza volti in nessuna cartella nota
 
             var proposte = qui.Where(v => v.Stato == StatoPersona.Proposto).Select(v => v.Id).ToList();
-            var parti = new List<string> { $"{totale} foto" };
-            if (foto.Count == 0) parti.Add(altrove.Count == 1 ? ArchivioCartelle.Nome(altrove[0].Cartella) : $"{altrove.Count} cartelle");
-            else if (altrove.Count > 0) parti.Add($"{foto.Count} qui");
-            if (proposte.Count > 0) parti.Add($"{proposte.Count} da confermare");
+            var parti = new List<string> { Foto(totale) };
+            if (foto.Count == 0) parti.Add(altrove.Count == 1 ? ArchivioCartelle.Nome(altrove[0].Cartella) : T("{0} cartelle", altrove.Count));
+            else if (altrove.Count > 0) parti.Add(T("{0} qui", foto.Count));
+            if (proposte.Count > 0) parti.Add(T("{0} da confermare", proposte.Count));
 
             risultato.Add((new PersonaUi
             {
@@ -244,8 +245,8 @@ public partial class MainWindow
             var foto = gruppo.Select(v => v.PhotoId).ToHashSet();
             risultato.Add((new PersonaUi
             {
-                Nome = "Senza nome",
-                Dettaglio = $"{foto.Count} foto",
+                Nome = T("Senza nome"),
+                Dettaglio = Foto(foto.Count),
                 PersonaId = null,
                 Volti = gruppo.Select(v => v.Id).ToList(),
                 Proposte = [],
@@ -299,7 +300,7 @@ public partial class MainWindow
 
     private void FiltraPersona(PersonaUi persona)
     {
-        _filtroPersona = (persona.SenzaNome ? "Senza nome" : persona.Nome, persona.Foto);
+        _filtroPersona = (persona.SenzaNome ? T("Senza nome") : persona.Nome, persona.Foto);
         _filtroPersonaId = persona.PersonaId;
         FiltroPersonaText.Text = _filtroPersona.Value.Nome;
         FiltroPersonaButton.Visibility = Visibility.Visible;
@@ -362,16 +363,16 @@ public partial class MainWindow
 
         if (persona.SenzaNome)
         {
-            Voce(menu.Items, "Dai un nome…", "", () => _ = DaiNomeAsync(persona, null));
-            Voce(menu.Items, "Ignora questi volti", "", () => _ = AssegnaEAggiornaAsync(persona.Volti, null, StatoPersona.Rifiutato));
+            Voce(menu.Items, T("Dai un nome…"), "", () => _ = DaiNomeAsync(persona, null));
+            Voce(menu.Items, T("Ignora questi volti"), "", () => _ = AssegnaEAggiornaAsync(persona.Volti, null, StatoPersona.Rifiutato));
         }
         else
         {
             if (persona.Proposte.Count > 0)
-                Voce(menu.Items, $"Conferma le proposte ({persona.Proposte.Count})", "", () => _ = ConfermaProposteAsync(persona));
-            Voce(menu.Items, "Rinomina…", "", () => _ = DaiNomeAsync(persona, persona.Nome));
+                Voce(menu.Items, T("Conferma le proposte ({0})", persona.Proposte.Count), "", () => _ = ConfermaProposteAsync(persona));
+            Voce(menu.Items, T("Rinomina…"), "", () => _ = DaiNomeAsync(persona, persona.Nome));
             if (persona.MiniatureVolti.Count > 1)
-                Voce(menu.Items, "Cambia immagine…", "", () => _ = CambiaImmagineAsync(persona));
+                Voce(menu.Items, T("Cambia immagine…"), "", () => _ = CambiaImmagineAsync(persona));
         }
 
         var altre = _personeCorrenti.Where(p => p != persona).ToList();
@@ -380,7 +381,7 @@ public partial class MainWindow
             menu.Items.Add(new MenuFlyoutSeparator());
             // Posizione relativa alla lista (l'elemento cliccato può essere riciclato a menu chiuso).
             var posizione = e.GetPosition(PersoneList);
-            Voce(menu.Items, "È la stessa persona di…", "\uE71B", () => MostraSelettoreUnione(persona, altre, posizione));
+            Voce(menu.Items, T("È la stessa persona di…"), "\uE71B", () => MostraSelettoreUnione(persona, altre, posizione));
         }
 
         menu.ShowAt(e.OriginalSource as FrameworkElement, e.GetPosition(e.OriginalSource as UIElement));
@@ -434,7 +435,7 @@ public partial class MainWindow
         var contenuto = new StackPanel { Spacing = 8 };
         contenuto.Children.Add(new TextBlock
         {
-            Text = persona.SenzaNome ? "Questo gruppo è la stessa persona di…" : $"«{persona.Nome}» è la stessa persona di…",
+            Text = persona.SenzaNome ? T("Questo gruppo è la stessa persona di…") : T("«{0}» è la stessa persona di…", persona.Nome),
             FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
         });
         contenuto.Children.Add(elenco);
@@ -445,7 +446,7 @@ public partial class MainWindow
     private async Task DaiNomeAsync(PersonaUi persona, string? nomeAttuale)
     {
         var nomiNoti = Archivio.Elenco().Select(p => p.Nome).ToList();
-        var casella = new AutoSuggestBox { PlaceholderText = "Nome della persona", Text = nomeAttuale ?? "", Width = 300 };
+        var casella = new AutoSuggestBox { PlaceholderText = T("Nome della persona"), Text = nomeAttuale ?? "", Width = 300 };
         casella.TextChanged += (s, a) =>
         {
             if (a.Reason != AutoSuggestionBoxTextChangeReason.UserInput) return;
@@ -459,18 +460,18 @@ public partial class MainWindow
         contenuto.Children.Add(new TextBlock
         {
             Text = nomeAttuale is null
-                ? $"I {persona.Volti.Count} volti del gruppo prendono questo nome (anche di una persona già nota); WFastPic lo proporrà anche sui volti somiglianti, in tutte le cartelle."
-                : "Rinomina la persona in tutte le cartelle. Con il nome di un'altra persona, le due si uniscono.",
+                ? T("I {0} volti del gruppo prendono questo nome (anche di una persona già nota); WFastPic lo proporrà anche sui volti somiglianti, in tutte le cartelle.", persona.Volti.Count)
+                : T("Rinomina la persona in tutte le cartelle. Con il nome di un'altra persona, le due si uniscono."),
             TextWrapping = TextWrapping.Wrap, Foreground = new SolidColorBrush(Microsoft.UI.Colors.Gray), MaxWidth = 320,
         });
 
         var dialogo = new ContentDialog
         {
             XamlRoot = Content.XamlRoot,
-            Title = nomeAttuale is null ? "Chi è?" : "Rinomina",
+            Title = nomeAttuale is null ? T("Chi è?") : T("Rinomina"),
             Content = contenuto,
-            PrimaryButtonText = "Salva",
-            CloseButtonText = "Annulla",
+            PrimaryButtonText = T("Salva"),
+            CloseButtonText = T("Annulla"),
             DefaultButton = ContentDialogButton.Primary,
         };
 
@@ -492,7 +493,7 @@ public partial class MainWindow
             }
 
             try { Archivio.Rinomina(id, nome); }
-            catch (Microsoft.Data.Sqlite.SqliteException) { StatusText.Text = $"Esiste già una persona chiamata «{nome}»."; return; }
+            catch (Microsoft.Data.Sqlite.SqliteException) { StatusText.Text = T("Esiste già una persona chiamata «{0}».", nome); return; }
             if (_filtroPersona is { } f && f.Nome == nomeAttuale) FiltroPersonaText.Text = nome;
             AggiornaPannelloPersone();
             return;
@@ -509,7 +510,7 @@ public partial class MainWindow
         SeguiFiltroSe(persona, nuovaId, nome);
         await AssegnaEAggiornaAsync(persona.Volti, nuovaId, StatoPersona.Confermato);
 
-        ImpostaAnnulla(dbCorrente, $"Nome «{nome}» dato a {persona.Volti.Count} volti", async () =>
+        ImpostaAnnulla(dbCorrente, T("Nome «{0}» dato a {1} volti", nome, persona.Volti.Count), async () =>
         {
             await Task.Run(() => RipristinaVolti(dbCorrente, voltiPrima));
             if (esisteva) Archivio.ImpostaCampioni(nuovaId, campioniPrima); else Archivio.Elimina(nuovaId);
@@ -524,7 +525,7 @@ public partial class MainWindow
             Title = titolo,
             Content = new TextBlock { Text = testo, TextWrapping = TextWrapping.Wrap, MaxWidth = 440 },
             PrimaryButtonText = pulsante,
-            CloseButtonText = "Annulla",
+            CloseButtonText = T("Annulla"),
             DefaultButton = ContentDialogButton.Close,
         };
         return await dialogo.ShowAsync() == ContentDialogResult.Primary;
@@ -583,7 +584,7 @@ public partial class MainWindow
         {
             await DaiNomeAsync(new PersonaUi
             {
-                Nome = "Senza nome",
+                Nome = T("Senza nome"),
                 Dettaglio = "",
                 Volti = [.. cliccata.Volti, .. altra.Volti],
                 Proposte = [],
@@ -606,7 +607,7 @@ public partial class MainWindow
             AggiungiCampioni(id, senzaNome.Impronte);
             SeguiFiltroSe(senzaNome, id, conNome.Nome);
             await AssegnaEAggiornaAsync(senzaNome.Volti, id, StatoPersona.Confermato);
-            ImpostaAnnulla(db, $"Gruppo senza nome unito a «{conNome.Nome}»", async () =>
+            ImpostaAnnulla(db, T("Gruppo senza nome unito a «{0}»", conNome.Nome), async () =>
             {
                 await Task.Run(() => RipristinaVolti(db, voltiPrima));
                 Archivio.ImpostaCampioni(id, campioniPrima);
@@ -617,16 +618,16 @@ public partial class MainWindow
         var dialogo = new ContentDialog
         {
             XamlRoot = Content.XamlRoot,
-            Title = "Unisci le persone",
+            Title = T("Unisci le persone"),
             Content = new TextBlock
             {
                 TextWrapping = TextWrapping.Wrap, MaxWidth = 380,
-                Text = $"«{cliccata.Nome}» e «{altra.Nome}» sono la stessa persona? Scegli il nome da tenere: " +
-                       "l'unione vale in tutte le cartelle e puoi annullarla subito dopo.",
+                Text = T("«{0}» e «{1}» sono la stessa persona? Scegli il nome da tenere: " +
+                       "l'unione vale in tutte le cartelle e puoi annullarla subito dopo.", cliccata.Nome, altra.Nome),
             },
-            PrimaryButtonText = $"Tieni «{cliccata.Nome}»",
-            SecondaryButtonText = $"Tieni «{altra.Nome}»",
-            CloseButtonText = "Annulla",
+            PrimaryButtonText = T("Tieni «{0}»", cliccata.Nome),
+            SecondaryButtonText = T("Tieni «{0}»", altra.Nome),
+            CloseButtonText = T("Annulla"),
             DefaultButton = ContentDialogButton.Primary,
         };
         var scelta = await dialogo.ShowAsync();
@@ -652,7 +653,7 @@ public partial class MainWindow
         Archivio.Unisci(assorbitaId, tieniId);
         SeguiFiltroSe(assorbita, tieniId, tieniNome);
 
-        ImpostaAnnulla(db, $"«{assorbita.Nome}» unita a «{tieniNome}»", () =>
+        ImpostaAnnulla(db, T("«{0}» unita a «{1}»", assorbita.Nome, tieniNome), () =>
         {
             Archivio.AnnullaUnione(assorbitaId);
             Archivio.ImpostaCampioni(tieniId, campioniTieni);
@@ -666,9 +667,9 @@ public partial class MainWindow
     {
         if (persona.PersonaId is not long id) return;
         if (!await ChiediConfermaAsync(
-                $"Eliminare «{persona.Nome}»?",
-                "Il nome viene tolto da tutte le foto, in tutte le cartelle: i volti tornano senza nome. Le foto non vengono toccate.",
-                "Elimina"))
+                T("Eliminare «{0}»?", persona.Nome),
+                T("Il nome viene tolto da tutte le foto, in tutte le cartelle: i volti tornano senza nome. Le foto non vengono toccate."),
+                T("Elimina")))
             return;
 
         NascondiAnnullaPersone(); // un annulla precedente potrebbe riferirsi a questa persona
@@ -695,10 +696,10 @@ public partial class MainWindow
         var dialogo = new ContentDialog
         {
             XamlRoot = Content.XamlRoot,
-            Title = $"Immagine di {persona.Nome}",
+            Title = T("Immagine di {0}", persona.Nome),
             Content = scelte,
-            PrimaryButtonText = "Usa questa",
-            CloseButtonText = "Annulla",
+            PrimaryButtonText = T("Usa questa"),
+            CloseButtonText = T("Annulla"),
             DefaultButton = ContentDialogButton.Primary,
         };
         if (await dialogo.ShowAsync() != ContentDialogResult.Primary) return;
@@ -762,10 +763,10 @@ public partial class MainWindow
         if (db is null) return;
 
         if (!await ChiediConfermaAsync(
-                "Rianalizzare le persone di questa cartella?",
-                "Volti e impronte di tutte le foto della cartella vengono ricalcolati da zero, in background. " +
-                "Le persone con un nome restano: i loro volti verranno riproposti in automatico, da confermare.",
-                "Rianalizza"))
+                T("Rianalizzare le persone di questa cartella?"),
+                T("Volti e impronte di tutte le foto della cartella vengono ricalcolati da zero, in background. " +
+                "Le persone con un nome restano: i loro volti verranno riproposti in automatico, da confermare."),
+                T("Rianalizza")))
             return;
 
         FermaRicercaVolti();

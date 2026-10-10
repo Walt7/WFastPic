@@ -6,6 +6,8 @@ using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.Web.WebView2.Core;
 using Windows.System;
+using WFastPic.Core.Localizzazione;
+using static WFastPic.Core.Localizzazione.Testi;
 
 namespace WFastPic.App;
 
@@ -89,7 +91,7 @@ public sealed partial class MainWindow
     private async Task EseguiScansioneGpsAsync(bool forzaTutte = false)
     {
         MapLoadingRing.IsActive = true;
-        MapStatusText.Text = "Scansione metadati GPS in corso…";
+        MapStatusText.Text = T("Scansione metadati GPS in corso…");
         MapInfoBar.IsOpen = false;
 
         // Le posizioni corrette a mano nell'editor non si riscansionano mai.
@@ -142,17 +144,17 @@ public sealed partial class MainWindow
             var selezionateSenzaGps = _tutte.Count(p => p.IsSelected && !p.HasGps);
             if (selezionateSenzaGps > 0)
             {
-                MapStatusText.Text = $"{fotoGps.Count} selezionate su mappa ({selezionateSenzaGps} senza GPS)";
+                MapStatusText.Text = T("{0} selezionate su mappa ({1} senza GPS)", fotoGps.Count, selezionateSenzaGps);
             }
             else
             {
-                MapStatusText.Text = $"{fotoGps.Count} foto selezionate su mappa";
+                MapStatusText.Text = T("{0} selezionate su mappa", Foto(fotoGps.Count));
             }
         }
         else
         {
             fotoGps = _tutte.Where(p => p.HasGps).ToList();
-            MapStatusText.Text = $"{fotoGps.Count} foto geolocalizzate";
+            MapStatusText.Text = T("{0} geolocalizzate", Foto(fotoGps.Count));
         }
 
         if (fotoGps.Count == 0)
@@ -160,11 +162,11 @@ public sealed partial class MainWindow
             MapInfoBar.IsOpen = true;
             if (_mapMostraSoloSelezionate && _conteggioSelezionate > 0)
             {
-                MapInfoBar.Message = "Nessuna delle foto selezionate dispone di coordinate GPS. Clicca 'Tutte le foto' o 'Riscansiona GPS'.";
+                MapInfoBar.Message = T("Nessuna delle foto selezionate dispone di coordinate GPS. Clicca 'Tutte le foto' o 'Riscansiona GPS'.");
             }
             else
             {
-                MapInfoBar.Message = "Nessuna foto con coordinate GPS trovata in questa cartella.";
+                MapInfoBar.Message = T("Nessuna foto con coordinate GPS trovata in questa cartella.");
             }
             MapWebView.Visibility = Visibility.Collapsed;
             return;
@@ -195,8 +197,8 @@ public sealed partial class MainWindow
         }
         catch (Exception ex)
         {
-            MapInfoBar.Title = "Errore mappa";
-            MapInfoBar.Message = $"Impossibile caricare la mappa: {ex.Message}";
+            MapInfoBar.Title = T("Errore mappa");
+            MapInfoBar.Message = T("Impossibile caricare la mappa: {0}", ex.Message);
             MapInfoBar.IsOpen = true;
         }
         finally
@@ -277,7 +279,7 @@ public sealed partial class MainWindow
                     lat = f.Latitude.Value,
                     lon = f.Longitude.Value,
                     title = f.PathRelativo,
-                    date = f.CaptureDate?.ToString("dd/MM/yyyy HH:mm") ?? "Data sconosciuta",
+                    date = f.CaptureDate?.ToString("dd/MM/yyyy HH:mm") ?? T("Data sconosciuta"),
                     isSelected = f.IsSelected,
                     thumb = "thumbcache/" + Uri.EscapeDataString(ThumbnailCacheLoader.NomeFileCache(f)),
                     dir = f.GpsManuale ? null : f.Direction,
@@ -289,7 +291,7 @@ public sealed partial class MainWindow
 
         return $$"""
             <!DOCTYPE html>
-            <html lang="it">
+            <html lang="{{(Testi.Corrente == Lingua.Inglese ? "en" : "it")}}">
             <head>
                 <meta charset="utf-8" />
                 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -339,10 +341,10 @@ public sealed partial class MainWindow
                     });
                     const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
                         maxZoom: 19,
-                        attribution: 'Immagini &copy; Esri, Maxar, Earthstar Geographics'
+                        attribution: '{{T("Immagini")}} &copy; Esri, Maxar, Earthstar Geographics'
                     });
                     stradale.addTo(map);
-                    L.control.layers({ 'Mappa': stradale, 'Satellite': satellite }, null, { position: 'topright' }).addTo(map);
+                    L.control.layers({ '{{T("Mappa")}}': stradale, '{{T("Satellite")}}': satellite }, null, { position: 'topright' }).addTo(map);
                     const GOCCIA = 'M12 0C5.4 0 0 5.4 0 12c0 8.6 10.4 22.4 11.2 23.5a1 1 0 0 0 1.6 0C13.6 34.4 24 20.6 24 12 24 5.4 18.6 0 12 0z';
 
                     function svgGoccia(w, h, colore, bordo) {
@@ -397,7 +399,7 @@ public sealed partial class MainWindow
 
                     markersData.forEach(item => {
                         const marker = L.marker([item.lat, item.lon], { icon: iconaFoto(item), item: item, title: item.title });
-                        const badge = item.isSelected ? '<div class="popup-badge">★ Selezionata</div>' : '';
+                        const badge = item.isSelected ? '<div class="popup-badge">{{T("★ Selezionata")}}</div>' : '';
                         marker.bindPopup(`
                             <img class="popup-img" src="${item.thumb}" onerror="this.style.display='none'" />
                             ${badge}
@@ -406,7 +408,7 @@ public sealed partial class MainWindow
                             <div class="popup-date">📅 ${escape(item.date)}</div>
                             <div class="popup-date">📍 ${item.lat.toFixed(5)}, ${item.lon.toFixed(5)}</div>
                             <div class="popup-righe" id="righe-${item.id}"></div>
-                            <button class="popup-btn" onclick="openPhoto(${item.id})">Apri nel Viewer</button>`, { minWidth: 220 });
+                            <button class="popup-btn" onclick="openPhoto(${item.id})">{{T("Apri nel Viewer")}}</button>`, { minWidth: 220 });
                         // Luogo, dispositivo, altitudine, direzione: chiesti all'app solo all'apertura del popup.
                         marker.on('popupopen', () => {
                             if (dettagli[item.id]) riempi(dettagli[item.id]);
