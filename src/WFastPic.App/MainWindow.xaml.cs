@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Threading;
 using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
@@ -50,6 +51,7 @@ public partial class MainWindow : Window
         InitializeComponent();
         Title = "WFastPic";
         AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "icon.ico"));
+        _cellSize = Math.Clamp(ImpostazioniStore.Carica().DimensioneCellaGriglia, CellSizeMin, CellSizeMax);
         Griglia.ItemsSource = _visibili;
         AggiornaStatusBar();
         AggiornaFiltroUI();
@@ -64,14 +66,7 @@ public partial class MainWindow : Window
 
         InizializzaViewer();
 
-        Closed += async (s, e) =>
-        {
-            if (_selectionManager is not null)
-            {
-                await _selectionManager.DisposeAsync();
-                _db?.Dispose();
-            }
-        };
+        Closed += (s, e) => ChiudiSessione();
 
         if (_cartelleRecenti.Count > 0 && Directory.Exists(_cartelleRecenti[0]))
         {
@@ -81,6 +76,32 @@ public partial class MainWindow : Window
                 await CaricaCartellaAsync(cartellaIniziale);
             });
         }
+    }
+
+    /// <summary>
+    /// Sincrono di proposito: con un handler async il processo può terminare prima che la coda di
+    /// scrittura sia svuotata, perdendo l'ultimo Space/Delete/rating. Il writer gira sul thread pool
+    /// e non ha bisogno del thread UI, quindi l'attesa non va in deadlock.
+    /// </summary>
+    private void ChiudiSessione()
+    {
+        ImpostazioniStore.Salva(new Impostazioni(_cellSize));
+        _thumbnailLoader?.Annulla();
+
+        var selectionManager = _selectionManager;
+        var db = _db;
+        _selectionManager = null;
+        _db = null;
+
+        try
+        {
+            selectionManager?.DisposeAsync().AsTask().Wait(TimeSpan.FromSeconds(3));
+        }
+        catch (Exception)
+        {
+            // Errori di persistenza già notificati da ScritturaFallita: in chiusura non c'è altro da fare.
+        }
+        db?.Dispose();
     }
 
     private async void ApriCartellaButton_Click(object sender, RoutedEventArgs e)
@@ -216,12 +237,12 @@ public partial class MainWindow : Window
             _thumbnailLoader = null;
         }
 
-        if (_selectionManager is not null)
-        {
-            await _selectionManager.DisposeAsync();
-            _selectionManager.ScritturaFallita -= SelectionManager_ScritturaFallita;
-        }
-        _db?.Dispose();
+        // Si staccano subito le risorse correnti: un secondo caricamento partito mentre questo è in
+        // attesa (doppio click su una recente) non deve rilasciarle una seconda volta.
+        var selectionManagerPrecedente = _selectionManager;
+        var dbPrecedente = _db;
+        _selectionManager = null;
+        _db = null;
 
         _tutte.Clear();
         _visibili.Clear();
@@ -232,16 +253,71 @@ public partial class MainWindow : Window
         _filtroIndice = 0;
         _miniatureCompletate = 0;
         _miniatureTotali = 0;
+        AggiornaAvanzamentoMiniature();
 
-        using var overlayDelay = MostraCaricamentoConRitardo("Scansione cartella…");
+        using var overlayDelay = MostraCaricamentoConRitardo("Lettura foto…");
 
-        var (db, records) = await Task.Run(() =>
+        // Progress<T> riporta sul thread UI; si aggiorna al massimo ogni 100ms per non intasare il
+        // dispatcher con un evento per file su cartelle da migliaia di foto.
+        var cronometroScansione = Stopwatch.StartNew();
+        var ultimoAggiornamento = TimeSpan.MinValue;
+        var progressoScansione = new Progress<(int Elaborate, int Totale)>(p =>
         {
-            var scanned = FolderScanner.Scan(cartella);
-            var database = LibrarySidecarDatabase.OpenOrCreate(cartella);
-            database.SyncScan(scanned);
-            return (database, database.GetAllPhotos());
+            if (richiesta != _richiestaCaricamentoCartella) return;
+            var adesso = cronometroScansione.Elapsed;
+            if (p.Elaborate < p.Totale && adesso - ultimoAggiornamento < TimeSpan.FromMilliseconds(100)) return;
+            ultimoAggiornamento = adesso;
+
+            CaricamentoProgressBar.IsIndeterminate = p.Totale == 0;
+            CaricamentoProgressBar.Maximum = Math.Max(1, p.Totale);
+            CaricamentoProgressBar.Value = p.Elaborate;
+            CaricamentoDettaglioText.Text = StimaAvanzamento.Descrivi(p.Elaborate, p.Totale, adesso);
         });
+
+        if (selectionManagerPrecedente is not null)
+        {
+            selectionManagerPrecedente.ScritturaFallita -= SelectionManager_ScritturaFallita;
+            await selectionManagerPrecedente.DisposeAsync();
+        }
+        dbPrecedente?.Dispose();
+
+        LibrarySidecarDatabase db;
+        IReadOnlyList<PhotoRecord> records;
+        HashSet<long> conVideo;
+        try
+        {
+            (db, records, conVideo) = await Task.Run(() =>
+            {
+                var database = LibrarySidecarDatabase.OpenOrCreate(cartella);
+                try
+                {
+                    // Come Picasa: riaprire una cartella già vista legge solo le foto nuove o modificate.
+                    var scanned = FolderScanner.Scan(cartella, database.CreaRisolutoreMetadatiNoti(), progressoScansione);
+                    database.SyncScan(scanned);
+                    var foto = database.GetAllPhotos();
+                    // File.Exists ×2 per foto: su un disco esterno con ~1300 foto non deve girare sul thread UI.
+                    var video = foto
+                        .Where(r => CompanionVideoDetector.TrovaVideoAbbinato(Path.Combine(cartella, r.PathRelativo)) is not null)
+                        .Select(r => r.Id)
+                        .ToHashSet();
+                    return (database, foto, video);
+                }
+                catch
+                {
+                    database.Dispose();
+                    throw;
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            // Cartella senza permessi, disco scollegato, DB bloccato: messaggio, mai crash.
+            if (richiesta == _richiestaCaricamentoCartella)
+            {
+                StatusText.Text = $"Impossibile aprire «{cartella}»: {ex.Message}";
+            }
+            return;
+        }
 
         if (richiesta != _richiestaCaricamentoCartella)
         {
@@ -268,7 +344,7 @@ public partial class MainWindow : Window
                 CaptureDate = record.CaptureDate,
                 Latitude = record.Latitude,
                 Longitude = record.Longitude,
-                HasVideo = CompanionVideoDetector.TrovaVideoAbbinato(percorsoCompleto) is not null,
+                HasVideo = conVideo.Contains(record.Id),
                 Stato = record.Stato,
                 Rating = record.Rating,
             };
@@ -284,6 +360,7 @@ public partial class MainWindow : Window
         ApplicaFiltro();
         AggiornaStatusBar();
         Griglia.Focus(FocusState.Programmatic);
+        _cronometroMiniature.Restart();
         _thumbnailLoader.AvviaCaricamento(_tutte);
 
         PercorsoTextBox.Text = cartella;
@@ -333,10 +410,43 @@ public partial class MainWindow : Window
 
     // --- Selezione / stato ---
 
-    private void SetStato(PhotoGridItem item, string nuovoStato)
+    private void SetStato(PhotoGridItem item, string nuovoStato) => SetStati([(item, nuovoStato)]);
+
+    /// <summary>
+    /// Applica più cambi di stato come un'unica azione utente (Ctrl+A, Shift+Space, Lascia):
+    /// un solo suono, un solo aggiornamento di griglia e status bar invece di uno per foto.
+    /// Il suono è quello del primo cambio, cioè dell'azione principale.
+    /// </summary>
+    private void SetStati(IReadOnlyList<(PhotoGridItem Item, string Stato)> modifiche)
+    {
+        string? statoSuono = null;
+        var daNascondere = new List<PhotoGridItem>();
+        var filtro = Filtri[_filtroIndice];
+
+        foreach (var (item, nuovoStato) in modifiche)
+        {
+            if (!ApplicaStato(item, nuovoStato)) continue;
+            statoSuono ??= nuovoStato;
+            if (!CorrispondeAlFiltro(item, filtro)) daNascondere.Add(item);
+        }
+
+        if (statoSuono is null) return;
+
+        ElementSoundPlayer.Play(statoSuono switch
+        {
+            StatoSelezione.Selected => ElementSoundKind.Invoke,
+            StatoSelezione.Reject => ElementSoundKind.Hide,
+            _ => ElementSoundKind.Focus,
+        });
+
+        NascondiDallaGriglia(daNascondere);
+        AggiornaStatusBar();
+    }
+
+    private bool ApplicaStato(PhotoGridItem item, string nuovoStato)
     {
         var vecchioStato = item.Stato;
-        if (vecchioStato == nuovoStato) return;
+        if (vecchioStato == nuovoStato) return false;
 
         if (vecchioStato == StatoSelezione.Selected) _conteggioSelezionate--;
         if (vecchioStato == StatoSelezione.Reject) _conteggioScarti--;
@@ -347,21 +457,57 @@ public partial class MainWindow : Window
         if (nuovoStato == StatoSelezione.Reject) _conteggioScarti++;
 
         _selectionManager?.SetStato(item.Id, nuovoStato);
+        return true;
+    }
 
-        ElementSoundPlayer.Play(nuovoStato switch
-        {
-            StatoSelezione.Selected => ElementSoundKind.Invoke,
-            StatoSelezione.Reject => ElementSoundKind.Hide,
-            _ => ElementSoundKind.Focus,
-        });
+    /// <summary>
+    /// Toglie foto dalla griglia visibile (non più nel filtro, o rimosse dalla libreria). Se tra
+    /// queste c'era la corrente, la selezione passa alla successiva rimasta (o alla precedente se
+    /// era in fondo): l'utente resta nel punto in cui stava lavorando invece di tornare in cima.
+    /// </summary>
+    private void NascondiDallaGriglia(IReadOnlyCollection<PhotoGridItem> daNascondere)
+    {
+        if (daNascondere.Count == 0) return;
 
-        if (!CorrispondeAlFiltro(item, Filtri[_filtroIndice]))
+        var rimosse = daNascondere.ToHashSet();
+        PhotoGridItem? nuovaCorrente = null;
+        if (Griglia.SelectedItem is PhotoGridItem corrente && rimosse.Contains(corrente))
         {
-            _visibili.Remove(item);
-            AssicuraSelezione();
+            var indice = _visibili.IndexOf(corrente);
+            nuovaCorrente = _visibili.Skip(indice + 1).FirstOrDefault(i => !rimosse.Contains(i))
+                ?? _visibili.Take(indice).LastOrDefault(i => !rimosse.Contains(i));
         }
 
-        AggiornaStatusBar();
+        if (rimosse.Count > _visibili.Count / 2)
+        {
+            // Rimozione massiccia (es. Ctrl+A nel filtro Scarti): ricostruire costa meno di N Remove O(n).
+            var rimaste = _visibili.Where(i => !rimosse.Contains(i)).ToList();
+            _visibili.Clear();
+            foreach (var item in rimaste) _visibili.Add(item);
+        }
+        else
+        {
+            foreach (var item in rimosse) _visibili.Remove(item);
+        }
+
+        if (nuovaCorrente is null)
+        {
+            AssicuraSelezione();
+            return;
+        }
+
+        Griglia.SelectedItem = nuovaCorrente;
+        if (ViewerOverlay.Visibility == Visibility.Visible) return;
+
+        // Il focus da tastiera era sul contenitore rimosso: senza riportarlo sulla nuova corrente
+        // ←/→ ripartirebbero da un punto indefinito. Il contenitore esiste solo dopo il layout.
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            if (Griglia.SelectedItem == nuovaCorrente && Griglia.ContainerFromItem(nuovaCorrente) is ListViewItem contenitore)
+            {
+                contenitore.Focus(FocusState.Programmatic);
+            }
+        });
     }
 
     private PhotoGridItem? _correnteEvidenziata;
@@ -390,6 +536,17 @@ public partial class MainWindow : Window
         {
             SetStato(item, item.Stato == StatoSelezione.Selected ? StatoSelezione.None : StatoSelezione.Selected);
             e.Handled = true;
+        }
+    }
+
+    // Un doppio click sul badge è un click "nervoso" sulla spunta, non una richiesta di aprire il viewer.
+    private void SelectionBadge_DoubleTapped(object sender, DoubleTappedRoutedEventArgs e) => e.Handled = true;
+
+    private void Griglia_ContainerContentChanging(ListViewBase sender, ContainerContentChangingEventArgs args)
+    {
+        if (!args.InRecycleQueue && args.Item is PhotoGridItem { Thumbnail: null } item)
+        {
+            _thumbnailLoader?.Priorita(item);
         }
     }
 
@@ -436,20 +593,35 @@ public partial class MainWindow : Window
 
     private void AggiornaStatusBar()
     {
-        var testo = $"Tutte {_tutte.Count} · Selezionate {_conteggioSelezionate} · Scarti {_conteggioScarti}";
-        if (_miniatureTotali > 0 && _miniatureCompletate < _miniatureTotali)
-        {
-            var percento = (int)(100.0 * _miniatureCompletate / _miniatureTotali);
-            testo += $" · Miniature {_miniatureCompletate}/{_miniatureTotali} ({percento}%)";
-        }
-        StatusText.Text = testo;
+        StatusText.Text = $"Tutte {_tutte.Count} · Selezionate {_conteggioSelezionate} · Scarti {_conteggioScarti}";
     }
+
+    private readonly Stopwatch _cronometroMiniature = new();
 
     private void ThumbnailLoader_ProgressoCambiato(int completate, int totale)
     {
         _miniatureCompletate = completate;
         _miniatureTotali = totale;
-        AggiornaStatusBar();
+        AggiornaAvanzamentoMiniature();
+    }
+
+    /// <summary>Barra in basso, visibile solo finché mancano miniature: la griglia resta usabile.</summary>
+    private void AggiornaAvanzamentoMiniature()
+    {
+        if (_miniatureTotali == 0 || _miniatureCompletate >= _miniatureTotali)
+        {
+            MiniaturePanel.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        // Stesso principio dell'overlay: con le miniature già in cache finisce tutto in pochi ms, niente flash.
+        if (_cronometroMiniature.Elapsed < TimeSpan.FromMilliseconds(300)) return;
+
+        MiniaturePanel.Visibility = Visibility.Visible;
+        MiniatureProgressBar.Maximum = _miniatureTotali;
+        MiniatureProgressBar.Value = _miniatureCompletate;
+        MiniatureText.Text = "Miniature " + StimaAvanzamento.Descrivi(
+            _miniatureCompletate, _miniatureTotali, _cronometroMiniature.Elapsed);
     }
 
     private void SelectionManager_ScritturaFallita(Exception ex)
@@ -468,6 +640,9 @@ public partial class MainWindow : Window
     private IDisposable MostraCaricamentoConRitardo(string messaggio)
     {
         CaricamentoText.Text = messaggio;
+        CaricamentoProgressBar.IsIndeterminate = true;
+        CaricamentoProgressBar.Value = 0;
+        CaricamentoDettaglioText.Text = "";
         var cts = new CancellationTokenSource();
         _ = MostraOverlayDopoRitardoAsync(cts.Token);
         return new AzioneAllaFine(() =>
@@ -537,14 +712,14 @@ public partial class MainWindow : Window
         {
             case VirtualKey.Space when corrente is not null && shiftPremuto && corrente.GroupId is int groupId:
                 // Un'unica azione: tiene questa foto e scarta il resto della raffica.
-                SetStato(corrente, StatoSelezione.Selected);
+                var modificheRaffica = new List<(PhotoGridItem, string)> { (corrente, StatoSelezione.Selected) };
                 if (_gruppi.TryGetValue(groupId, out var membriGruppo))
                 {
-                    foreach (var altro in membriGruppo.Where(m => m.Id != corrente.Id))
-                    {
-                        SetStato(altro, StatoSelezione.Reject);
-                    }
+                    modificheRaffica.AddRange(membriGruppo
+                        .Where(m => m.Id != corrente.Id)
+                        .Select(m => (m, StatoSelezione.Reject)));
                 }
+                SetStati(modificheRaffica);
                 e.Handled = true;
                 break;
 
@@ -583,10 +758,7 @@ public partial class MainWindow : Window
                 break;
 
             case VirtualKey.A when ctrlPremuto:
-                foreach (var item in _visibili.ToList())
-                {
-                    SetStato(item, StatoSelezione.Selected);
-                }
+                SetStati(_visibili.Select(i => (i, StatoSelezione.Selected)).ToList());
                 e.Handled = true;
                 break;
         }
@@ -610,14 +782,21 @@ public partial class MainWindow : Window
 
         var delta = e.GetCurrentPoint(Griglia).Properties.MouseWheelDelta;
         _cellSize = Math.Clamp(_cellSize + Math.Sign(delta) * CellSizeStep, CellSizeMin, CellSizeMax);
+        ApplicaDimensioneCella();
 
+        e.Handled = true;
+    }
+
+    // La dimensione salvata (ImpostazioniStore) si può applicare solo quando il pannello esiste.
+    private void Griglia_Loaded(object sender, RoutedEventArgs e) => ApplicaDimensioneCella();
+
+    private void ApplicaDimensioneCella()
+    {
         if (Griglia.ItemsPanelRoot is ItemsWrapGrid wrap)
         {
             wrap.ItemWidth = _cellSize;
             wrap.ItemHeight = _cellSize;
         }
-
-        e.Handled = true;
     }
 
     // --- Gestisci scarti… ---
@@ -629,61 +808,122 @@ public partial class MainWindow : Window
         if (_db is null) return;
 
         _rejectManagerCorrente = new RejectManager(_db);
-        _scartiCorrenti = _rejectManagerCorrente.GetScarti();
+        // Fonte di verità = stato in memoria, non il DB: la coda di scrittura può non aver ancora
+        // persistito l'ultimo Delete/Space, e una foto appena "recuperata" finirebbe nel Cestino.
+        _scartiCorrenti = _tutte
+            .Where(i => i.IsReject)
+            .Select(i => new PhotoRecord(i.Id, i.PathRelativo, i.FileSize, i.LastWriteUtc, i.CaptureDate, i.Stato, i.Rating))
+            .ToList();
 
-        ScartiSummary.Text = $"{_scartiCorrenti.Count} foto in scarto";
-        ScartiList.ItemsSource = _scartiCorrenti.Select(s => s.PathRelativo).ToList();
+        var conVideo = _tutte.Count(i => i.IsReject && i.HasVideo);
+        AggiornaDialogoScarti(conVideo > 0
+            ? $"{_scartiCorrenti.Count} foto in scarto ({conVideo} con video abbinato, che verrà spostato insieme)"
+            : $"{_scartiCorrenti.Count} foto in scarto");
 
         DialogScarti.XamlRoot = Content.XamlRoot;
         await DialogScarti.ShowAsync();
     }
 
-    private void EliminaDefinitivamenteButton_Click(object sender, RoutedEventArgs e)
+    private bool _confermaCestinoRichiesta;
+
+    private void AggiornaDialogoScarti(string riepilogo)
     {
-        if (_rejectManagerCorrente is null || _scartiCorrenti is null) return;
-        foreach (var foto in _scartiCorrenti)
+        _confermaCestinoRichiesta = false;
+        CestinoButton.Content = "Sposta nel Cestino";
+        ScartiSummary.Text = riepilogo;
+        // Il video abbinato segue la foto (Cestino o Scarti/): va detto prima di confermare.
+        ScartiList.ItemsSource = _scartiCorrenti?
+            .Select(s => _perId.TryGetValue(s.Id, out var item) && item.HasVideo ? $"{s.PathRelativo}  + video" : s.PathRelativo)
+            .ToList();
+    }
+
+    private void CestinoButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_rejectManagerCorrente is null || _scartiCorrenti is null || _scartiCorrenti.Count == 0) return;
+
+        // Conferma in due passi nello stesso dialogo (WinUI non consente un ContentDialog annidato).
+        if (!_confermaCestinoRichiesta)
         {
-            _rejectManagerCorrente.EliminaDefinitivamente(foto);
-            RimuoviDallaLibreria(foto.Id);
+            _confermaCestinoRichiesta = true;
+            CestinoButton.Content = $"Conferma: {_scartiCorrenti.Count} foto nel Cestino";
+            return;
         }
-        AggiornaStatusBar();
-        DialogScarti.Hide();
+
+        var rejectManager = _rejectManagerCorrente;
+        EseguiSuScarti(rejectManager.SpostaNelCestino, "nel Cestino");
     }
 
     private void SpostaInScartiButton_Click(object sender, RoutedEventArgs e)
     {
-        if (_rejectManagerCorrente is null || _scartiCorrenti is null) return;
+        if (_rejectManagerCorrente is null) return;
+        var rejectManager = _rejectManagerCorrente;
+        EseguiSuScarti(foto => rejectManager.SpostaInScarti(foto), "in Scarti/");
+    }
+
+    /// <summary>
+    /// Applica l'azione foto per foto: un file bloccato o senza permessi non interrompe le altre
+    /// né fa crashare l'app. Le foto non spostate restano nel dialogo con il motivo.
+    /// </summary>
+    private void EseguiSuScarti(Action<PhotoRecord> azione, string destinazione)
+    {
+        if (_scartiCorrenti is null) return;
+
+        var rimosse = new List<PhotoGridItem>();
+        var errori = new List<string>();
         foreach (var foto in _scartiCorrenti)
         {
-            _rejectManagerCorrente.SpostaInScarti(foto);
-            RimuoviDallaLibreria(foto.Id);
+            try
+            {
+                azione(foto);
+                if (RimuoviDallaLibreria(foto.Id) is { } item) rimosse.Add(item);
+            }
+            catch (Exception ex)
+            {
+                errori.Add($"{foto.PathRelativo}: {ex.Message}");
+            }
         }
-        AggiornaStatusBar();
-        DialogScarti.Hide();
+
+        if (rimosse.Count > 0)
+        {
+            // Le raffiche vanno ricalcolate: etichette "n/m" e membri di gruppo puntano a foto non più presenti.
+            RaggruppaRaffiche();
+            NascondiDallaGriglia(rimosse);
+            AggiornaStatusBar();
+        }
+
+        if (errori.Count == 0)
+        {
+            DialogScarti.Hide();
+            return;
+        }
+
+        _scartiCorrenti = _scartiCorrenti.Where(f => _perId.ContainsKey(f.Id)).ToList();
+        AggiornaDialogoScarti(
+            $"{rimosse.Count} spostate {destinazione}, {errori.Count} non riuscite:\n" +
+            string.Join("\n", errori.Take(5)) +
+            (errori.Count > 5 ? $"\n… e altre {errori.Count - 5}" : ""));
     }
 
     private void LasciaButton_Click(object sender, RoutedEventArgs e)
     {
-        if (_rejectManagerCorrente is null || _scartiCorrenti is null) return;
-        foreach (var foto in _scartiCorrenti)
-        {
-            if (_perId.TryGetValue(foto.Id, out var item))
-            {
-                SetStato(item, StatoSelezione.None);
-            }
-        }
+        if (_scartiCorrenti is null) return;
+        var modifiche = _scartiCorrenti
+            .Where(foto => _perId.ContainsKey(foto.Id))
+            .Select(foto => (_perId[foto.Id], StatoSelezione.None))
+            .ToList();
+        SetStati(modifiche);
         DialogScarti.Hide();
     }
 
-    private void RimuoviDallaLibreria(long photoId)
+    private PhotoGridItem? RimuoviDallaLibreria(long photoId)
     {
-        if (!_perId.TryGetValue(photoId, out var item)) return;
+        if (!_perId.TryGetValue(photoId, out var item)) return null;
 
         if (item.Stato == StatoSelezione.Reject) _conteggioScarti--;
         if (item.Stato == StatoSelezione.Selected) _conteggioSelezionate--;
 
         _tutte.Remove(item);
-        _visibili.Remove(item);
         _perId.Remove(photoId);
+        return item;
     }
 }

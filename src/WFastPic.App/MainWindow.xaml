@@ -114,7 +114,9 @@
             ScrollViewer.VerticalScrollMode="Enabled"
             SelectionChanged="Griglia_SelectionChanged"
             KeyDown="Griglia_KeyDown"
-            DoubleTapped="Griglia_DoubleTapped">
+            DoubleTapped="Griglia_DoubleTapped"
+            ContainerContentChanging="Griglia_ContainerContentChanging"
+            Loaded="Griglia_Loaded">
             <ListView.Resources>
                 <SolidColorBrush x:Key="ListViewItemSelectedBackground" Color="Transparent" />
                 <SolidColorBrush x:Key="ListViewItemSelectedPointerOverBackground" Color="#22FFFFFF" />
@@ -128,8 +130,10 @@
             <ListView.ItemTemplate>
                 <DataTemplate x:DataType="local:PhotoGridItem">
                     <Grid Margin="4">
-                        <Border Background="#2A2A2A" CornerRadius="4" />
-                        <Image Source="{x:Bind Thumbnail, Mode=OneWay}" Stretch="UniformToFill" />
+                        <!-- Image dentro il Border: il CornerRadius ritaglia anche la miniatura, non solo lo sfondo. -->
+                        <Border Background="#2A2A2A" CornerRadius="4">
+                            <Image Source="{x:Bind Thumbnail, Mode=OneWay}" Stretch="UniformToFill" />
+                        </Border>
                         <Border Background="#66000000" Visibility="{x:Bind IsReject, Mode=OneWay}" />
                         <Border
                             BorderBrush="#FFD600"
@@ -151,7 +155,8 @@
                             Width="32"
                             Height="32"
                             Background="Transparent"
-                            Tapped="SelectionBadge_Tapped">
+                            Tapped="SelectionBadge_Tapped"
+                            DoubleTapped="SelectionBadge_DoubleTapped">
                             <FontIcon
                                 Glyph="&#xE73E;"
                                 Foreground="LimeGreen"
@@ -183,11 +188,15 @@
                             Background="#00B0FF"
                             Visibility="{x:Bind HasGroup, Mode=OneWay}" />
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="6" Spacing="4">
-                            <FontIcon
-                                Glyph="&#xE714;"
-                                Foreground="White"
-                                FontSize="18"
-                                Visibility="{x:Bind HasVideo, Mode=OneWay}" />
+                            <!-- Stesso riquadro scuro del badge GPS: un'icona bianca nuda sparisce su cieli e spiagge. -->
+                            <Border
+                                Background="#B3000000"
+                                CornerRadius="3"
+                                Padding="3,2"
+                                Visibility="{x:Bind HasVideo, Mode=OneWay}"
+                                ToolTipService.ToolTip="Live Photo: video abbinato (.mov/.mp4)">
+                                <FontIcon Glyph="&#xE714;" Foreground="White" FontSize="12" />
+                            </Border>
                             <Border
                                 Background="#B3000000"
                                 CornerRadius="3"
@@ -212,12 +221,25 @@
             </ListView.ItemTemplate>
         </ListView>
 
-        <StackPanel Grid.Row="2" Orientation="Horizontal" Padding="12,8" Background="#1A1A1A">
+        <Grid Grid.Row="2" ColumnDefinitions="*,Auto" Padding="12,8" Background="#1A1A1A">
             <TextBlock
                 Text="←/→ naviga · Space seleziona · Shift+Space seleziona e scarta il resto della raffica · Delete scarta · 0-5 rating · Tab filtro · Ctrl+A seleziona visibili · Shift+rotella dimensione griglia · Enter apri viewer"
                 Foreground="#888888"
-                FontSize="12" />
-        </StackPanel>
+                FontSize="12"
+                TextTrimming="CharacterEllipsis"
+                VerticalAlignment="Center" />
+            <!-- Come Picasa: la griglia è già usabile mentre le miniature arrivano, l'avanzamento sta in basso. -->
+            <StackPanel
+                x:Name="MiniaturePanel"
+                Grid.Column="1"
+                Orientation="Horizontal"
+                Spacing="10"
+                Margin="16,0,0,0"
+                Visibility="Collapsed">
+                <TextBlock x:Name="MiniatureText" Foreground="#CCCCCC" FontSize="12" VerticalAlignment="Center" />
+                <ProgressBar x:Name="MiniatureProgressBar" Width="220" Minimum="0" Maximum="1" VerticalAlignment="Center" />
+            </StackPanel>
+        </Grid>
 
         <Grid
             x:Name="ViewerOverlay"
@@ -396,7 +418,7 @@
                 <TextBlock x:Name="ScartiSummary" />
                 <ListView x:Name="ScartiList" MaxHeight="300" SelectionMode="None" />
                 <StackPanel Orientation="Horizontal" Spacing="8">
-                    <Button x:Name="EliminaDefinitivamenteButton" Content="Elimina definitivamente" Click="EliminaDefinitivamenteButton_Click" />
+                    <Button x:Name="CestinoButton" Content="Sposta nel Cestino" Click="CestinoButton_Click" />
                     <Button x:Name="SpostaInScartiButton" Content="Sposta in Scarti/" Click="SpostaInScartiButton_Click" />
                     <Button x:Name="LasciaButton" Content="Lascia (torna a Nessuno)" Click="LasciaButton_Click" />
                 </StackPanel>
@@ -462,9 +484,10 @@
             Grid.RowSpan="3"
             Background="#B0101010"
             Visibility="Collapsed">
-            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12">
-                <ProgressRing IsActive="True" Width="48" Height="48" />
-                <TextBlock x:Name="CaricamentoText" Text="Caricamento…" Foreground="White" FontSize="14" HorizontalAlignment="Center" />
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10" Width="420">
+                <TextBlock x:Name="CaricamentoText" Text="Caricamento…" Foreground="White" FontSize="16" HorizontalAlignment="Center" />
+                <ProgressBar x:Name="CaricamentoProgressBar" IsIndeterminate="True" Minimum="0" Maximum="1" />
+                <TextBlock x:Name="CaricamentoDettaglioText" Foreground="#AAAAAA" FontSize="13" HorizontalAlignment="Center" />
             </StackPanel>
         </Grid>
 

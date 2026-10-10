@@ -60,7 +60,8 @@ public sealed class SelectionManager : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
-        _codaScritture.Writer.Complete();
+        // TryComplete: chiamate ripetute (es. cambio cartella + chiusura finestra) non devono lanciare.
+        _codaScritture.Writer.TryComplete();
         await _writerTask;
     }
 }

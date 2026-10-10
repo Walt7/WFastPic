@@ -25,8 +25,15 @@ Aggiunte fuori piano, su richiesta esplicita durante lo sviluppo:
   riproduzione** (resta fuori scope).
 - Export: watermark testuale configurabile, tag personalizzati scritti come Keywords EXIF,
   cartella di output scelta o default `<cartella>/Export`.
-- Overlay di caricamento con ritardo 300ms (niente flash su cartelle piccole) + percentuale
-  miniature caricate in status bar.
+- Caricamento stile Picasa: overlay con barra determinata "N di M · circa X rimanenti" durante la
+  lettura cartella (ritardo 300ms, niente flash), poi griglia subito usabile con barra miniature in
+  basso; le celle visibili hanno priorità. Riaprire una cartella già vista salta la lettura EXIF
+  delle foto invariate. Ordine griglia/viewer = data di scatto (foto senza data in fondo).
+- "Gestisci scarti": l'elenco viene dallo stato in memoria (non dal DB, la coda di scrittura è
+  asincrona); eliminazione solo verso il Cestino di Windows con conferma in due click, mai
+  cancellazione irreversibile; "Sposta in Scarti/" rinomina "nome (1).ext" in caso di collisione.
+  Il video abbinato (.mov/.mp4) segue sempre la foto, con lo stesso nome base; se uno dei due file
+  è bloccato non si sposta nessuno dei due.
 
 Non ancora implementato / verificato: nessuna fase residua del piano. Resta da fare solo verifica
 manuale interattiva utente su una cartella reale (drag crop, straighten, export end-to-end) — un
@@ -67,7 +74,7 @@ src/
 ├─ WFastPic.Core.Persistence/   (sidecar SQLite)
 └─ WFastPic.Core.Export/        (bake ricetta + watermark + tag EXIF + encode JPEG — Windows-targeted)
 tests/
-└─ WFastPic.Core.Tests/         (xUnit, 45 test — Library/Selection/Processing)
+└─ WFastPic.Core.Tests/         (xUnit, 61 test — Library/Selection/Processing)
 tools/
 ├─ HeicSmokeTest/                (Fase 0, smoke test decoding)
 └─ ScanSmokeTest/
@@ -100,8 +107,11 @@ Nota: `Z`/`F` zoom, `R` ruota rigida, `M` riproduci video, `Ctrl+C/V` copia rice
 
 ## Convenzioni per chi implementa
 
-- Test prima o insieme al codice per la logica in `Core.*` (xUnit) — 45 test attuali coprono
-  scan/identità, raffiche, selezione, ricetta/crop/rotate/tono/geometria raddrizzamento.
+- Test prima o insieme al codice per la logica in `Core.*` (xUnit) — 61 test attuali coprono
+  scan/identità, raffiche, selezione, ricetta/crop/rotate/tono/geometria raddrizzamento, ordinamento
+  cronologico, riapertura veloce, scarti, concorrenza sidecar, stima avanzamento.
+- `LibrarySidecarDatabase` è condiviso tra thread UI e coda di scrittura: ogni metodo pubblico nuovo
+  deve prendere `_lock` (`using var scope = _lock.EnterScope();`).
 - Nessuna dipendenza da WinUI nei progetti `Core.*` — se serve, è un segnale che la logica è nel
   posto sbagliato. `Core.Decoding`/`Core.Export` sono Windows-targeted solo per WinRT imaging.
 - Pattern ricorrente WinUI: se un evento (wheel, keydown) sparisce perché un controllo figlio

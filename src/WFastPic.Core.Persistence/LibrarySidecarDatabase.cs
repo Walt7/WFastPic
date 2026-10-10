@@ -1,5 +1,6 @@
 using Microsoft.Data.Sqlite;
 using WFastPic.Core.Library;
+using WFastPic.Core.Metadata;
 
 namespace WFastPic.Core.Persistence;
 
@@ -20,6 +21,8 @@ public sealed record SyncResult(int Nuove, int Aggiornate, int Invariate);
 /// Sidecar SQLite per cartella (.wfastpic/library.db). Nessuna libreria fotografica centrale:
 /// ogni cartella scansionata ha il proprio database indipendente, in WAL per letture concorrenti
 /// non bloccanti durante le scritture di selezione/editing.
+/// Thread-safe: la stessa istanza è usata dalla coda di scrittura di SelectionManager (thread
+/// di background) e dal thread UI; una SqliteConnection non lo è, quindi ogni accesso è serializzato.
 /// </summary>
 public sealed class LibrarySidecarDatabase : IDisposable
 {
@@ -27,6 +30,7 @@ public sealed class LibrarySidecarDatabase : IDisposable
     public const string NomeFileDatabase = "library.db";
 
     private readonly SqliteConnection _connection;
+    private readonly Lock _lock = new();
 
     public string CartellaFoto { get; }
 
@@ -125,6 +129,7 @@ public sealed class LibrarySidecarDatabase : IDisposable
     /// </summary>
     public SyncResult SyncScan(IReadOnlyList<ScannedPhoto> fotoScansionate)
     {
+        using var scope = _lock.EnterScope();
         int nuove = 0, aggiornate = 0, invariate = 0;
 
         using var transaction = _connection.BeginTransaction();
@@ -236,15 +241,55 @@ public sealed class LibrarySidecarDatabase : IDisposable
         return new SyncResult(nuove, aggiornate, invariate);
     }
 
+    /// <summary>
+    /// Per <see cref="FolderScanner.Scan"/>: restituisce i metadati salvati di una foto la cui identità
+    /// (nome + size + data modifica) non è cambiata, così la riapertura salta la lettura EXIF.
+    /// Una foto modificata o nuova restituisce null e viene riletta.
+    /// </summary>
+    public Func<PhotoIdentity, ScannedPhoto?> CreaRisolutoreMetadatiNoti()
+    {
+        var noti = new Dictionary<string, ScannedPhoto>(StringComparer.OrdinalIgnoreCase);
+        using (_lock.EnterScope())
+        {
+            using var cmd = _connection.CreateCommand();
+            cmd.CommandText = "SELECT path_relativo, size, last_write_utc, capture_date, latitude, longitude FROM photos;";
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+            {
+                var identity = new PhotoIdentity(
+                    reader.GetString(0),
+                    reader.GetInt64(1),
+                    DateTime.Parse(reader.GetString(2)).ToUniversalTime());
+                DateTime? captureDate = reader.IsDBNull(3) ? null : DateTime.Parse(reader.GetString(3));
+                GeoCoordinate? gps = reader.IsDBNull(4) || reader.IsDBNull(5)
+                    ? null
+                    : new GeoCoordinate(reader.GetDouble(4), reader.GetDouble(5));
+                noti[identity.PathRelativo] = new ScannedPhoto(identity, captureDate, gps);
+            }
+        }
+
+        return identity => noti.TryGetValue(identity.PathRelativo, out var nota)
+            && nota.Identity.Size == identity.Size
+            && nota.Identity.LastWriteUtc == identity.LastWriteUtc
+                ? nota with { Identity = identity }
+                : null;
+    }
+
+    /// <summary>
+    /// Tutte le foto in ordine cronologico di scatto (come Picasa): con più fotocamere nella stessa
+    /// cartella o con la numerazione IMG_xxxx che riparte, l'ordine per nome separerebbe foto
+    /// scattate insieme (e le raffiche). Le foto senza data finiscono in fondo, per nome.
+    /// </summary>
     public IReadOnlyList<PhotoRecord> GetAllPhotos()
     {
+        using var scope = _lock.EnterScope();
         using var cmd = _connection.CreateCommand();
         cmd.CommandText = """
             SELECT p.id, p.path_relativo, p.size, p.last_write_utc, p.capture_date,
                    s.stato, s.rating, p.latitude, p.longitude
             FROM photos p
             JOIN selection_state s ON s.photo_id = p.id
-            ORDER BY p.path_relativo;
+            ORDER BY p.capture_date IS NULL, p.capture_date, p.path_relativo;
             """;
 
         using var reader = cmd.ExecuteReader();
@@ -272,6 +317,7 @@ public sealed class LibrarySidecarDatabase : IDisposable
     /// </summary>
     public void UpdateStato(long photoId, string stato)
     {
+        using var scope = _lock.EnterScope();
         using var cmd = _connection.CreateCommand();
         cmd.CommandText = """
             UPDATE selection_state SET stato = $stato, last_modified = $now WHERE photo_id = $id;
@@ -284,6 +330,7 @@ public sealed class LibrarySidecarDatabase : IDisposable
 
     public void UpdateRating(long photoId, int rating)
     {
+        using var scope = _lock.EnterScope();
         using var cmd = _connection.CreateCommand();
         cmd.CommandText = """
             UPDATE selection_state SET rating = $rating, last_modified = $now WHERE photo_id = $id;
@@ -296,6 +343,7 @@ public sealed class LibrarySidecarDatabase : IDisposable
 
     public IReadOnlyList<PhotoRecord> GetByStato(string stato)
     {
+        using var scope = _lock.EnterScope();
         using var cmd = _connection.CreateCommand();
         cmd.CommandText = """
             SELECT p.id, p.path_relativo, p.size, p.last_write_utc, p.capture_date,
@@ -332,6 +380,7 @@ public sealed class LibrarySidecarDatabase : IDisposable
     /// </summary>
     public void RemovePhoto(long photoId)
     {
+        using var scope = _lock.EnterScope();
         using var cmd = _connection.CreateCommand();
         cmd.CommandText = "DELETE FROM photos WHERE id = $id;";
         cmd.Parameters.AddWithValue("$id", photoId);
@@ -341,6 +390,7 @@ public sealed class LibrarySidecarDatabase : IDisposable
     /// <summary>Ricetta di editing salvata per la foto, o null se non è mai stata modificata.</summary>
     public string? GetRecipeJson(long photoId)
     {
+        using var scope = _lock.EnterScope();
         using var cmd = _connection.CreateCommand();
         cmd.CommandText = "SELECT recipe_json FROM edits WHERE photo_id = $id;";
         cmd.Parameters.AddWithValue("$id", photoId);
@@ -349,6 +399,7 @@ public sealed class LibrarySidecarDatabase : IDisposable
 
     public void SaveRecipe(long photoId, string recipeJson, int schemaVersion)
     {
+        using var scope = _lock.EnterScope();
         using var cmd = _connection.CreateCommand();
         cmd.CommandText = """
             INSERT INTO edits (photo_id, recipe_json, schema_version) VALUES ($id, $json, $version)
@@ -362,6 +413,7 @@ public sealed class LibrarySidecarDatabase : IDisposable
 
     public void UpdateGpsBatch(IEnumerable<(long Id, double? Latitude, double? Longitude)> updates)
     {
+        using var scope = _lock.EnterScope();
         using var transaction = _connection.BeginTransaction();
         using var cmd = _connection.CreateCommand();
         cmd.Transaction = transaction;
@@ -381,5 +433,9 @@ public sealed class LibrarySidecarDatabase : IDisposable
         transaction.Commit();
     }
 
-    public void Dispose() => _connection.Dispose();
+    public void Dispose()
+    {
+        using var scope = _lock.EnterScope();
+        _connection.Dispose();
+    }
 }
