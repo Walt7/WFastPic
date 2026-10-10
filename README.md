@@ -140,7 +140,11 @@ L'elenco completo è nell'app, sotto "Scorciatoie" nella barra in basso.
 - Tutto gira sul PC. Escono solo le richieste che puoi spegnere o che scegli tu:
   - i nomi dei luoghi chiesti a OpenStreetMap (disattivabile dalla mappa) e i riquadri delle mappe;
   - i modelli per il riconoscimento delle persone, scaricati una volta sola da Hugging Face (OpenCV)
-    solo se attivi l'opzione. Le foto non escono mai.
+    solo se attivi l'opzione;
+  - il controllo della versione nuova su GitHub all'avvio (disattivabile dalle Informazioni) e, solo se
+    la invii tu, la segnalazione di un errore. Le foto non escono mai.
+- Nessun account, nessuna statistica d'uso, nessuna telemetria. Il dettaglio di cosa esce, verso chi e
+  come spegnerlo è nella [nota sulla privacy](PRIVACY.md).
 
 ## Per chi sviluppa
 
@@ -176,7 +180,7 @@ photos in one click and export. Everything is keyboard-driven and never makes yo
 - **Finding photos:** folders grouped by year like Picasa, photo map with place names, optional
   on-device face recognition with names shared across folders.
 - **Export:** JPEG at original or reduced size, watermark, tags, EXIF date and GPS preserved (or removed).
-- **Private:** everything runs on your PC; your photos never leave it.
+- **Private:** everything runs on your PC; your photos never leave it ([privacy note](PRIVACY.en.md)).
 
 **Download:** [latest release](https://github.com/Walt7/WFastPic/releases/latest) — run the setup
 (`…-win-x64-setup.exe`, no admin rights needed) or unzip the portable `.zip` and run `WFastPic.App.exe`

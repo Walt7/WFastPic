@@ -1,0 +1,7 @@
+# La segnalazione vuota resta attiva: "Segnala il problema" nell'app apre una issue già compilata
+# (issues/new?title=…&body=…), che con le segnalazioni vuote disattivate finirebbe sulla scelta del modulo.
+blank_issues_enabled: true
+contact_links:
+  - name: "Privacy: cosa esce dal PC / What leaves your PC"
+    url: https://github.com/Walt7/WFastPic/blob/master/PRIVACY.md
+    about: "Prima di segnalare, cosa viene inviato e cosa no / Before reporting, what is sent and what is not"

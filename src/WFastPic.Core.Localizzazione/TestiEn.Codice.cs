@@ -67,6 +67,8 @@ internal static partial class TestiEn
         d["Progetto su GitHub"] = "Project on GitHub";
         d["Novità di questa versione"] = "What's new in this version";
         d["CHANGELOG.md"] = "CHANGELOG.en.md";
+        d["PRIVACY.md"] = "PRIVACY.en.md";
+        d["Privacy"] = "Privacy";
         d["Licenza"] = "License";
         d["MIT · © 2026 Walter. Libero da usare, modificare e ridistribuire."] = "MIT · © 2026 Walter. Free to use, modify and redistribute.";
         d["Grazie a"] = "Thanks to";

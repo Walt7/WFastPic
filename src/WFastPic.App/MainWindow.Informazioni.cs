@@ -38,6 +38,7 @@ public partial class MainWindow
         var link = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4, Margin = new Thickness(-12, 0, 0, 0) };
         link.Children.Add(new HyperlinkButton { Content = T("Progetto su GitHub"), NavigateUri = new Uri(IndirizzoProgetto) });
         link.Children.Add(new HyperlinkButton { Content = T("Novità di questa versione"), NavigateUri = new Uri($"{IndirizzoProgetto}/blob/master/{T("CHANGELOG.md")}") });
+        link.Children.Add(new HyperlinkButton { Content = T("Privacy"), NavigateUri = new Uri($"{IndirizzoProgetto}/blob/master/{T("PRIVACY.md")}") });
         contenuto.Children.Add(link);
 
         contenuto.Children.Add(Titolo(T("Licenza")));

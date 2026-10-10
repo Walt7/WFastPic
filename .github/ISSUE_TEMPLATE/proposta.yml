@@ -1,0 +1,26 @@
+name: "Proposta / Feature request"
+description: "Un'idea per rendere WFastPic più comodo / An idea to make WFastPic better"
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        WFastPic vuole restare semplice e veloce, come Picasa: scegliere e sistemare centinaia di foto con meno azioni possibile.
+        WFastPic aims to stay simple and fast, like Picasa: picking and fixing hundreds of photos with as few actions as possible.
+  - type: textarea
+    id: problema
+    attributes:
+      label: "Cosa vorresti fare? / What would you like to do?"
+      description: "Il problema, prima della soluzione / The problem, before the solution"
+      placeholder: "Es. dopo una vacanza vorrei trovare subito le foto con il tramonto / E.g. after a holiday I would like to find sunset photos quickly"
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: "Come te lo immagini? / How do you picture it?"
+      placeholder: "Un tasto, un filtro, un menu… (anche \"come in Picasa\") / A key, a filter, a menu… (even \"like Picasa\")"
+  - type: textarea
+    id: alternative
+    attributes:
+      label: "Come fai oggi? / How do you do it today?"

@@ -142,7 +142,11 @@ The full list is in the app, under "Scorciatoie" (shortcuts) in the bottom bar.
 - Everything runs on your PC. The only requests that leave it are ones you can turn off or choose:
   - place names asked from OpenStreetMap (can be turned off from the map) and the map tiles;
   - the face recognition models, downloaded once from Hugging Face (OpenCV) only if you enable the
-    option. Your photos never leave your PC.
+    option;
+  - the new version check on GitHub at startup (can be turned off from About) and, only if you send it
+    yourself, an error report. Your photos never leave your PC.
+- No accounts, no usage statistics, no telemetry. What leaves your PC, to whom and how to turn it off is
+  detailed in the [privacy note](PRIVACY.en.md).
 
 ## For developers
 

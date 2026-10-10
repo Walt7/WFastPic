@@ -3,6 +3,14 @@
 Le novità di WFastPic, versione per versione. La più recente è in cima. ([English](CHANGELOG.en.md))
 I dettagli tecnici (cause dei bug, file toccati) sono in [`doc/correzioni-e-novita.md`](doc/correzioni-e-novita.md).
 
+## [Non ancora rilasciato]
+
+### Novità
+- **Nota sulla privacy** ([PRIVACY.md](PRIVACY.md)): cosa resta sul PC, cosa esce, verso chi, quando e come
+  spegnerlo. Si apre anche da Informazioni → "Privacy".
+- **Moduli per le segnalazioni su GitHub**: "Problema" e "Proposta", in italiano e inglese, con il
+  promemoria di non allegare foto personali, percorsi o nomi di persone.
+
 ## [1.0.0] — 2026-10-10
 
 Prima versione stabile: voto automatico delle foto, suggerimenti di scarto, persone più importanti,

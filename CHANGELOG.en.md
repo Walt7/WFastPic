@@ -4,6 +4,14 @@ What is new in WFastPic, version by version. The newest is on top. ([Italiano](C
 Technical details (bug causes, files touched) are in [`doc/correzioni-e-novita.md`](doc/correzioni-e-novita.md) (in Italian).
 The app interface is in Italian: names of buttons and menus below are given as they appear in the app.
 
+## [Unreleased]
+
+### New
+- **Privacy note** ([PRIVACY.en.md](PRIVACY.en.md)): what stays on your PC, what leaves it, to whom, when and
+  how to turn it off. Also opens from About → "Privacy".
+- **GitHub issue forms**: "Bug report" and "Feature request", in Italian and English, reminding not to
+  attach personal photos, paths or people's names.
+
 ## [1.0.0] — 2026-10-10
 
 First stable version: automatic photo rating, reject suggestions, most important people, error
