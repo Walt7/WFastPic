@@ -7,6 +7,7 @@
 <p align="center">
   <a href="https://github.com/Walt7/WFastPic/releases/latest"><img src="https://img.shields.io/github/v/release/Walt7/WFastPic?label=release&color=2ea44f" alt="Ultima release"></a>
   <a href="https://github.com/Walt7/WFastPic/releases"><img src="https://img.shields.io/github/downloads/Walt7/WFastPic/total?color=blue" alt="Download"></a>
+  <a href="https://github.com/Walt7/WFastPic/actions/workflows/build.yml"><img src="https://github.com/Walt7/WFastPic/actions/workflows/build.yml/badge.svg" alt="Build e test"></a>
   <a href="LICENSE"><img src="https://img.shields.io/github/license/Walt7/WFastPic" alt="Licenza MIT"></a>
   <img src="https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0078D6?logo=windows&logoColor=white" alt="Windows 10 e 11">
   <img src="https://img.shields.io/badge/.NET-10-512BD4?logo=dotnet&logoColor=white" alt=".NET 10">

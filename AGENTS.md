@@ -256,6 +256,10 @@ Nota: `Z`/`F` zoom, `M` riproduci video, `Ctrl+C/V` copia ricetta — presenti n
   cambia mentre l'app gira. I test non vanno in parallelo (la lingua è uno stato globale).
 - Icone e logo: `assets/sorgenti/` (`python assets/sorgenti/genera-icone.py` rigenera `icon-*.png`,
   `icon.ico`, `logo.png`).
+- GitHub Actions: `.github/workflows/build.yml` compila e lancia i test a ogni push e PR (un errore lì si vede
+  da tutte le sessioni: provare in locale prima di pushare); `release.yml` costruisce il pacchetto dai sorgenti
+  con `tools/release.ps1` (tag `v*` uguale a `<Version>`, o avvio manuale) e lo lascia come artifact. Lì si
+  aggancerà la firma SignPath.
 - Pacchetto per la release: `powershell -ExecutionPolicy Bypass -File tools\release.ps1` (serve Inno
   Setup 6: `winget install JRSoftware.InnoSetup`). Fa `dotnet publish` win-x64, **avvia l'exe del
   pacchetto** (non quello di Debug: il target `IncludiRisorseXamlNelPublish` del csproj aggiunge `*.xbf` e
