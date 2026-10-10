@@ -92,4 +92,4 @@ L'elenco completo è nell'app, sotto "Scorciatoie" nella barra in basso.
 
 ## Licenza
 
-MIT.
+[MIT](LICENSE): puoi usarlo, modificarlo e ridistribuirlo liberamente, mantenendo l'avviso di copyright.
