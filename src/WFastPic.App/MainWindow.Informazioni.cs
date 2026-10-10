@@ -64,6 +64,23 @@ public partial class MainWindow
         contenuto.Children.Add(Titolo(T("Lingua")));
         contenuto.Children.Add(CreaSelettoreLingua());
 
+        contenuto.Children.Add(Titolo(T("Aggiornamenti")));
+        var avvisa = new CheckBox
+        {
+            Content = T("Avvisami quando c'è una versione nuova"),
+            IsChecked = _controllaAggiornamenti,
+        };
+        avvisa.Click += (_, _) =>
+        {
+            _controllaAggiornamenti = avvisa.IsChecked == true;
+            if (!_controllaAggiornamenti) NuovaVersioneButton.Visibility = Visibility.Collapsed;
+            SalvaImpostazioni();
+        };
+        contenuto.Children.Add(avvisa);
+        contenuto.Children.Add(Paragrafo(T(
+            "All'avvio WFastPic chiede a GitHub qual è l'ultima versione, come quando si apre la pagina nel browser: " +
+            "non invia foto né dati dell'app e non scarica niente da solo. Se ce n'è una nuova compare un piccolo avviso in basso."), secondario: true));
+
         var dialogo = new ContentDialog
         {
             XamlRoot = Content.XamlRoot,

@@ -161,6 +161,9 @@ Aggiunte fuori piano, su richiesta esplicita durante lo sviluppo:
 - Importanza delle persone (`persone.db`: `preferita`, `cerchia` = Conoscente/Amico/Famiglia/Io in
   ordine di importanza, "Io" una persona sola): menu Persone "Preferita" e "Chi è"; nel voto tu > stella
   e famiglia > amici > con nome > conoscenti; tu e le preferite in cima all'elenco Persone.
+- Avviso di versione nuova (`MainWindow.Aggiornamenti.cs`): 5 s dopo l'avvio legge l'ultima release da
+  api.github.com (`ControlloVersione`, testato: ignora bozze, anteprime e risposte strane, apre solo pagine
+  github.com) e mostra un link piccolo nella barra in basso; opzione `ControllaAggiornamenti` nelle Informazioni.
 - Dettagli del viewer: sezione Voto (il tuo / automatico con i motivi) e sezione Volti come Picasa
   (miniature con nome, "?" se proposto, cerchia; clic = "Chi è?" su quel volto, via `IViewerHost`).
 
@@ -205,7 +208,7 @@ src/
 ├─ WFastPic.Core.Persistence/   (sidecar SQLite)
 └─ WFastPic.Core.Export/        (bake ricetta + watermark + tag EXIF + encode JPEG — Windows-targeted)
 tests/
-└─ WFastPic.Core.Tests/         (xUnit, 197 test — Library/Selection/Processing/Metadata/Export)
+└─ WFastPic.Core.Tests/         (xUnit, 209 test — Library/Selection/Processing/Metadata/Export)
 tools/
 ├─ HeicSmokeTest/                (Fase 0, smoke test decoding)
 ├─ ScanSmokeTest/
@@ -265,7 +268,7 @@ Nota: `Z`/`F` zoom, `M` riproduci video, `Ctrl+C/V` copia ricetta — presenti n
   `IViewerHost`; la finestra lo usa con `Viewer.Apri/Chiudi/IsAperto/SalvaRicettaCorrente` e l'evento
   `Chiuso`. Una nuova dipendenza va aggiunta all'interfaccia, non aggirata.
 
-- Test prima o insieme al codice per la logica in `Core.*` (xUnit) — 197 test attuali coprono
+- Test prima o insieme al codice per la logica in `Core.*` (xUnit) — 209 test attuali coprono
   scan/identità, raffiche, selezione, ricetta/crop/rotate/tono/geometria raddrizzamento, ordinamento
   cronologico, riapertura veloce, scarti, concorrenza sidecar, stima avanzamento, zoom/trascinamento viewer.
 - `LibrarySidecarDatabase` è condiviso tra thread UI e coda di scrittura: ogni metodo pubblico nuovo

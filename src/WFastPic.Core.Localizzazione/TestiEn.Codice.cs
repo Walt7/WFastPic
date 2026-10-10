@@ -124,6 +124,16 @@ internal static partial class TestiEn
             "The text above is what you can send: photo paths and names, user name and PC name have already been removed. " +
             "«Report the problem» opens GitHub in the browser with the report already written: you check it and send it yourself (a GitHub account is needed).";
         d["Cosa stavi facendo quando è comparso l'errore? (scrivilo qui)"] = "What were you doing when the error appeared? (write it here)";
+
+        // Avviso di versione nuova
+        d["Nuova versione {0} disponibile"] = "New version {0} available";
+        d["Apre la pagina della nuova versione su GitHub"] = "Opens the new version page on GitHub";
+        d["Aggiornamenti"] = "Updates";
+        d["Avvisami quando c'è una versione nuova"] = "Tell me when a new version is available";
+        d["All'avvio WFastPic chiede a GitHub qual è l'ultima versione, come quando si apre la pagina nel browser: " +
+          "non invia foto né dati dell'app e non scarica niente da solo. Se ce n'è una nuova compare un piccolo avviso in basso."] =
+            "At startup WFastPic asks GitHub for the latest version, like opening the page in a browser: " +
+            "it sends no photos or app data and downloads nothing on its own. If there is a new one, a small notice appears at the bottom.";
     }
 
     /// <summary>Testi costruiti nel codice del viewer (editor).</summary>

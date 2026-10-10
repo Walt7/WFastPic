@@ -72,6 +72,7 @@ public partial class MainWindow : Window
         _cellSize = Math.Clamp(impostazioni.DimensioneCellaGriglia, CellSizeMin, CellSizeMax);
         _impostazioniExport = impostazioni.Export ?? new ImpostazioniExport();
         _nomiLuoghiOnline = impostazioni.NomiLuoghiOnline;
+        _controllaAggiornamenti = impostazioni.ControllaAggiornamenti;
         _dividiPerGiorni = impostazioni.DividiPerGiorni;
         _riconoscimentoPersone = impostazioni.RiconoscimentoPersone;
         _preferenzaLingua = impostazioni.Lingua;
@@ -95,6 +96,7 @@ public partial class MainWindow : Window
         Viewer.PannelloDettagliAperto = impostazioni.ViewerPannelloDettagli;
 
         Closed += (s, e) => ChiudiSessione();
+        AvviaControlloAggiornamenti();
 
         if (_cartelleRecenti.Count > 0 && Directory.Exists(_cartelleRecenti[0]))
         {
@@ -117,6 +119,7 @@ public partial class MainWindow : Window
         {
             Export = _impostazioniExport,
             NomiLuoghiOnline = _nomiLuoghiOnline,
+            ControllaAggiornamenti = _controllaAggiornamenti,
             DividiPerGiorni = _dividiPerGiorni,
             PannelloCartelleAperto = Viewer.IsAperto ? _pannelloCartelleAperto : RootSplitView.IsPaneOpen,
             RiconoscimentoPersone = _riconoscimentoPersone,

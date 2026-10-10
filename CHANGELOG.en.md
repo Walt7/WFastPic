@@ -4,6 +4,13 @@ What is new in WFastPic, version by version. The newest is on top. ([Italiano](C
 Technical details (bug causes, files touched) are in [`doc/correzioni-e-novita.md`](doc/correzioni-e-novita.md) (in Italian).
 The app interface is in Italian: names of buttons and menus below are given as they appear in the app.
 
+## [Unreleased]
+
+### New
+- **New version notice**: when GitHub has a newer release, a small "New version X available" appears at
+  the bottom right and opens the download page. Nothing is downloaded on its own and no data is sent;
+  turn it off from About.
+
 ## [1.0.0] — 2026-10-10
 
 First stable version: automatic photo rating, reject suggestions, most important people, error

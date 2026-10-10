@@ -3,6 +3,13 @@
 Le novità di WFastPic, versione per versione. La più recente è in cima. ([English](CHANGELOG.en.md))
 I dettagli tecnici (cause dei bug, file toccati) sono in [`doc/correzioni-e-novita.md`](doc/correzioni-e-novita.md).
 
+## [Non ancora rilasciato]
+
+### Novità
+- **Avviso di versione nuova**: quando su GitHub c'è una release più recente, in basso a destra compare
+  in piccolo "Nuova versione X disponibile", che apre la pagina per scaricarla. Non si scarica niente da
+  solo e non si invia nessun dato; si spegne dalle Informazioni.
+
 ## [1.0.0] — 2026-10-10
 
 Prima versione stabile: voto automatico delle foto, suggerimenti di scarto, persone più importanti,
