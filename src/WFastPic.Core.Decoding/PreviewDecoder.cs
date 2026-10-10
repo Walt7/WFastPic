@@ -10,7 +10,8 @@ namespace WFastPic.Core.Decoding;
 /// </summary>
 public static class PreviewDecoder
 {
-    public static async Task<(byte[] Bgra, int Width, int Height)> DecodePreviewBgraAsync(string percorsoFoto, int latoLungo = 2048)
+    public static async Task<(byte[] Bgra, int Width, int Height)> DecodePreviewBgraAsync(
+        string percorsoFoto, int latoLungo = 2048, ColorManagementMode gestioneColore = ColorManagementMode.DoNotColorManage)
     {
         using var fs = File.OpenRead(percorsoFoto);
         using var winrtStream = fs.AsRandomAccessStream();
@@ -29,7 +30,7 @@ public static class PreviewDecoder
 
         using var bitmap = await decoder.GetSoftwareBitmapAsync(
             BitmapPixelFormat.Bgra8, BitmapAlphaMode.Premultiplied,
-            transform, ExifOrientationMode.RespectExifOrientation, ColorManagementMode.DoNotColorManage);
+            transform, ExifOrientationMode.RespectExifOrientation, gestioneColore);
 
         var larghezza = bitmap.PixelWidth;
         var altezza = bitmap.PixelHeight;

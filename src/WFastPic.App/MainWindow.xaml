@@ -515,57 +515,85 @@
             </StackPanel>
         </ContentDialog>
 
+        <!--
+            Dialog "Esporta" sul modello di Picasa: posizione + nome della cartella esportata,
+            dimensioni originali o "ridimensiona a" con slider in pixel, qualità a preset,
+            filigrana. Le opzioni restano memorizzate tra un export e l'altro (ImpostazioniStore).
+        -->
         <ContentDialog
             x:Name="DialogExport"
             Grid.Row="0"
             Grid.RowSpan="3"
-            Title="Esporta foto elette"
+            Title="Esporta foto"
             PrimaryButtonText="Esporta"
             CloseButtonText="Chiudi"
             DefaultButton="Primary"
-            PrimaryButtonClick="DialogExport_PrimaryButtonClick">
-            <StackPanel Spacing="10" MinWidth="420">
-                <CheckBox x:Name="ExportSoloSelezionateCheck" Content="Solo foto selezionate" IsChecked="True" />
+            PrimaryButtonClick="DialogExport_PrimaryButtonClick"
+            Closing="DialogExport_Closing">
+            <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="620" Padding="0,0,14,0">
+                <StackPanel Spacing="8" Width="440">
+                    <TextBlock Text="Foto da esportare" FontWeight="SemiBold" />
+                    <RadioButton x:Name="ExportAmbitoSelezionateRadio" GroupName="ExportAmbito" IsChecked="True" Checked="ExportOpzione_Changed" />
+                    <RadioButton x:Name="ExportAmbitoTutteRadio" GroupName="ExportAmbito" Checked="ExportOpzione_Changed" />
 
-                <TextBlock Text="Cartella di output" Foreground="#AAAAAA" FontSize="12" />
-                <StackPanel Orientation="Horizontal" Spacing="8">
-                    <TextBox x:Name="ExportCartellaTextBox" Width="320" />
-                    <Button x:Name="ExportScegliCartellaButton" Content="Sfoglia…" Click="ExportScegliCartellaButton_Click" />
-                </StackPanel>
+                    <TextBlock Text="Posizione esportazione" FontWeight="SemiBold" Margin="0,8,0,0" />
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                        <TextBox x:Name="ExportPosizioneTextBox" TextChanged="ExportPercorso_TextChanged" />
+                        <Button Grid.Column="1" Content="Sfoglia…" Click="ExportScegliCartellaButton_Click" />
+                    </Grid>
+                    <TextBlock Text="Nome della cartella esportata" Foreground="#AAAAAA" FontSize="12" />
+                    <TextBox x:Name="ExportNomeCartellaTextBox" TextChanged="ExportPercorso_TextChanged" />
+                    <TextBlock x:Name="ExportDestinazioneText" Foreground="#888888" FontSize="11" TextWrapping="Wrap" />
 
-                <TextBlock Text="Dimensione (lato lungo)" Foreground="#AAAAAA" FontSize="12" />
-                <ComboBox x:Name="ExportLatoLungoCombo" SelectedIndex="1" Width="200">
-                    <ComboBoxItem Content="1600 px" />
-                    <ComboBoxItem Content="2048 px" />
-                    <ComboBoxItem Content="3200 px" />
-                    <ComboBoxItem Content="Originale" />
-                </ComboBox>
+                    <TextBlock Text="Dimensioni immagine" FontWeight="SemiBold" Margin="0,8,0,0" />
+                    <RadioButton x:Name="ExportOriginaleRadio" GroupName="ExportDimensioni" Content="Usa dimensioni originali" Checked="ExportOpzione_Changed" />
+                    <RadioButton x:Name="ExportRidimensionaRadio" GroupName="ExportDimensioni" Content="Ridimensiona a (lato lungo):" IsChecked="True" Checked="ExportOpzione_Changed" />
+                    <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8" Margin="28,0,0,0">
+                        <Slider x:Name="ExportLatoSlider" Minimum="400" Maximum="6000" StepFrequency="16" SmallChange="16" LargeChange="400" Value="2048" ValueChanged="ExportLatoSlider_ValueChanged" VerticalAlignment="Center" />
+                        <NumberBox x:Name="ExportLatoNumberBox" Grid.Column="1" Width="110" Minimum="200" Maximum="20000" Value="2048" SpinButtonPlacementMode="Compact" ValueChanged="ExportLatoNumberBox_ValueChanged" />
+                        <TextBlock Grid.Column="2" Text="pixel" VerticalAlignment="Center" Foreground="#AAAAAA" />
+                    </Grid>
 
-                <TextBlock Text="Qualità JPEG" Foreground="#AAAAAA" FontSize="12" />
-                <Slider x:Name="ExportQualitaSlider" Minimum="50" Maximum="100" Value="90" Width="200" HorizontalAlignment="Left" />
+                    <TextBlock Text="Qualità immagine" FontWeight="SemiBold" Margin="0,8,0,0" />
+                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+                        <ComboBox x:Name="ExportQualitaCombo" Width="200" SelectedIndex="0" SelectionChanged="ExportOpzione_Changed">
+                            <ComboBoxItem Content="Automatica (consigliata)" />
+                            <ComboBoxItem Content="Massima" />
+                            <ComboBoxItem Content="Normale" />
+                            <ComboBoxItem Content="Minima" />
+                            <ComboBoxItem Content="Personalizzata" />
+                        </ComboBox>
+                        <Slider x:Name="ExportQualitaSlider" Grid.Column="1" Minimum="40" Maximum="100" StepFrequency="1" Value="90" VerticalAlignment="Center" ValueChanged="ExportOpzione_Changed" />
+                        <TextBlock x:Name="ExportQualitaText" Grid.Column="2" Width="40" VerticalAlignment="Center" Foreground="#AAAAAA" />
+                    </Grid>
 
-                <TextBlock Text="Watermark (vuoto = nessuno)" Foreground="#AAAAAA" FontSize="12" />
-                <TextBox x:Name="ExportWatermarkTextBox" PlaceholderText="es. © Mario Rossi" />
-                <StackPanel Orientation="Horizontal" Spacing="12">
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                        <TextBlock Text="Opacità" VerticalAlignment="Center" Foreground="#AAAAAA" FontSize="12" />
-                        <Slider x:Name="ExportOpacitaSlider" Minimum="10" Maximum="100" Value="50" Width="120" />
+                    <TextBlock Text="Filigrana" FontWeight="SemiBold" Margin="0,8,0,0" />
+                    <CheckBox x:Name="ExportFiligranaCheck" Content="Aggiungi filigrana" Checked="ExportOpzione_Changed" Unchecked="ExportOpzione_Changed" />
+                    <StackPanel x:Name="ExportFiligranaPanel" Spacing="8" Margin="28,0,0,0">
+                        <TextBox x:Name="ExportWatermarkTextBox" PlaceholderText="es. © Mario Rossi" TextChanged="ExportPercorso_TextChanged" />
+                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+                            <TextBlock Text="Opacità" VerticalAlignment="Center" Foreground="#AAAAAA" FontSize="12" />
+                            <Slider x:Name="ExportOpacitaSlider" Grid.Column="1" Minimum="10" Maximum="100" Value="50" VerticalAlignment="Center" />
+                            <ComboBox x:Name="ExportPosizioneCombo" Grid.Column="2" SelectedIndex="3" Width="150">
+                                <ComboBoxItem Content="Alto sinistra" />
+                                <ComboBoxItem Content="Alto destra" />
+                                <ComboBoxItem Content="Basso sinistra" />
+                                <ComboBoxItem Content="Basso destra" />
+                                <ComboBoxItem Content="Centro" />
+                            </ComboBox>
+                        </Grid>
                     </StackPanel>
-                    <ComboBox x:Name="ExportPosizioneCombo" SelectedIndex="3" Width="150">
-                        <ComboBoxItem Content="Alto sinistra" />
-                        <ComboBoxItem Content="Alto destra" />
-                        <ComboBoxItem Content="Basso sinistra" />
-                        <ComboBoxItem Content="Basso destra" />
-                        <ComboBoxItem Content="Centro" />
-                    </ComboBox>
+
+                    <TextBlock Text="Altre opzioni" FontWeight="SemiBold" Margin="0,8,0,0" />
+                    <TextBox x:Name="ExportTagTextBox" Header="Tag (separati da virgola)" PlaceholderText="es. vacanza, puglia, 2026" />
+                    <CheckBox x:Name="ExportRimuoviGpsCheck" Content="Rimuovi la posizione GPS dai file esportati" />
+                    <CheckBox x:Name="ExportSostituisciCheck" Content="Sostituisci i file già esportati con lo stesso nome" IsChecked="True" />
+
+                    <ProgressBar x:Name="ExportProgressBar" Minimum="0" Maximum="100" Value="0" Visibility="Collapsed" Margin="0,8,0,0" />
+                    <TextBlock x:Name="ExportStatusText" Foreground="#AAAAAA" FontSize="12" TextWrapping="Wrap" />
+                    <ListView x:Name="ExportErroriList" MaxHeight="120" Visibility="Collapsed" SelectionMode="None" FontSize="12" />
                 </StackPanel>
-
-                <TextBlock Text="Tag personalizzati (separati da virgola)" Foreground="#AAAAAA" FontSize="12" />
-                <TextBox x:Name="ExportTagTextBox" PlaceholderText="es. vacanza, puglia, 2026" />
-
-                <ProgressBar x:Name="ExportProgressBar" Minimum="0" Maximum="100" Value="0" Visibility="Collapsed" />
-                <TextBlock x:Name="ExportStatusText" Foreground="#AAAAAA" FontSize="12" />
-            </StackPanel>
+            </ScrollViewer>
         </ContentDialog>
 
         <Grid

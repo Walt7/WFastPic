@@ -53,6 +53,7 @@ public partial class MainWindow : Window
         AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "icon.ico"));
         var impostazioni = ImpostazioniStore.Carica();
         _cellSize = Math.Clamp(impostazioni.DimensioneCellaGriglia, CellSizeMin, CellSizeMax);
+        _impostazioniExport = impostazioni.Export ?? new ImpostazioniExport();
         _nomiLuoghiOnline = impostazioni.NomiLuoghiOnline;
         Griglia.ItemsSource = _visibili;
         AggiornaStatusBar();
@@ -90,8 +91,9 @@ public partial class MainWindow : Window
     /// </summary>
     private void ChiudiSessione()
     {
-        ImpostazioniStore.Salva(new Impostazioni(_cellSize) { NomiLuoghiOnline = _nomiLuoghiOnline });
+        ImpostazioniStore.Salva(new Impostazioni(_cellSize) { Export = _impostazioniExport, NomiLuoghiOnline = _nomiLuoghiOnline });
         _thumbnailLoader?.Annulla();
+        _exportCts?.Cancel();
         // Finestra chiusa col viewer aperto: le modifiche alla foto corrente vanno in coda prima
         // che la coda venga svuotata (un ritaglio non ancora applicato si perde, come in Picasa).
         if (_viewerAperto) SalvaRicettaCorrente();

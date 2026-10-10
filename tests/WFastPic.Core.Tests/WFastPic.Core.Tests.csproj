@@ -1,7 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <!-- Windows-targeted per poter testare anche Core.Export (WIC) end-to-end. -->
+    <TargetFramework>net10.0-windows10.0.22621.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <IsPackable>false</IsPackable>
@@ -19,6 +20,7 @@
     <ProjectReference Include="..\..\src\WFastPic.Core.Persistence\WFastPic.Core.Persistence.csproj" />
     <ProjectReference Include="..\..\src\WFastPic.Core.Selection\WFastPic.Core.Selection.csproj" />
     <ProjectReference Include="..\..\src\WFastPic.Core.Processing\WFastPic.Core.Processing.csproj" />
+    <ProjectReference Include="..\..\src\WFastPic.Core.Export\WFastPic.Core.Export.csproj" />
   </ItemGroup>
 
 </Project>
