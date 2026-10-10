@@ -113,7 +113,6 @@
             ScrollViewer.VerticalScrollBarVisibility="Visible"
             ScrollViewer.VerticalScrollMode="Enabled"
             SelectionChanged="Griglia_SelectionChanged"
-            KeyDown="Griglia_KeyDown"
             DoubleTapped="Griglia_DoubleTapped"
             ContainerContentChanging="Griglia_ContainerContentChanging"
             Loaded="Griglia_Loaded">
@@ -132,12 +131,13 @@
                     <Grid Margin="4">
                         <!-- Image dentro il Border: il CornerRadius ritaglia anche la miniatura, non solo lo sfondo. -->
                         <Border Background="#2A2A2A" CornerRadius="4">
-                            <Image Source="{x:Bind Thumbnail, Mode=OneWay}" Stretch="UniformToFill" />
+                            <Image Source="{x:Bind Thumbnail, Mode=OneWay}" Stretch="Uniform" />
                         </Border>
                         <Border Background="#66000000" Visibility="{x:Bind IsReject, Mode=OneWay}" />
                         <Border
                             BorderBrush="#FFD600"
-                            BorderThickness="3"
+                            BorderThickness="5"
+                            Background="#22FFD600"
                             CornerRadius="4"
                             IsHitTestVisible="False"
                             Visibility="{x:Bind IsSelected, Mode=OneWay}" />
@@ -436,7 +436,7 @@
                                 Height="{x:Bind DimensioneFilmstrip, Mode=OneWay}"
                                 Opacity="{x:Bind OpacitaFilmstrip, Mode=OneWay}">
                                 <Border Background="#2A2A2A" CornerRadius="3">
-                                    <Image Source="{x:Bind Thumbnail, Mode=OneWay}" Stretch="UniformToFill" />
+                                    <Image Source="{x:Bind Thumbnail, Mode=OneWay}" Stretch="Uniform" />
                                 </Border>
                                 <Border BorderBrush="#FFD600" BorderThickness="3" CornerRadius="3" Visibility="{x:Bind IsSelected, Mode=OneWay}" />
                                 <Border Width="4" HorizontalAlignment="Left" CornerRadius="3,0,0,3" Background="#00B0FF" Visibility="{x:Bind EvidenziaGruppoViewer, Mode=OneWay}" />

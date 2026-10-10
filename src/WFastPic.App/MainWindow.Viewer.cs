@@ -1294,6 +1294,16 @@ public partial class MainWindow
                 ViewerStraightenSlider.Focus(FocusState.Programmatic);
                 break;
 
+            case VirtualKey.Space:
+                // Seleziona/deseleziona resta disponibile anche in ritaglio: non cambia foto, quindi non
+                // interferisce con la geometria in corso (a differenza di navigazione e scarto).
+                if (_fotoViewerCorrente is not null)
+                {
+                    SetStatoNelViewer(_fotoViewerCorrente,
+                        _fotoViewerCorrente.Stato == StatoSelezione.Selected ? StatoSelezione.None : StatoSelezione.Selected);
+                }
+                break;
+
             case VirtualKey.Left or VirtualKey.Right or VirtualKey.Up or VirtualKey.Down:
                 var passo = TastoPremuto(VirtualKey.Shift) ? 1.0 : 0.1;
                 var verso = e.Key is VirtualKey.Left or VirtualKey.Down ? -1 : 1;

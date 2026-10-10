@@ -62,6 +62,9 @@ public partial class MainWindow : Window
 
         // handledEventsToo: la ScrollViewer interna della ListView consuma la rotella per lo
         // scroll e marca l'evento Handled prima che arrivi al gestore dichiarato in XAML.
+        // ListViewItem può marcare Space/Enter come Handled prima che arrivino alla ListView: senza
+        // handledEventsToo la selezione con Space non scatta.
+        Griglia.AddHandler(UIElement.KeyDownEvent, new KeyEventHandler(Griglia_KeyDown), handledEventsToo: true);
         Griglia.AddHandler(UIElement.PointerWheelChangedEvent, new PointerEventHandler(Griglia_PointerWheelChanged), handledEventsToo: true);
 
         InizializzaViewer();
@@ -264,12 +267,12 @@ public partial class MainWindow : Window
         // Progress<T> riporta sul thread UI; si aggiorna al massimo ogni 100ms per non intasare il
         // dispatcher con un evento per file su cartelle da migliaia di foto.
         var cronometroScansione = Stopwatch.StartNew();
-        var ultimoAggiornamento = TimeSpan.MinValue;
+        TimeSpan? ultimoAggiornamento = null;
         var progressoScansione = new Progress<(int Elaborate, int Totale)>(p =>
         {
             if (richiesta != _richiestaCaricamentoCartella) return;
             var adesso = cronometroScansione.Elapsed;
-            if (p.Elaborate < p.Totale && adesso - ultimoAggiornamento < TimeSpan.FromMilliseconds(100)) return;
+            if (p.Elaborate < p.Totale && ultimoAggiornamento is { } ultimo && adesso - ultimo < TimeSpan.FromMilliseconds(100)) return;
             ultimoAggiornamento = adesso;
 
             CaricamentoProgressBar.IsIndeterminate = p.Totale == 0;
@@ -597,7 +600,7 @@ public partial class MainWindow : Window
 
     private void AggiornaStatusBar()
     {
-        StatusText.Text = $"Tutte {_tutte.Count} · Selezionate {_conteggioSelezionate} · Scarti {_conteggioScarti}";
+        StatusText.Text = $"Selezionate {_conteggioSelezionate} di {_tutte.Count} · Scarti {_conteggioScarti}";
     }
 
     private readonly Stopwatch _cronometroMiniature = new();
