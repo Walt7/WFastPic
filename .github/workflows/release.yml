@@ -1,0 +1,49 @@
+# Pacchetto di release costruito dai sorgenti su GitHub (non sul PC di chi sviluppa): test, poi
+# tools/release.ps1 (publish, prova di avvio, zip portatile, setup Inno Setup). Parte con un tag v*
+# (es. v1.0.1, che deve coincidere con <Version> del csproj) o a mano da Actions → Release → Run workflow.
+# I file restano come artifact del workflow: la release su GitHub si pubblica a mano con quelli.
+# Qui si aggancerà la firma di SignPath (submit-signing-request) quando la richiesta sarà approvata.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pacchetto:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Il tag coincide con la versione del progetto
+        if: github.ref_type == 'tag'
+        shell: powershell
+        run: |
+          $versione = ([xml](Get-Content src/WFastPic.App/WFastPic.App.csproj -Raw)).Project.PropertyGroup.Version | Where-Object { $_ } | Select-Object -First 1
+          if ("v$versione" -ne $env:GITHUB_REF_NAME) { throw "Tag $env:GITHUB_REF_NAME diverso dalla versione del csproj ($versione)" }
+
+      - name: Inno Setup
+        run: choco install innosetup --no-progress -y
+
+      - name: Test
+        run: dotnet test tests/WFastPic.Core.Tests -c Release
+
+      - name: Pacchetto (publish, prova di avvio, zip, setup)
+        shell: powershell
+        run: .\tools\release.ps1
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: WFastPic-${{ github.ref_name }}
+          path: |
+            artifacts/*/*.zip
+            artifacts/*/*-setup.exe
+          if-no-files-found: error
