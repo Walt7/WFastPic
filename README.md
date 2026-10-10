@@ -16,6 +16,15 @@ scarti le altre, dai una sistemata veloce ed esporti. Tutto da tastiera, senza m
 Non è un Lightroom e non è un gestore di file: è lo strumento per passare da 1300 scatti alle 80
 foto da tenere, nel minor numero di gesti possibile.
 
+## Perché esiste
+
+Di Picasa mi mancava una cosa sopra tutte: poter passare in rassegna tutte le foto di una vacanza,
+scegliere al volo quelle buone, sistemarle con un clic e poi estrarle. Nessun altro programma lo fa in
+modo così comodo e veloce. WFastPic è il mio modo di riavere quel programma: la stessa comodità —
+selezionare, migliorare al volo, esportare — sul Windows di oggi e con le foto HEIC dei telefoni.
+
+*— Walter*
+
 ## Da Picasa a WFastPic
 
 | In Picasa | In WFastPic |

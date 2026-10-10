@@ -19,6 +19,15 @@ worth keeping, in as few gestures as possible.
 
 > The app interface is in Italian. Everything else (this page, the changelog) is available in both languages.
 
+## Why it exists
+
+What I missed most about Picasa was being able to go through all the photos of a vacation, pick the good
+ones on the fly, improve them in a click and then export them. No other program does it so comfortably
+and so fast. WFastPic is my way of getting that program back: the same convenience — select, quick-fix,
+export — on today's Windows and with the HEIC photos phones take.
+
+*— Walter*
+
 ## From Picasa to WFastPic
 
 | In Picasa | In WFastPic |
