@@ -115,6 +115,14 @@ Aggiunte fuori piano, su richiesta esplicita durante lo sviluppo:
 - Proporzioni del ritaglio: anche "originale" (quelle della foto).- Versione dell'app nel `<Version>` del csproj, mostrata nel titolo della finestra (v0.8).
 - Griglia divisa per giorni (opzionale, "Per giorni"): vista raggruppata allineata a `_visibili`,
   che resta l'unico elenco di riferimento.
+- Aspetto Windows 11: tema scuro fisso (`App.xaml`, palette e stili `BarraButtonStyle` condivisi),
+  barra del titolo disegnata dall'app sopra il Mica (`InizializzaBarraTitolo`, nascosta a schermo
+  intero), barra strumenti a tre zone con etichette che spariscono se stretta
+  (`BarraStrumenti_SizeChanged`; gli AdaptiveTrigger non scattano dentro una Window), griglia su card
+  scura arrotondata, stato vuoto (benvenuto / cartella vuota / filtro vuoto, `AggiornaStatoVuoto`),
+  scorciatoie in un flyout nella barra in basso. Viewer: barra "← Griglia · nome N di M · zoom/griglia",
+  editor su card alta quanto il viewer (schede a segmenti, pulsanti con icona e scorciatoia), filmstrip
+  e suggerimenti nella colonna della foto, così la miniatura corrente sta sotto il centro della foto.
 
 Non ancora implementato / verificato: nessuna fase residua del piano. Resta da fare solo verifica
 manuale interattiva utente su una cartella reale (drag crop, straighten, export end-to-end) — un

@@ -1,7 +1,9 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Threading;
+using Microsoft.UI;
 using Microsoft.UI.Input;
+using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
@@ -63,6 +65,7 @@ public partial class MainWindow : Window
         InitializeComponent();
         Title = $"WFastPic {VersioneApp}";
         AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "icon.ico"));
+        InizializzaBarraTitolo();
         var impostazioni = ImpostazioniStore.Carica();
         _cellSize = Math.Clamp(impostazioni.DimensioneCellaGriglia, CellSizeMin, CellSizeMax);
         _impostazioniExport = impostazioni.Export ?? new ImpostazioniExport();
@@ -529,6 +532,7 @@ public partial class MainWindow : Window
         }
         AggiornaFiltroUI();
         AssicuraSelezione();
+        AggiornaStatoVuoto();
     }
 
     /// <summary>
@@ -546,10 +550,77 @@ public partial class MainWindow : Window
         Griglia.SelectedIndex = _visibili.Count > 0 ? 0 : -1;
     }
 
+    /// <summary>
+    /// Barra del titolo disegnata dall'app sopra il Mica, con i pulsanti di sistema trasparenti.
+    /// A schermo intero (F11 nel viewer) sparisce: lì non ci sono i pulsanti di sistema.
+    /// </summary>
+    private void InizializzaBarraTitolo()
+    {
+        ExtendsContentIntoTitleBar = true;
+        SetTitleBar(BarraTitolo);
+        BarraTitoloVersioneText.Text = VersioneApp;
+
+        var barra = AppWindow.TitleBar;
+        barra.ButtonBackgroundColor = Colors.Transparent;
+        barra.ButtonInactiveBackgroundColor = Colors.Transparent;
+        barra.ButtonForegroundColor = Colors.White;
+        barra.ButtonInactiveForegroundColor = Windows.UI.Color.FromArgb(0xFF, 0x80, 0x80, 0x80);
+        barra.ButtonHoverBackgroundColor = Windows.UI.Color.FromArgb(0x18, 0xFF, 0xFF, 0xFF);
+        barra.ButtonHoverForegroundColor = Colors.White;
+        barra.ButtonPressedBackgroundColor = Windows.UI.Color.FromArgb(0x10, 0xFF, 0xFF, 0xFF);
+        barra.ButtonPressedForegroundColor = Colors.White;
+
+        AppWindow.Changed += (s, e) =>
+        {
+            if (!e.DidPresenterChange) return;
+            BarraTitolo.Visibility = s.Presenter.Kind == AppWindowPresenterKind.FullScreen
+                ? Visibility.Collapsed
+                : Visibility.Visible;
+        };
+    }
+
+    /// <summary>Barra stretta: Per giorni / Mappa / Scarti solo icona (restano i tooltip), il percorso resta leggibile.</summary>
+    private void BarraStrumenti_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        var etichette = e.NewSize.Width >= 1150 ? Visibility.Visible : Visibility.Collapsed;
+        PerGiorniEtichetta.Visibility = etichette;
+        MappaEtichetta.Visibility = etichette;
+        ScartiEtichetta.Visibility = etichette;
+    }
+
     private void AggiornaStatusBar()
     {
-        StatusText.Text = $"Selezionate {_conteggioSelezionate} di {_tutte.Count} · Scarti {_conteggioScarti}";
+        StatusText.Text = _db is null && _tutte.Count == 0
+            ? ""
+            : $"{_tutte.Count} foto · {_conteggioSelezionate} selezionate · {_conteggioScarti} scarti";
         AggiornaCartellaCorrenteNelPannello();
+        AggiornaStatoVuoto();
+    }
+
+    /// <summary>Benvenuto senza cartella; messaggio se la cartella o il filtro non hanno foto.</summary>
+    private void AggiornaStatoVuoto()
+    {
+        if (_visibili.Count > 0)
+        {
+            StatoVuotoPanel.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        var benvenuto = _db is null && _tutte.Count == 0;
+        var cartellaVuota = !benvenuto && _tutte.Count == 0;
+        StatoVuotoLogo.Visibility = benvenuto ? Visibility.Visible : Visibility.Collapsed;
+        StatoVuotoIcona.Visibility = benvenuto ? Visibility.Collapsed : Visibility.Visible;
+        StatoVuotoIcona.Glyph = cartellaVuota ? "" : "";
+        StatoVuotoApriButton.Visibility = benvenuto || cartellaVuota ? Visibility.Visible : Visibility.Collapsed;
+        (StatoVuotoTitolo.Text, StatoVuotoTesto.Text) = (benvenuto, cartellaVuota) switch
+        {
+            (true, _) => ("Benvenuto in WFastPic",
+                "Apri una cartella di foto per iniziare: scegli le migliori con Space, scarta con Canc, sistema ed esporta. " +
+                "Le cartelle aperte restano nel pannello a sinistra, divise per anno."),
+            (_, true) => ("Nessuna foto in questa cartella", "Scegli un'altra cartella dal pannello a sinistra o aprine una nuova."),
+            _ => ("Nessuna foto con questo filtro", "Premi Tab o scegli «Tutte» nel filtro in alto per rivederle tutte."),
+        };
+        StatoVuotoPanel.Visibility = Visibility.Visible;
     }
 
     private readonly Stopwatch _cronometroMiniature = new();
@@ -616,6 +687,9 @@ public partial class MainWindow : Window
         try
         {
             await Task.Delay(300, token);
+            // Il ritardo può scadere mentre il caricamento sta finendo: la continuazione arriva sul
+            // thread UI dopo il Dispose e l'overlay resterebbe sopra la griglia per sempre.
+            if (token.IsCancellationRequested) return;
             CaricamentoOverlay.Visibility = Visibility.Visible;
         }
         catch (TaskCanceledException)

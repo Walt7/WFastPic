@@ -6,26 +6,52 @@
 
     <Grid
         x:Name="ViewerOverlay"
-        Background="#F0101010"
+        Background="{StaticResource SfondoViewerBrush}"
         IsTabStop="True"
-        RowDefinitions="Auto,*,Auto,Auto">
+        RowDefinitions="Auto,*">
 
-        <StackPanel x:Name="ViewerBarraSuperiore" Grid.Row="0" Orientation="Horizontal" Spacing="10" Padding="12" Background="#1A1A1A">
-            <Button x:Name="ViewerCloseButton" Content="← Chiudi (Esc)" Click="ViewerCloseButton_Click" IsTabStop="False" AllowFocusOnInteraction="False" />
-            <Button x:Name="ViewerGrigliaToggle" Content="Griglia: terzi" Click="ViewerGrigliaToggle_Click" IsTabStop="False" AllowFocusOnInteraction="False" />
-            <TextBlock x:Name="ViewerZoomText" Text="Zoom 100%" Foreground="#AAAAAA" VerticalAlignment="Center" Width="82" />
-            <TextBlock x:Name="ViewerStatusText" Foreground="#AAAAAA" VerticalAlignment="Center" Margin="16,0,0,0" />
-            <StackPanel x:Name="ViewerVideoBadge" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center" Margin="10,0,0,0" Visibility="Collapsed">
-                <FontIcon Glyph="&#xE714;" Foreground="#FFB300" FontSize="16" />
-                <TextBlock Text="ha un video abbinato" Foreground="#FFB300" FontSize="12" VerticalAlignment="Center" />
+        <!-- Barra in alto: indietro a sinistra, nome e posizione della foto al centro, vista a destra. -->
+        <Grid x:Name="ViewerBarraSuperiore" Grid.Row="0" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12" Padding="8,6,12,6">
+            <Button
+                x:Name="ViewerCloseButton"
+                Style="{StaticResource BarraButtonStyle}"
+                Click="ViewerCloseButton_Click"
+                IsTabStop="False"
+                AllowFocusOnInteraction="False"
+                ToolTipService.ToolTip="Torna alla griglia (Esc)">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <FontIcon Glyph="&#xE72B;" FontSize="14" />
+                    <TextBlock Text="Griglia" />
+                </StackPanel>
+            </Button>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="12" HorizontalAlignment="Center" VerticalAlignment="Center">
+                <TextBlock x:Name="ViewerStatusText" FontWeight="SemiBold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                <Border x:Name="ViewerVideoBadge" Padding="8,3" CornerRadius="10" Background="#33FFB300" VerticalAlignment="Center" Visibility="Collapsed">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <FontIcon Glyph="&#xE714;" Foreground="#FFB300" FontSize="12" />
+                        <TextBlock Text="video abbinato" Foreground="#FFB300" FontSize="12" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Border>
             </StackPanel>
-        </StackPanel>
+            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                <TextBlock x:Name="ViewerZoomText" Text="Zoom 100%" Foreground="{StaticResource TestoSecondarioBrush}" FontSize="12" VerticalAlignment="Center" Margin="0,0,8,0" ToolTipService.ToolTip="Rotella per lo zoom, trascina per spostare" />
+                <Button x:Name="ViewerGrigliaToggle" Content="Griglia: terzi" Style="{StaticResource BarraButtonStyle}" Click="ViewerGrigliaToggle_Click" IsTabStop="False" AllowFocusOnInteraction="False" ToolTipService.ToolTip="Griglia di composizione: terzi, metà o diagonali" />
+            </StackPanel>
+        </Grid>
 
-        <Grid Grid.Row="1" ColumnDefinitions="260,*">
+        <Grid Grid.Row="1" ColumnDefinitions="290,*" RowDefinitions="*,Auto,Auto">
 
-            <!-- Pannello editor stile Picasa: "Correzioni base" e "Regolazioni". -->
-            <ScrollViewer Grid.Column="0" Background="#1A1A1A" VerticalScrollBarVisibility="Auto" IsTabStop="False">
-                <StackPanel Padding="12" Spacing="8">
+            <!-- Pannello editor stile Picasa: "Correzioni base" e "Regolazioni", su una card come il pannello cartelle. -->
+            <Border
+                Grid.Column="0"
+                Grid.RowSpan="3"
+                Margin="8,0,0,8"
+                CornerRadius="8"
+                Background="{StaticResource SfondoPannelloEditorBrush}"
+                BorderBrush="{StaticResource BordoContenutoBrush}"
+                BorderThickness="1">
+            <ScrollViewer VerticalScrollBarVisibility="Auto" IsTabStop="False">
+                <StackPanel Padding="14,12" Spacing="8">
                     <!-- Nel pannello e non nella barra in alto: a schermo intero la barra sparisce, il pulsante resta. -->
                     <ToggleButton x:Name="ViewerSchermoInteroToggle" HorizontalAlignment="Stretch" Click="ViewerSchermoIntero_Click" IsTabStop="False" AllowFocusOnInteraction="False">
                         <StackPanel Orientation="Horizontal" Spacing="8">
@@ -33,24 +59,27 @@
                             <TextBlock Text="Schermo intero (F11)" />
                         </StackPanel>
                     </ToggleButton>
-                    <TextBlock x:Name="ViewerPosizioneSchermoInteroText" Foreground="#AAAAAA" FontSize="12" TextWrapping="Wrap" Visibility="Collapsed" />
-                    <Grid ColumnDefinitions="*,*" ColumnSpacing="6">
-                        <ToggleButton x:Name="ViewerTabBase" Grid.Column="0" Content="Correzioni base" IsChecked="True" HorizontalAlignment="Stretch" Click="ViewerTabBase_Click" IsTabStop="False" AllowFocusOnInteraction="False" />
-                        <ToggleButton x:Name="ViewerTabTuning" Grid.Column="1" Content="Regolazioni" HorizontalAlignment="Stretch" Click="ViewerTabTuning_Click" IsTabStop="False" AllowFocusOnInteraction="False" />
-                    </Grid>
+                    <TextBlock x:Name="ViewerPosizioneSchermoInteroText" Foreground="{StaticResource TestoSecondarioBrush}" FontSize="12" TextWrapping="Wrap" Visibility="Collapsed" />
+                    <!-- Schede a segmenti: la scheda attiva (IsChecked) prende il colore d'accento. -->
+                    <Border Padding="3" CornerRadius="6" Background="{StaticResource SfondoContenutoBrush}" Margin="0,4,0,4">
+                        <Grid ColumnDefinitions="*,*" ColumnSpacing="3">
+                            <ToggleButton x:Name="ViewerTabBase" Grid.Column="0" Content="Correzioni base" IsChecked="True" HorizontalAlignment="Stretch" Style="{StaticResource BarraToggleButtonStyle}" Padding="6,5" FontSize="13" Click="ViewerTabBase_Click" IsTabStop="False" AllowFocusOnInteraction="False" />
+                            <ToggleButton x:Name="ViewerTabTuning" Grid.Column="1" Content="Regolazioni" HorizontalAlignment="Stretch" Style="{StaticResource BarraToggleButtonStyle}" Padding="6,5" FontSize="13" Click="ViewerTabTuning_Click" IsTabStop="False" AllowFocusOnInteraction="False" />
+                        </Grid>
+                    </Border>
 
                     <!-- Modalita geometria: ritaglia + raddrizza con Applica/Annulla. -->
                     <StackPanel x:Name="PannelloGeometria" Spacing="8" Visibility="Collapsed">
-                        <TextBlock Text="Ritaglia e raddrizza" Foreground="White" FontWeight="SemiBold" />
+                        <TextBlock Text="Ritaglia e raddrizza" FontWeight="SemiBold" />
                         <Button x:Name="ViewerProporzioneToggle" Content="Proporzioni: libera" Click="ViewerProporzioneToggle_Click" HorizontalAlignment="Stretch" IsTabStop="False" AllowFocusOnInteraction="False" />
-                        <TextBlock Text="Raddrizza (L)" Foreground="#CCCCCC" FontSize="12" />
+                        <TextBlock Text="Raddrizza (L)" Foreground="{StaticResource TestoSecondarioBrush}" FontSize="12" Margin="0,4,0,0" />
                         <Grid ColumnDefinitions="*,48">
                             <Slider
                                 x:Name="ViewerStraightenSlider"
                                 Minimum="-15" Maximum="15" StepFrequency="0.1"
                                 IsTabStop="False"
                                 ValueChanged="ViewerStraightenSlider_ValueChanged" />
-                            <TextBlock x:Name="ViewerAngleText" Grid.Column="1" Text="0.0°" Foreground="White" VerticalAlignment="Center" HorizontalAlignment="Right" />
+                            <TextBlock x:Name="ViewerAngleText" Grid.Column="1" Text="0.0°" VerticalAlignment="Center" HorizontalAlignment="Right" />
                         </Grid>
                         <Grid ColumnDefinitions="*,*" ColumnSpacing="6">
                             <Button Grid.Column="0" Content="Applica (Invio)" Click="ViewerGeometriaApplica_Click" HorizontalAlignment="Stretch" Style="{StaticResource AccentButtonStyle}" IsTabStop="False" AllowFocusOnInteraction="False" />
@@ -59,7 +88,7 @@
 
                         <!-- Come Picasa: ritagli già pronti come miniature; un clic posiziona il riquadro. -->
                         <Grid ColumnDefinitions="*,Auto" Margin="0,8,0,0">
-                            <TextBlock Text="Ritagli suggeriti" Foreground="#CCCCCC" FontSize="12" VerticalAlignment="Center" />
+                            <TextBlock Text="Ritagli suggeriti" Foreground="{StaticResource TestoSecondarioBrush}" FontSize="12" VerticalAlignment="Center" />
                             <ProgressRing x:Name="ViewerSuggerimentiAnello" Grid.Column="1" Width="14" Height="14" IsActive="False" />
                         </Grid>
                         <GridView
@@ -71,58 +100,105 @@
                             AllowFocusOnInteraction="False">
                             <GridView.ItemTemplate>
                                 <DataTemplate x:DataType="local:SuggerimentoRitaglioUi">
-                                    <StackPanel Width="108" Spacing="2" Padding="0,2">
-                                        <Border Height="76" Background="#2A2A2A" CornerRadius="3">
+                                    <StackPanel Width="118" Spacing="3" Padding="0,2">
+                                        <Border Height="80" Background="{StaticResource SfondoContenutoBrush}" CornerRadius="4">
                                             <Image Source="{x:Bind Anteprima}" Stretch="Uniform" />
                                         </Border>
-                                        <TextBlock Text="{x:Bind Etichetta}" Foreground="#CCCCCC" FontSize="11" HorizontalAlignment="Center" />
+                                        <TextBlock Text="{x:Bind Etichetta}" Foreground="{StaticResource TestoSecondarioBrush}" FontSize="11" HorizontalAlignment="Center" />
                                     </StackPanel>
                                 </DataTemplate>
                             </GridView.ItemTemplate>
                         </GridView>
-                        <TextBlock x:Name="ViewerSuggerimentiVolti" Foreground="#888888" FontSize="11" TextWrapping="Wrap" Visibility="Collapsed" />
+                        <TextBlock x:Name="ViewerSuggerimentiVolti" Foreground="{StaticResource TestoTerziarioBrush}" FontSize="11" TextWrapping="Wrap" Visibility="Collapsed" />
                     </StackPanel>
 
-                    <StackPanel x:Name="PannelloBase" Spacing="8">
-                        <Button x:Name="ViewerCropButton" Content="Ritaglia (X)" Click="ViewerCropButton_Click" HorizontalAlignment="Stretch" IsTabStop="False" AllowFocusOnInteraction="False" />
-                        <Button x:Name="ViewerStraightenButton" Content="Raddrizza (L)" Click="ViewerStraightenButton_Click" HorizontalAlignment="Stretch" IsTabStop="False" AllowFocusOnInteraction="False" />
-                        <ToggleButton x:Name="ViewerLuckyToggle" Content="Ho fortuna (U)" Click="ViewerLuckyToggle_Click" HorizontalAlignment="Stretch" IsTabStop="False" AllowFocusOnInteraction="False" />
-                        <ToggleButton x:Name="ViewerAutoContrastToggle" Content="Auto contrasto" Click="ViewerAutoContrastToggle_Click" HorizontalAlignment="Stretch" IsTabStop="False" AllowFocusOnInteraction="False" />
-                        <ToggleButton x:Name="ViewerAutoColorToggle" Content="Auto colore" Click="ViewerAutoColorToggle_Click" HorizontalAlignment="Stretch" IsTabStop="False" AllowFocusOnInteraction="False" />
+                    <!-- Pulsanti con icona e scorciatoia a destra, allineati a sinistra come un menu. -->
+                    <StackPanel x:Name="PannelloBase" Spacing="6">
+                        <Button x:Name="ViewerCropButton" Click="ViewerCropButton_Click" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Padding="12,7" IsTabStop="False" AllowFocusOnInteraction="False">
+                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                                <FontIcon Glyph="&#xE7A8;" FontSize="15" />
+                                <TextBlock Grid.Column="1" Text="Ritaglia" />
+                                <TextBlock Grid.Column="2" Text="X" Foreground="{StaticResource TestoTerziarioBrush}" />
+                            </Grid>
+                        </Button>
+                        <Button x:Name="ViewerStraightenButton" Click="ViewerStraightenButton_Click" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Padding="12,7" IsTabStop="False" AllowFocusOnInteraction="False">
+                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                                <FontIcon Glyph="&#xE7AD;" FontSize="15" />
+                                <TextBlock Grid.Column="1" Text="Raddrizza" />
+                                <TextBlock Grid.Column="2" Text="L" Foreground="{StaticResource TestoTerziarioBrush}" />
+                            </Grid>
+                        </Button>
+                        <TextBlock Text="Correzione automatica" Foreground="{StaticResource TestoSecondarioBrush}" FontSize="12" Margin="0,8,0,0" />
+                        <ToggleButton x:Name="ViewerLuckyToggle" ToolTipService.ToolTip="Contrasto e colore automatici insieme" Click="ViewerLuckyToggle_Click" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Padding="12,7" IsTabStop="False" AllowFocusOnInteraction="False">
+                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                                <FontIcon Glyph="&#xE945;" FontSize="15" />
+                                <TextBlock Grid.Column="1" Text="Ho fortuna" />
+                                <TextBlock Grid.Column="2" Text="U" Opacity="0.6" />
+                            </Grid>
+                        </ToggleButton>
+                        <Grid ColumnDefinitions="*,*" ColumnSpacing="6">
+                            <ToggleButton x:Name="ViewerAutoContrastToggle" ToolTipService.ToolTip="Contrasto automatico" Click="ViewerAutoContrastToggle_Click" HorizontalAlignment="Stretch" Padding="8,7" IsTabStop="False" AllowFocusOnInteraction="False">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <FontIcon Glyph="&#xE706;" FontSize="14" />
+                                    <TextBlock Text="Contrasto" />
+                                </StackPanel>
+                            </ToggleButton>
+                            <ToggleButton x:Name="ViewerAutoColorToggle" ToolTipService.ToolTip="Colore automatico" Grid.Column="1" Click="ViewerAutoColorToggle_Click" HorizontalAlignment="Stretch" Padding="8,7" IsTabStop="False" AllowFocusOnInteraction="False">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <FontIcon Glyph="&#xE790;" FontSize="14" />
+                                    <TextBlock Text="Colore" />
+                                </StackPanel>
+                            </ToggleButton>
+                        </Grid>
                     </StackPanel>
 
                     <StackPanel x:Name="PannelloTuning" Spacing="4" Visibility="Collapsed">
                         <Grid ColumnDefinitions="*,44">
-                            <TextBlock Text="Luce di riempimento" Foreground="#CCCCCC" FontSize="12" />
-                            <TextBlock x:Name="ViewerFillLightText" Grid.Column="1" Text="0" Foreground="White" FontSize="12" HorizontalAlignment="Right" />
+                            <TextBlock Text="Luce di riempimento" Foreground="{StaticResource TestoSecondarioBrush}" FontSize="12" />
+                            <TextBlock x:Name="ViewerFillLightText" Grid.Column="1" Text="0" FontSize="12" HorizontalAlignment="Right" />
                         </Grid>
                         <Slider x:Name="ViewerFillLightSlider" Minimum="0" Maximum="100" StepFrequency="1" IsTabStop="False" ValueChanged="ViewerTuningSlider_ValueChanged" />
                         <Grid ColumnDefinitions="*,44">
-                            <TextBlock Text="Evidenzia (alte luci)" Foreground="#CCCCCC" FontSize="12" />
-                            <TextBlock x:Name="ViewerHighlightsText" Grid.Column="1" Text="0" Foreground="White" FontSize="12" HorizontalAlignment="Right" />
+                            <TextBlock Text="Evidenzia (alte luci)" Foreground="{StaticResource TestoSecondarioBrush}" FontSize="12" />
+                            <TextBlock x:Name="ViewerHighlightsText" Grid.Column="1" Text="0" FontSize="12" HorizontalAlignment="Right" />
                         </Grid>
                         <Slider x:Name="ViewerHighlightsSlider" Minimum="0" Maximum="100" StepFrequency="1" IsTabStop="False" ValueChanged="ViewerTuningSlider_ValueChanged" />
                         <Grid ColumnDefinitions="*,44">
-                            <TextBlock Text="Ombre" Foreground="#CCCCCC" FontSize="12" />
-                            <TextBlock x:Name="ViewerShadowsText" Grid.Column="1" Text="0" Foreground="White" FontSize="12" HorizontalAlignment="Right" />
+                            <TextBlock Text="Ombre" Foreground="{StaticResource TestoSecondarioBrush}" FontSize="12" />
+                            <TextBlock x:Name="ViewerShadowsText" Grid.Column="1" Text="0" FontSize="12" HorizontalAlignment="Right" />
                         </Grid>
                         <Slider x:Name="ViewerShadowsSlider" Minimum="0" Maximum="100" StepFrequency="1" IsTabStop="False" ValueChanged="ViewerTuningSlider_ValueChanged" />
                         <Grid ColumnDefinitions="*,44">
-                            <TextBlock Text="Temperatura colore" Foreground="#CCCCCC" FontSize="12" />
-                            <TextBlock x:Name="ViewerTemperatureText" Grid.Column="1" Text="0" Foreground="White" FontSize="12" HorizontalAlignment="Right" />
+                            <TextBlock Text="Temperatura colore" Foreground="{StaticResource TestoSecondarioBrush}" FontSize="12" />
+                            <TextBlock x:Name="ViewerTemperatureText" Grid.Column="1" Text="0" FontSize="12" HorizontalAlignment="Right" />
                         </Grid>
                         <Slider x:Name="ViewerTemperatureSlider" Minimum="-100" Maximum="100" StepFrequency="1" IsTabStop="False" ValueChanged="ViewerTuningSlider_ValueChanged" />
                         <Button Content="Azzera regolazioni" Click="ViewerTuningReset_Click" HorizontalAlignment="Stretch" Margin="0,6,0,0" IsTabStop="False" AllowFocusOnInteraction="False" />
                     </StackPanel>
 
-                    <Rectangle Height="1" Fill="#333333" Margin="0,6" />
+                    <Rectangle Height="1" Fill="{StaticResource BordoContenutoBrush}" Margin="0,8" />
 
                     <Grid ColumnDefinitions="*,*" ColumnSpacing="6">
-                        <Button x:Name="ViewerUndoButton" Grid.Column="0" Content="↶ Annulla" Click="ViewerUndo_Click" HorizontalAlignment="Stretch" IsTabStop="False" AllowFocusOnInteraction="False" />
-                        <Button x:Name="ViewerRedoButton" Grid.Column="1" Content="Ripeti ↷" Click="ViewerRedo_Click" HorizontalAlignment="Stretch" IsTabStop="False" AllowFocusOnInteraction="False" />
+                        <Button x:Name="ViewerUndoButton" Grid.Column="0" Click="ViewerUndo_Click" HorizontalAlignment="Stretch" IsTabStop="False" AllowFocusOnInteraction="False" ToolTipService.ToolTip="Annulla (Ctrl+Z)">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <FontIcon Glyph="&#xE7A7;" FontSize="14" />
+                                <TextBlock Text="Annulla" />
+                            </StackPanel>
+                        </Button>
+                        <Button x:Name="ViewerRedoButton" Grid.Column="1" Click="ViewerRedo_Click" HorizontalAlignment="Stretch" IsTabStop="False" AllowFocusOnInteraction="False" ToolTipService.ToolTip="Ripeti (Ctrl+Y)">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <FontIcon Glyph="&#xE7A6;" FontSize="14" />
+                                <TextBlock Text="Ripeti" />
+                            </StackPanel>
+                        </Button>
                     </Grid>
-                    <Button x:Name="ViewerResetButton" Content="Ripristina originale" Click="ViewerReset_Click" HorizontalAlignment="Stretch" IsTabStop="False" AllowFocusOnInteraction="False" />
-                    <TextBlock Text="Tieni premuto B per vedere l'originale" Foreground="#777777" FontSize="11" TextWrapping="Wrap" />
+                    <Button x:Name="ViewerResetButton" Click="ViewerReset_Click" HorizontalAlignment="Stretch" Style="{StaticResource BarraButtonStyle}" IsTabStop="False" AllowFocusOnInteraction="False">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon Glyph="&#xE72C;" FontSize="14" />
+                            <TextBlock Text="Ripristina originale" />
+                        </StackPanel>
+                    </Button>
+                    <TextBlock Text="Tieni premuto B per vedere l'originale" Foreground="{StaticResource TestoTerziarioBrush}" FontSize="11" TextWrapping="Wrap" HorizontalAlignment="Center" />
 
                     <!--
                         Luogo, come il pannello "Luoghi" di Picasa: nome del posto, dispositivo e dati
@@ -130,11 +206,11 @@
                         direzione. "Correggi" sposta il segnaposto; la correzione sta solo nel sidecar.
                     -->
                     <StackPanel x:Name="PannelloLuogo" Spacing="6" Margin="0,6,0,0">
-                        <Rectangle Height="1" Fill="#333333" Margin="0,0,0,4" />
-                        <TextBlock Text="Luogo" Foreground="White" FontWeight="SemiBold" />
-                        <TextBlock x:Name="ViewerLuogoNome" Foreground="#DDDDDD" FontSize="12" TextWrapping="Wrap" />
-                        <TextBlock x:Name="ViewerLuogoDettagli" Foreground="#AAAAAA" FontSize="11" TextWrapping="Wrap" />
-                        <Border CornerRadius="4" Height="170" Background="#222222">
+                        <Rectangle Height="1" Fill="{StaticResource BordoContenutoBrush}" Margin="0,2,0,6" />
+                        <TextBlock Text="Luogo" FontWeight="SemiBold" />
+                        <TextBlock x:Name="ViewerLuogoNome" FontSize="12" TextWrapping="Wrap" />
+                        <TextBlock x:Name="ViewerLuogoDettagli" Foreground="{StaticResource TestoSecondarioBrush}" FontSize="11" TextWrapping="Wrap" />
+                        <Border CornerRadius="6" Height="180" Background="{StaticResource SfondoContenutoBrush}" BorderBrush="{StaticResource BordoContenutoBrush}" BorderThickness="1">
                             <WebView2 x:Name="ViewerMiniMappa" />
                         </Border>
                         <TextBlock x:Name="ViewerLuogoSuggerimento" Text="Trascina il segnaposto o clicca sulla mappa nel punto giusto." Foreground="#FFB300" FontSize="11" TextWrapping="Wrap" Visibility="Collapsed" />
@@ -150,6 +226,7 @@
                     </StackPanel>
                 </StackPanel>
             </ScrollViewer>
+            </Border>
 
             <!-- Background trasparente: tutta l'area (anche fuori dalla foto) riceve trascinamento e rotella. -->
             <Grid
@@ -213,18 +290,17 @@
                 Correzione della posizione a mappa grande (al posto della foto): mappa o satellite,
                 zoom da strada, segnaposto trascinabile o clic nel punto giusto. Salva/Annulla in alto.
             -->
-            <Grid x:Name="ViewerMappaGrandeOverlay" Grid.Column="1" Background="#101010" RowDefinitions="Auto,*" Visibility="Collapsed">
-                <Grid Background="#1A1A1A" Padding="12,8" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+            <Grid x:Name="ViewerMappaGrandeOverlay" Grid.Column="1" Grid.RowSpan="3" Margin="8,0,8,8" CornerRadius="8" Background="{StaticResource SfondoViewerBrush}" RowDefinitions="Auto,*" Visibility="Collapsed">
+                <Grid Background="{StaticResource SfondoPannelloEditorBrush}" Padding="14,10" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
                     <StackPanel VerticalAlignment="Center" Spacing="2">
-                        <TextBlock Text="Correggi la posizione" Foreground="White" FontWeight="SemiBold" />
-                        <TextBlock x:Name="ViewerMappaGrandeInfo" Text="Trascina il segnaposto o clicca nel punto giusto. In alto a destra: mappa o satellite." Foreground="#AAAAAA" FontSize="12" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Text="Correggi la posizione" FontWeight="SemiBold" />
+                        <TextBlock x:Name="ViewerMappaGrandeInfo" Text="Trascina il segnaposto o clicca nel punto giusto. In alto a destra: mappa o satellite." Foreground="{StaticResource TestoSecondarioBrush}" FontSize="12" TextTrimming="CharacterEllipsis" />
                     </StackPanel>
                     <Button Grid.Column="1" Content="Salva posizione" Style="{StaticResource AccentButtonStyle}" Click="ViewerLuogoSalva_Click" IsTabStop="False" AllowFocusOnInteraction="False" />
                     <Button Grid.Column="2" Content="Annulla (Esc)" Click="ViewerLuogoAnnulla_Click" IsTabStop="False" AllowFocusOnInteraction="False" />
                 </Grid>
                 <WebView2 x:Name="ViewerMappaGrande" Grid.Row="1" />
             </Grid>
-        </Grid>
 
         <!--
             Filmstrip stile Picasa: la foto in osservazione è sempre al centro (Padding calcolato in
@@ -235,9 +311,10 @@
         -->
         <ListView
             x:Name="Filmstrip"
-            Grid.Row="2"
+            Grid.Column="1"
+            Grid.Row="1"
             Height="136"
-            Background="#141414"
+            Background="Transparent"
             SelectionMode="None"
             IsTabStop="False"
             AllowFocusOnInteraction="False"
@@ -269,12 +346,12 @@
                             Width="{x:Bind DimensioneFilmstrip, Mode=OneWay}"
                             Height="{x:Bind DimensioneFilmstrip, Mode=OneWay}"
                             Opacity="{x:Bind OpacitaFilmstrip, Mode=OneWay}">
-                            <Border Background="#2A2A2A" CornerRadius="3">
+                            <Border Background="{StaticResource SfondoCellaBrush}" CornerRadius="4">
                                 <Image Source="{x:Bind Thumbnail, Mode=OneWay}" Stretch="Uniform" />
                             </Border>
-                            <Border BorderBrush="#FFD600" BorderThickness="3" CornerRadius="3" Visibility="{x:Bind IsSelected, Mode=OneWay}" />
-                            <Border Width="4" HorizontalAlignment="Left" CornerRadius="3,0,0,3" Background="#00B0FF" Visibility="{x:Bind EvidenziaGruppoViewer, Mode=OneWay}" />
-                            <Border BorderBrush="White" BorderThickness="3" CornerRadius="3" Visibility="{x:Bind IsCorrenteViewer, Mode=OneWay}" />
+                            <Border BorderBrush="#FFD600" BorderThickness="3" CornerRadius="4" Visibility="{x:Bind IsSelected, Mode=OneWay}" />
+                            <Border Width="4" HorizontalAlignment="Left" CornerRadius="4,0,0,4" Background="#00B0FF" Visibility="{x:Bind EvidenziaGruppoViewer, Mode=OneWay}" />
+                            <Border BorderBrush="White" BorderThickness="3" CornerRadius="4" Visibility="{x:Bind IsCorrenteViewer, Mode=OneWay}" />
                             <FontIcon Glyph="&#xE73E;" Foreground="LimeGreen" FontSize="14" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="4" Visibility="{x:Bind IsSelected, Mode=OneWay}" />
                             <FontIcon Glyph="&#xE711;" Foreground="OrangeRed" FontSize="14" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="4" Visibility="{x:Bind IsReject, Mode=OneWay}" />
                             <Border
@@ -314,11 +391,15 @@
 
         <TextBlock
             x:Name="ViewerHintText"
-            Grid.Row="3"
-            Foreground="#888888"
+            Grid.Column="1"
+            Grid.Row="2"
+            Foreground="{StaticResource TestoTerziarioBrush}"
             FontSize="12"
-            Padding="12,6"
+            Padding="12,4,12,8"
+            HorizontalAlignment="Center"
+            TextTrimming="CharacterEllipsis"
             Text="←/→ foto · Space seleziona · Delete scarta · 0-5 rating · rotella zoom, trascina per spostare · X ritaglia · L raddrizza · U ho fortuna · Ctrl+Z/Y annulla/ripeti · B originale · Esc chiudi" />
+        </Grid>
     </Grid>
 
 </UserControl>

@@ -4,20 +4,34 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="using:WFastPic.App">
 
+    <Grid RowDefinitions="Auto,*">
+
+
+    <!--
+        Barra del titolo dentro la finestra (ExtendsContentIntoTitleBar): stesso Mica del pannello
+        cartelle invece della barra bianca di sistema. Nascosta a schermo intero (MainWindow.xaml.cs).
+    -->
+    <Grid x:Name="BarraTitolo" Grid.Row="0" Height="36" ColumnDefinitions="Auto,Auto,Auto,*" Padding="14,0,0,0">
+        <Image Source="ms-appx:///Assets/app.png" Width="18" Height="18" VerticalAlignment="Center" />
+        <TextBlock Grid.Column="1" Text="WFastPic" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" Margin="10,0,0,0" />
+        <TextBlock x:Name="BarraTitoloVersioneText" Grid.Column="2" FontSize="12" Foreground="{StaticResource TestoTerziarioBrush}" VerticalAlignment="Center" Margin="6,0,0,0" />
+    </Grid>
+
     <!--
         Pannello cartelle stile Picasa: fisso accanto alla griglia (Inline), "le mie cartelle" per anno
         con numero di foto e periodo; "Sfoglia il PC" è secondario e si carica solo se aperto.
     -->
     <SplitView
         x:Name="RootSplitView"
+        Grid.Row="1"
         DisplayMode="Inline"
         OpenPaneLength="290"
         IsPaneOpen="True"
         PanePlacement="Left"
-        PaneBackground="#1E1E1E">
+        PaneBackground="Transparent">
 
         <SplitView.Pane>
-            <Grid RowDefinitions="Auto,Auto,*,Auto" Padding="0,10,0,0">
+            <Grid RowDefinitions="Auto,Auto,*,Auto" Padding="6,2,4,8" RowSpacing="2">
                 <!--
                     Persone stile Picasa (opzione: riconoscimento pesante, chiesto al primo uso): chi compare
                     nella cartella e i gruppi di volti simili senza nome. Clic = filtra la griglia;
@@ -86,12 +100,13 @@
                     </StackPanel>
                 </Expander>
                 <Grid Grid.Row="1" ColumnDefinitions="*,Auto" Padding="14,8,8,6">
-                    <TextBlock Text="Cartelle" Foreground="White" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" />
+                    <TextBlock Text="Cartelle" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center" />
                     <Button
                         Grid.Column="1"
                         Width="32"
                         Height="32"
                         Padding="0"
+                        Style="{StaticResource BarraButtonStyle}"
                         Click="AggiungiCartellaButton_Click"
                         ToolTipService.ToolTip="Aggiungi una cartella di foto"
                         AutomationProperties.Name="Aggiungi una cartella di foto">
@@ -117,21 +132,22 @@
                             <GroupStyle>
                                 <GroupStyle.HeaderTemplate>
                                     <DataTemplate x:DataType="local:GruppoAnno">
-                                        <TextBlock Text="{x:Bind Titolo}" Foreground="#9FC3E7" FontSize="18" FontWeight="SemiBold" Margin="2,6,0,0" />
+                                        <TextBlock Text="{x:Bind Titolo}" Foreground="{StaticResource TitoloSezioneBrush}" FontSize="14" FontWeight="SemiBold" Margin="2,10,0,0" />
                                     </DataTemplate>
                                 </GroupStyle.HeaderTemplate>
                             </GroupStyle>
                         </ListView.GroupStyle>
                         <ListView.ItemTemplate>
                             <DataTemplate x:DataType="local:VoceCartella">
-                                <Grid Padding="6,6" CornerRadius="4" Opacity="{x:Bind Opacita}" ColumnDefinitions="Auto,*" ColumnSpacing="10">
-                                    <!-- Cartella aperta adesso: fondo evidenziato, come la selezione di Picasa. -->
-                                    <Border Grid.ColumnSpan="2" Margin="-6,-6" CornerRadius="4" Background="#2E4A66" Visibility="{x:Bind IsCorrente, Mode=OneWay}" />
-                                    <FontIcon Glyph="&#xE8B7;" Foreground="#F2C14E" FontSize="20" VerticalAlignment="Top" Margin="0,2,0,0" />
+                                <Grid Padding="8,7" CornerRadius="6" Opacity="{x:Bind Opacita}" ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                                    <!-- Cartella aperta adesso: fondo evidenziato e trattino d'accento, come la voce attiva di NavigationView. -->
+                                    <Border Grid.ColumnSpan="2" Margin="-8,-7" CornerRadius="6" Background="{ThemeResource SubtleFillColorSecondaryBrush}" Visibility="{x:Bind IsCorrente, Mode=OneWay}" />
+                                    <Border Width="3" Height="18" Margin="-8,0,0,0" HorizontalAlignment="Left" VerticalAlignment="Center" CornerRadius="1.5" Background="{ThemeResource AccentFillColorDefaultBrush}" Visibility="{x:Bind IsCorrente, Mode=OneWay}" />
+                                    <FontIcon Glyph="&#xE8B7;" Foreground="#F2C14E" FontSize="18" VerticalAlignment="Top" Margin="0,2,0,0" />
                                     <StackPanel Grid.Column="1" Spacing="1">
-                                        <TextBlock Text="{x:Bind Nome}" Foreground="White" FontSize="14" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
-                                        <TextBlock Text="{x:Bind Dettaglio, Mode=OneWay}" Foreground="#AAAAAA" FontSize="12" TextTrimming="CharacterEllipsis" />
-                                        <TextBlock Text="{x:Bind Periodo}" Foreground="#888888" FontSize="11" TextTrimming="CharacterEllipsis" Visibility="{x:Bind PeriodoVisibile}" />
+                                        <TextBlock Text="{x:Bind Nome}" FontSize="14" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Text="{x:Bind Dettaglio, Mode=OneWay}" Foreground="{StaticResource TestoSecondarioBrush}" FontSize="12" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Text="{x:Bind Periodo}" Foreground="{StaticResource TestoTerziarioBrush}" FontSize="11" TextTrimming="CharacterEllipsis" Visibility="{x:Bind PeriodoVisibile}" />
                                     </StackPanel>
                                     <Grid.ContextFlyout>
                                         <MenuFlyout Opening="MenuCartella_Opening">
@@ -192,33 +208,50 @@
 
         <Grid RowDefinitions="Auto,*,Auto">
 
-            <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="12" Padding="12,10" Background="#1A1A1A">
-                <Button
-                    x:Name="ToggleSidebarButton"
-                    Width="40"
-                    Height="36"
-                    Padding="0"
-                    Click="ToggleSidebarButton_Click"
-                    ToolTipService.ToolTip="Mostra/nascondi il pannello cartelle"
-                    AutomationProperties.Name="Mostra o nascondi il pannello cartelle">
-                    <FontIcon Glyph="&#xE700;" FontSize="18" />
-                </Button>
-                <Button x:Name="ApriCartellaButton" Content="Apri cartella…" Click="ApriCartellaButton_Click" />
+            <!--
+                Barra strumenti su tre zone: pannello + percorso a sinistra (si stringe per primo),
+                vista (filtro, giorni) e azioni sulla cartella a destra, Esporta come azione principale.
+            -->
+            <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8" Padding="8,2,12,8" SizeChanged="BarraStrumenti_SizeChanged">
+                <StackPanel Orientation="Horizontal" Spacing="2">
+                    <Button
+                        x:Name="ToggleSidebarButton"
+                        Width="38"
+                        Padding="0"
+                        Style="{StaticResource BarraButtonStyle}"
+                        Click="ToggleSidebarButton_Click"
+                        ToolTipService.ToolTip="Mostra/nascondi il pannello cartelle"
+                        AutomationProperties.Name="Mostra o nascondi il pannello cartelle">
+                        <FontIcon Glyph="&#xE700;" FontSize="16" />
+                    </Button>
+                    <Button
+                        x:Name="ApriCartellaButton"
+                        Width="38"
+                        Padding="0"
+                        Style="{StaticResource BarraButtonStyle}"
+                        Click="ApriCartellaButton_Click"
+                        ToolTipService.ToolTip="Apri cartella…"
+                        AutomationProperties.Name="Apri cartella">
+                        <FontIcon Glyph="&#xE838;" FontSize="16" />
+                    </Button>
+                </StackPanel>
                 <TextBox
                     x:Name="PercorsoTextBox"
-                    Width="380"
+                    Grid.Column="1"
+                    MinWidth="160"
+                    MaxWidth="640"
+                    HorizontalAlignment="Stretch"
+                    VerticalAlignment="Center"
                     PlaceholderText="Incolla o scrivi il percorso della cartella, poi Invio…"
                     KeyDown="PercorsoTextBox_KeyDown" />
-                <Button x:Name="GestisciScartiButton" Content="Gestisci scarti…" Click="GestisciScartiButton_Click" />
-                <Button x:Name="EsportaButton" Content="Esporta…" Click="EsportaButton_Click" />
-                <Button x:Name="MappaButton" Content="📍 Mappa" Click="MappaButton_Click" ToolTipService.ToolTip="Visualizza le foto geolocalizzate sulla mappa" />
-                <TextBlock x:Name="StatusText" VerticalAlignment="Center" Margin="16,0,0,0" Foreground="White" />
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="16,0,0,0">
-                    <TextBlock Text="Filtro:" Foreground="#AAAAAA" VerticalAlignment="Center" Margin="0,0,8,0" />
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
                     <ComboBox
                         x:Name="FiltroComboBox"
+                        MinWidth="140"
                         SelectedIndex="0"
-                        SelectionChanged="FiltroComboBox_SelectionChanged">
+                        SelectionChanged="FiltroComboBox_SelectionChanged"
+                        ToolTipService.ToolTip="Filtro (Tab)"
+                        AutomationProperties.Name="Filtro">
                         <ComboBoxItem Content="Tutte" />
                         <ComboBoxItem Content="Selezionate" />
                         <ComboBoxItem Content="Scarti" />
@@ -227,7 +260,7 @@
                     </ComboBox>
                     <Button
                         x:Name="FiltroPersonaButton"
-                        Margin="12,0,0,0"
+                        Margin="4,0,0,0"
                         Visibility="Collapsed"
                         Click="FiltroPersonaButton_Click"
                         ToolTipService.ToolTip="Togli il filtro persona">
@@ -239,18 +272,47 @@
                     </Button>
                     <ToggleButton
                         x:Name="DividiPerGiorniToggle"
-                        Margin="12,0,0,0"
+                        Margin="4,0,0,0"
+                        Style="{StaticResource BarraToggleButtonStyle}"
                         Click="DividiPerGiorniToggle_Click"
                         IsTabStop="False"
                         AllowFocusOnInteraction="False"
                         ToolTipService.ToolTip="Divide la griglia per giorno di scatto">
-                        <StackPanel Orientation="Horizontal" Spacing="6">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
                             <FontIcon Glyph="&#xE787;" FontSize="14" />
-                            <TextBlock Text="Per giorni" />
+                            <TextBlock x:Name="PerGiorniEtichetta" Text="Per giorni" />
                         </StackPanel>
                     </ToggleButton>
+                    <AppBarSeparator Padding="2,0" />
+                    <Button x:Name="MappaButton" Style="{StaticResource BarraButtonStyle}" Click="MappaButton_Click" ToolTipService.ToolTip="Visualizza le foto geolocalizzate sulla mappa">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon Glyph="&#xE707;" FontSize="14" />
+                            <TextBlock x:Name="MappaEtichetta" Text="Mappa" />
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="GestisciScartiButton" Style="{StaticResource BarraButtonStyle}" Click="GestisciScartiButton_Click" ToolTipService.ToolTip="Gestisci scarti: Cestino, cartella Scarti/ o ripristina">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon Glyph="&#xE74D;" FontSize="14" />
+                            <TextBlock x:Name="ScartiEtichetta" Text="Scarti" />
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="EsportaButton" Margin="6,0,0,0" Padding="14,6" MinHeight="34" Style="{StaticResource AccentButtonStyle}" Click="EsportaButton_Click" ToolTipService.ToolTip="Esporta le foto in JPEG">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon Glyph="&#xEDE1;" FontSize="14" />
+                            <TextBlock Text="Esporta…" />
+                        </StackPanel>
+                    </Button>
                 </StackPanel>
-            </StackPanel>
+            </Grid>
+
+            <!-- Card scura della griglia (e della barra in basso), dietro a tutto il resto delle righe 1-2. -->
+            <Border
+                Grid.Row="1"
+                Grid.RowSpan="2"
+                Background="{StaticResource SfondoContenutoBrush}"
+                BorderBrush="{StaticResource BordoContenutoBrush}"
+                BorderThickness="1,1,0,0"
+                CornerRadius="8,0,0,0" />
 
         <ListView
             x:Name="Griglia"
@@ -260,6 +322,7 @@
             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
             ScrollViewer.VerticalScrollBarVisibility="Visible"
             ScrollViewer.VerticalScrollMode="Enabled"
+            Padding="8,8,4,8"
             SelectionChanged="Griglia_SelectionChanged"
             DoubleTapped="Griglia_DoubleTapped"
             ContainerContentChanging="Griglia_ContainerContentChanging"
@@ -268,7 +331,18 @@
                 <SolidColorBrush x:Key="ListViewItemSelectedBackground" Color="Transparent" />
                 <SolidColorBrush x:Key="ListViewItemSelectedPointerOverBackground" Color="#22FFFFFF" />
                 <SolidColorBrush x:Key="ListViewItemSelectedPressedBackground" Color="#33FFFFFF" />
+                <!-- Il trattino blu di selezione di WinUI si confondeva con la barra azzurra delle raffiche. -->
+                <x:Boolean x:Key="ListViewItemSelectionIndicatorVisualEnabled">False</x:Boolean>
             </ListView.Resources>
+            <ListView.ItemContainerStyle>
+                <Style TargetType="ListViewItem">
+                    <Setter Property="Padding" Value="0" />
+                    <Setter Property="Margin" Value="0" />
+                    <Setter Property="CornerRadius" Value="8" />
+                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                    <Setter Property="VerticalContentAlignment" Value="Stretch" />
+                </Style>
+            </ListView.ItemContainerStyle>
             <ListView.ItemsPanel>
                 <ItemsPanelTemplate>
                     <ItemsWrapGrid Orientation="Horizontal" ItemWidth="160" ItemHeight="160" />
@@ -279,7 +353,7 @@
                 <GroupStyle HidesIfEmpty="True">
                     <GroupStyle.HeaderTemplate>
                         <DataTemplate x:DataType="local:GruppoGiorno">
-                            <TextBlock Text="{x:Bind Titolo, Mode=OneWay}" Foreground="White" FontSize="15" FontWeight="SemiBold" Margin="2,10,0,2" />
+                            <TextBlock Text="{x:Bind Titolo, Mode=OneWay}" FontSize="15" FontWeight="SemiBold" Margin="2,12,0,4" />
                         </DataTemplate>
                     </GroupStyle.HeaderTemplate>
                 </GroupStyle>
@@ -288,21 +362,23 @@
                 <DataTemplate x:DataType="local:PhotoGridItem">
                     <Grid Margin="4">
                         <!-- Image dentro il Border: il CornerRadius ritaglia anche la miniatura, non solo lo sfondo. -->
-                        <Border Background="#2A2A2A" CornerRadius="4">
+                        <!-- Fondo appena visibile finché la miniatura non arriva; poi la foto "galleggia" con gli angoli arrotondati. -->
+                        <Border Background="{StaticResource SfondoCellaBrush}" CornerRadius="6" />
+                        <Border CornerRadius="4" Margin="6" HorizontalAlignment="Center" VerticalAlignment="Center">
                             <Image Source="{x:Bind Thumbnail, Mode=OneWay}" Stretch="Uniform" />
                         </Border>
-                        <Border Background="#66000000" Visibility="{x:Bind IsReject, Mode=OneWay}" />
+                        <Border Background="#8C000000" CornerRadius="6" Visibility="{x:Bind IsReject, Mode=OneWay}" />
                         <Border
                             BorderBrush="#FFD600"
-                            BorderThickness="5"
-                            Background="#22FFD600"
-                            CornerRadius="4"
+                            BorderThickness="4"
+                            Background="#1AFFD600"
+                            CornerRadius="6"
                             IsHitTestVisible="False"
                             Visibility="{x:Bind IsSelected, Mode=OneWay}" />
                         <Border
                             Height="4"
                             VerticalAlignment="Bottom"
-                            CornerRadius="0,0,4,4"
+                            CornerRadius="0,0,6,6"
                             Background="LimeGreen"
                             IsHitTestVisible="False"
                             Visibility="{x:Bind IsCorrenteGriglia, Mode=OneWay}" />
@@ -342,7 +418,7 @@
                         <Border
                             Width="4"
                             HorizontalAlignment="Left"
-                            CornerRadius="4,0,0,4"
+                            CornerRadius="6,0,0,6"
                             Background="#00B0FF"
                             Visibility="{x:Bind HasGroup, Mode=OneWay}" />
                         <!-- Orientamento dalla miniatura: badge nelle bande vuote, non sopra la foto. -->
@@ -393,24 +469,94 @@
             </ListView.ItemTemplate>
         </ListView>
 
-        <Grid Grid.Row="2" ColumnDefinitions="*,Auto" Padding="12,8" Background="#1A1A1A">
+        <!--
+            Stato vuoto: benvenuto senza cartella aperta, oppure cartella senza foto / filtro senza
+            risultati (AggiornaStatoVuoto). Non intercetta il mouse: la griglia sotto resta com'è.
+        -->
+        <StackPanel
+            x:Name="StatoVuotoPanel"
+            Grid.Row="1"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            MaxWidth="440"
+            Spacing="10"
+            Visibility="Collapsed">
+            <Image x:Name="StatoVuotoLogo" Source="ms-appx:///Assets/app.png" Width="88" Height="88" Margin="0,0,0,8" />
+            <FontIcon x:Name="StatoVuotoIcona" Glyph="&#xE91B;" FontSize="48" Foreground="{StaticResource TestoTerziarioBrush}" Margin="0,0,0,8" Visibility="Collapsed" />
+            <TextBlock x:Name="StatoVuotoTitolo" Text="Benvenuto in WFastPic" FontSize="22" FontWeight="SemiBold" HorizontalAlignment="Center" TextAlignment="Center" />
             <TextBlock
-                Text="←/→ naviga · Space seleziona · Shift+Space seleziona e scarta il resto della raffica · Delete scarta · 0-5 rating · Tab filtro · Ctrl+A seleziona visibili · Shift+rotella dimensione griglia · Enter apri viewer"
-                Foreground="#888888"
-                FontSize="12"
-                TextTrimming="CharacterEllipsis"
-                VerticalAlignment="Center" />
+                x:Name="StatoVuotoTesto"
+                Text="Apri una cartella di foto per iniziare: scegli le migliori con Space, scarta con Canc, sistema e esporta. Le cartelle aperte restano nel pannello a sinistra, divise per anno."
+                Foreground="{StaticResource TestoSecondarioBrush}"
+                TextWrapping="Wrap"
+                TextAlignment="Center"
+                HorizontalAlignment="Center" />
+            <Button
+                x:Name="StatoVuotoApriButton"
+                HorizontalAlignment="Center"
+                Margin="0,10,0,0"
+                Padding="18,8"
+                Style="{StaticResource AccentButtonStyle}"
+                Click="ApriCartellaButton_Click">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <FontIcon Glyph="&#xE838;" FontSize="16" />
+                    <TextBlock Text="Apri una cartella…" />
+                </StackPanel>
+            </Button>
+        </StackPanel>
+
+        <Grid Grid.Row="2" ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="12" Padding="14,6,8,6" BorderBrush="{StaticResource BordoContenutoBrush}" BorderThickness="0,1,0,0">
+            <TextBlock x:Name="StatusText" Foreground="{StaticResource TestoSecondarioBrush}" FontSize="12" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
             <!-- Come Picasa: la griglia è già usabile mentre le miniature arrivano, l'avanzamento sta in basso. -->
             <StackPanel
                 x:Name="MiniaturePanel"
-                Grid.Column="1"
+                Grid.Column="2"
                 Orientation="Horizontal"
                 Spacing="10"
-                Margin="16,0,0,0"
                 Visibility="Collapsed">
-                <TextBlock x:Name="MiniatureText" Foreground="#CCCCCC" FontSize="12" VerticalAlignment="Center" />
-                <ProgressBar x:Name="MiniatureProgressBar" Width="220" Minimum="0" Maximum="1" VerticalAlignment="Center" />
+                <TextBlock x:Name="MiniatureText" Foreground="{StaticResource TestoSecondarioBrush}" FontSize="12" VerticalAlignment="Center" />
+                <ProgressBar x:Name="MiniatureProgressBar" Width="200" Minimum="0" Maximum="1" VerticalAlignment="Center" />
             </StackPanel>
+            <!-- Le scorciatoie stavano in una riga sempre tagliata: ora per intero in un flyout. -->
+            <Button
+                Grid.Column="3"
+                Padding="8,4"
+                MinHeight="0"
+                Style="{StaticResource BarraButtonStyle}"
+                IsTabStop="False"
+                AllowFocusOnInteraction="False"
+                ToolTipService.ToolTip="Scorciatoie da tastiera">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <FontIcon Glyph="&#xE765;" FontSize="14" Foreground="{StaticResource TestoSecondarioBrush}" />
+                    <TextBlock Text="Scorciatoie" FontSize="12" Foreground="{StaticResource TestoSecondarioBrush}" />
+                </StackPanel>
+                <Button.Flyout>
+                    <Flyout Placement="TopEdgeAlignedRight">
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="20" RowSpacing="6" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
+                            <TextBlock Grid.Row="0" Text="← / →" FontWeight="SemiBold" />
+                            <TextBlock Grid.Row="0" Grid.Column="1" Text="Foto precedente / successiva" />
+                            <TextBlock Grid.Row="1" Text="Space" FontWeight="SemiBold" />
+                            <TextBlock Grid.Row="1" Grid.Column="1" Text="Seleziona" />
+                            <TextBlock Grid.Row="2" Text="Shift+Space" FontWeight="SemiBold" />
+                            <TextBlock Grid.Row="2" Grid.Column="1" Text="Seleziona e scarta il resto della raffica" />
+                            <TextBlock Grid.Row="3" Text="Canc / Backspace" FontWeight="SemiBold" />
+                            <TextBlock Grid.Row="3" Grid.Column="1" Text="Scarta (mai cancellazione)" />
+                            <TextBlock Grid.Row="4" Text="0 – 5" FontWeight="SemiBold" />
+                            <TextBlock Grid.Row="4" Grid.Column="1" Text="Stelle" />
+                            <TextBlock Grid.Row="5" Text="Tab" FontWeight="SemiBold" />
+                            <TextBlock Grid.Row="5" Grid.Column="1" Text="Cambia filtro" />
+                            <TextBlock Grid.Row="6" Text="Ctrl+A" FontWeight="SemiBold" />
+                            <TextBlock Grid.Row="6" Grid.Column="1" Text="Seleziona tutte le visibili" />
+                            <TextBlock Grid.Row="7" Text="Shift+rotella" FontWeight="SemiBold" />
+                            <TextBlock Grid.Row="7" Grid.Column="1" Text="Dimensione delle miniature" />
+                            <TextBlock Grid.Row="8" Text="Invio / doppio clic" FontWeight="SemiBold" />
+                            <TextBlock Grid.Row="8" Grid.Column="1" Text="Apri la foto" />
+                            <TextBlock Grid.Row="9" Text="Nella foto" FontWeight="SemiBold" Foreground="{StaticResource TestoSecondarioBrush}" Margin="0,6,0,0" />
+                            <TextBlock Grid.Row="9" Grid.Column="1" Text="X ritaglia · L raddrizza · U Ho fortuna · B originale · F11 schermo intero · Ctrl+Z / Ctrl+Y" Foreground="{StaticResource TestoSecondarioBrush}" TextWrapping="Wrap" MaxWidth="300" Margin="0,6,0,0" />
+                        </Grid>
+                    </Flyout>
+                </Button.Flyout>
+            </Button>
         </Grid>
 
         <!-- Viewer + editor: UserControl a parte (Viewer/ViewerView.xaml), legato alla finestra da IViewerHost. -->
@@ -523,13 +669,23 @@
             x:Name="CaricamentoOverlay"
             Grid.Row="0"
             Grid.RowSpan="3"
-            Background="#B0101010"
+            Background="#99000000"
             Visibility="Collapsed">
-            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10" Width="420">
-                <TextBlock x:Name="CaricamentoText" Text="Caricamento…" Foreground="White" FontSize="16" HorizontalAlignment="Center" />
-                <ProgressBar x:Name="CaricamentoProgressBar" IsIndeterminate="True" Minimum="0" Maximum="1" />
-                <TextBlock x:Name="CaricamentoDettaglioText" Foreground="#AAAAAA" FontSize="13" HorizontalAlignment="Center" />
-            </StackPanel>
+            <Border
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                Width="440"
+                Padding="28,24"
+                CornerRadius="8"
+                Background="{ThemeResource SolidBackgroundFillColorTertiaryBrush}"
+                BorderBrush="{StaticResource BordoContenutoBrush}"
+                BorderThickness="1">
+                <StackPanel Spacing="12">
+                    <TextBlock x:Name="CaricamentoText" Text="Caricamento…" FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                    <ProgressBar x:Name="CaricamentoProgressBar" IsIndeterminate="True" Minimum="0" Maximum="1" />
+                    <TextBlock x:Name="CaricamentoDettaglioText" Foreground="{StaticResource TestoSecondarioBrush}" FontSize="13" HorizontalAlignment="Center" />
+                </StackPanel>
+            </Border>
         </Grid>
 
         <Grid
@@ -568,6 +724,8 @@
     </Grid>
 
     </SplitView>
+
+    </Grid>
 
     <Window.SystemBackdrop>
         <MicaBackdrop />

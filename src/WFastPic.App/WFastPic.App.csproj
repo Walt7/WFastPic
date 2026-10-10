@@ -35,6 +35,10 @@
     <Content Include="..\..\assets\icon.ico" Link="icon.ico">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <!-- Logo nella barra del titolo e nella schermata di benvenuto (ms-appx:///Assets/app.png). -->
+    <Content Include="..\..\assets\icon-256.png" Link="Assets\app.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
   <ItemGroup>
