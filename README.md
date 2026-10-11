@@ -1,0 +1,48 @@
+# WFastPic — sito
+
+Questo branch contiene **solo** il sito statico di WFastPic, pubblicato su
+**https://wfastpic.walterdev.eu**. Il codice dell'app è sul branch
+[`master`](https://github.com/Walt7/WFastPic/tree/master).
+
+È un branch orfano: niente sorgenti né storia di `master`, così sul server il clone resta piccolo.
+
+## Struttura
+
+| File | Cosa |
+|---|---|
+| `index.html` | pagina inglese (`/`) |
+| `it/index.html` | pagina italiana (`/it/`) |
+| `style.css` | stile comune, tema scuro come l'app |
+| `img/` | icone, screenshot (JPEG leggeri da `assets/screenshot-*.png` di master), anteprima social |
+| `robots.txt`, `sitemap.xml` | per i motori di ricerca |
+| `google….html` | verifica di Google Search Console: non cancellarlo |
+| `deploy/deploy.sh` | script lanciato dal webhook sul VPS |
+| `nginx-wfastpic.conf` | configurazione nginx del sito (copia di quella attiva sul server) |
+
+HTML statico, senza build: percorsi relativi, nessuna dipendenza. Unica richiesta esterna: i badge di
+shields.io e, nella pagina italiana, le date dell'ultima release e dell'ultimo commit lette da
+api.github.com.
+
+## Pubblicare
+
+Un push su `sito` fa partire il webhook del VPS, che esegue `deploy/deploy.sh`
+(`git fetch` + `git reset --hard origin/sito` nella cartella servita da nginx). nginx non serve
+mai `.git`, i file nascosti, `deploy/` e la sua configurazione.
+
+Anteprima in locale:
+
+```bash
+python -m http.server 8765
+```
+
+e poi http://localhost:8765.
+
+## A ogni release
+
+La versione è scritta a mano in tutte e due le pagine: nel link del pulsante "Scarica"
+(`releases/download/vX.Y.Z/WFastPic-X.Y.Z-win-x64-setup.exe`), nel testo "Versione X.Y.Z", nel
+nome del setup nella sezione Installare e in `softwareVersion` del JSON-LD. Va aggiornata insieme
+a `<Version>` del csproj su `master`. I badge invece si aggiornano da soli.
+
+Se cambiano le pagine, aggiorna anche `sitemap.xml`; se cambiano gli screenshot dell'app,
+rigenera i JPEG in `img/`.
