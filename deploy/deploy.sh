@@ -20,8 +20,22 @@ main() {
   log "=== Deploy WFastPic avviato ==="
   cd "$APP_DIR"
 
+  PREV=$(git rev-parse HEAD)
   git fetch origin sito
   git reset --hard origin/sito
+  NEW=$(git rev-parse HEAD)
+
+  if ! git diff --quiet "$PREV" "$NEW" -- contatore/; then
+    log "contatore/ cambiato: test, build e restart del servizio"
+    export PATH="$PATH:/usr/local/go/bin"
+    (cd "$APP_DIR/contatore" && go test ./... && go build -o contatore .)
+    sudo -n /usr/bin/systemctl restart wfastpic-contatore
+  fi
+
+  if ! git diff --quiet "$PREV" "$NEW" -- nginx-wfastpic.conf; then
+    log "nginx-wfastpic.conf cambiato: va aggiornato a mano"
+    notify "⚠️ WFastPic: aggiorna nginx" "nginx-wfastpic.conf è cambiato: copia le modifiche nella config attiva di nginx e fai reload" "warning"
+  fi
 
   log "=== Deploy WFastPic completato ==="
   notify "✅ WFastPic deployato" "Deploy completato con successo" "white_check_mark"
