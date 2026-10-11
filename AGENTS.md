@@ -260,6 +260,10 @@ Nota: `Z`/`F` zoom, `M` riproduci video, `Ctrl+C/V` copia ricetta — presenti n
   da tutte le sessioni: provare in locale prima di pushare); `release.yml` costruisce il pacchetto dai sorgenti
   con `tools/release.ps1` (tag `v*` uguale a `<Version>`, o avvio manuale) e lo lascia come artifact. Lì si
   aggancerà la firma SignPath.
+- Sito https://wfastpic.walterdev.eu: branch **orfano `sito`** (solo HTML statico, niente sorgenti né storia
+  di master), pubblicato dal webhook del VPS. EN in `/`, IT in `/it/`, percorsi relativi, nessuna build. La
+  versione è scritta a mano nelle due pagine (link al setup, `softwareVersion`): a ogni release va
+  aggiornata anche lì. Anteprima locale: `python -m http.server --directory <checkout di sito>`.
 - Pacchetto per la release: `powershell -ExecutionPolicy Bypass -File tools\release.ps1` (serve Inno
   Setup 6: `winget install JRSoftware.InnoSetup`). Fa `dotnet publish` win-x64, **avvia l'exe del
   pacchetto** (non quello di Debug: il target `IncludiRisorseXamlNelPublish` del csproj aggiunge `*.xbf` e
