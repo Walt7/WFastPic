@@ -1,0 +1,19 @@
+[Unit]
+Description=Contatore di visite del sito WFastPic
+After=network.target mysql.service
+
+[Service]
+User=walter
+WorkingDirectory=/home/walter/WFastPic/contatore
+ExecStart=/home/walter/WFastPic/contatore/contatore
+# CONTATORE_DSN e CONTATORE_PASSWORD: file fuori dal repo, leggibile solo da walter (chmod 600)
+EnvironmentFile=/etc/wfastpic-contatore.env
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

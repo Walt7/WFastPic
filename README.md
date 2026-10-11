@@ -18,9 +18,11 @@ Questo branch contiene **solo** il sito statico di WFastPic, pubblicato su
 | `robots.txt`, `sitemap.xml` | per i motori di ricerca |
 | `google….html` | verifica di Google Search Console: non cancellarlo |
 | `deploy/deploy.sh` | script lanciato dal webhook sul VPS |
+| `contatore/` | contatore di visite in Go (vedi sotto) |
 | `nginx-wfastpic.conf` | configurazione nginx del sito (copia di quella attiva sul server): blocca anche README e LICENSE |
 
-HTML statico, senza build: percorsi relativi, nessuna dipendenza. Unica richiesta esterna: i badge di
+HTML statico, senza build: percorsi relativi, nessuna dipendenza. Richieste esterne: il contatore di visite
+del sito stesso (vedi sotto), i badge di
 shields.io e, nella pagina italiana, le date dell'ultima release e dell'ultimo commit lette da
 api.github.com.
 
@@ -37,6 +39,21 @@ python -m http.server 8765
 ```
 
 e poi http://localhost:8765.
+
+## Contatore di visite
+
+`contatore/` è un piccolo servizio Go (systemd `wfastpic-contatore`, solo su `127.0.0.1:8090`) che
+scrive in MySQL un evento per ogni pagina vista e per ogni clic su "Scarica". Le pagine lo chiamano
+con un `POST /api/visita` (nginx fa da proxy). Niente cookie e niente dati personali: il visitatore
+è un hash di IP + user agent + un sale casuale che cambia ogni giorno e non viene mai salvato.
+Crawler e generatori di anteprime (WhatsApp, Facebook, …) non vengono contati.
+
+- Numeri: **https://wfastpic.walterdev.eu/statistiche/** (password in `CONTATORE_PASSWORD`).
+- Le proprie visite: aprire il sito una volta con `?nonconta` da ogni browser (`?conta` per annullare).
+- Configurazione in `/etc/wfastpic-contatore.env`, fuori dal repo: `CONTATORE_DSN`
+  (`utente:password@tcp(127.0.0.1:3306)/wfastpic`) e `CONTATORE_PASSWORD`. La tabella `eventi` la
+  crea il servizio al primo avvio.
+- Test: `cd contatore && go test ./...`.
 
 ## A ogni release
 

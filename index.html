@@ -230,9 +230,29 @@
     <a href="https://github.com/Walt7/WFastPic/issues">Report a problem</a>
     <a href="it/" hreflang="it" lang="it">Versione italiana</a>
   </div>
-  <p>WFastPic is open source software under the MIT license. Not affiliated with Google: Picasa is a trademark of Google LLC, mentioned only to say what inspired this project.</p>
+  <p>Visits are counted anonymously, without cookies. WFastPic is open source software under the MIT license. Not affiliated with Google: Picasa is a trademark of Google LLC, mentioned only to say what inspired this project.</p>
 </footer>
 
 </div>
+<script>
+  // Contatore di visite anonimo (niente cookie, niente dati personali): vedi contatore/ nel branch sito.
+  // Aprendo il sito una volta con ?nonconta le visite di questo browser non vengono più contate (?conta per tornare indietro).
+  (() => {
+    try {
+      const q = new URLSearchParams(location.search);
+      if (q.has('nonconta')) localStorage.setItem('wfastpic-nonconta', '1');
+      if (q.has('conta')) localStorage.removeItem('wfastpic-nonconta');
+      if (localStorage.getItem('wfastpic-nonconta')) return;
+    } catch { }
+    const invia = dati => {
+      const corpo = JSON.stringify(Object.assign({ p: location.pathname, l: navigator.language }, dati));
+      if (!(navigator.sendBeacon && navigator.sendBeacon('/api/visita', corpo)))
+        fetch('/api/visita', { method: 'POST', body: corpo, keepalive: true }).catch(() => { });
+    };
+    invia({ r: document.referrer });
+    document.querySelectorAll('a[href*="/releases/download/"]').forEach(a =>
+      a.addEventListener('click', () => invia({ e: 'download' })));
+  })();
+</script>
 </body>
 </html>
