@@ -207,3 +207,9 @@ footer a { color: var(--tenue); }
   .pulsante { width: 100%; justify-content: center; }
   section { padding-top: 44px; }
 }
+
+.badge { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin: 14px 0 0; }
+.badge a { display: block; line-height: 0; }
+.badge a:hover { opacity: .85; }
+.badge img { height: 20px; width: auto; }
+.aggiornato { margin: 10px 0 0; font-size: 14px; color: var(--debole); }

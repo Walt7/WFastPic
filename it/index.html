@@ -83,6 +83,27 @@
     </a>
   </div>
   <p class="dettagli-download">Versione 1.0.0 · Windows 10 e 11 · gratuito e open source (MIT) · non servono permessi di amministratore · <a href="https://github.com/Walt7/WFastPic/releases/latest">tutti i download</a></p>
+  <p class="badge">
+    <a href="https://github.com/Walt7/WFastPic/releases/latest"><img src="https://img.shields.io/github/v/release/Walt7/WFastPic?label=versione&amp;color=2ea44f&amp;labelColor=2a2a2a" height="20" alt="Ultima versione"></a>
+    <a href="https://github.com/Walt7/WFastPic/releases"><img src="https://img.shields.io/github/downloads/Walt7/WFastPic/total?label=download&amp;color=4cc2ff&amp;labelColor=2a2a2a" height="20" alt="Download"></a>
+    <a href="https://github.com/Walt7/WFastPic/actions/workflows/build.yml"><img src="https://img.shields.io/github/actions/workflow/status/Walt7/WFastPic/build.yml?branch=master&amp;label=build&amp;labelColor=2a2a2a" height="20" alt="Build e test"></a>
+  </p>
+  <p class="aggiornato" id="aggiornato" hidden></p>
+  <script>
+    // Date dell'ultima release e dell'ultimo commit, in italiano (i badge di shields.io le scrivono in inglese).
+    (async () => {
+      try {
+        const api = 'https://api.github.com/repos/Walt7/WFastPic';
+        const [rel, com] = await Promise.all([fetch(api + '/releases/latest'), fetch(api + '/commits/master')]
+          .map(p => p.then(r => r.ok ? r.json() : null)));
+        const data = s => new Date(s).toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' });
+        const parti = [];
+        if (rel && rel.published_at) parti.push('Versione ' + rel.tag_name.replace(/^v/, '') + ' uscita il ' + data(rel.published_at));
+        if (com && com.commit) parti.push('ultimo aggiornamento al codice il ' + data(com.commit.committer.date));
+        if (parti.length) { const el = document.getElementById('aggiornato'); el.textContent = parti.join(' · '); el.hidden = false; }
+      } catch { }
+    })();
+  </script>
 </div>
 
 <div class="schermate">
