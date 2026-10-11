@@ -5,6 +5,7 @@
 # WFastPic
 
 <p align="center">
+  <a href="https://wfastpic.walterdev.eu/it/"><img src="https://img.shields.io/badge/sito-wfastpic.walterdev.eu-4cc2ff" alt="Sito"></a>
   <a href="https://github.com/Walt7/WFastPic/releases/latest"><img src="https://img.shields.io/github/v/release/Walt7/WFastPic?label=release&color=2ea44f" alt="Ultima release"></a>
   <a href="https://github.com/Walt7/WFastPic/releases"><img src="https://img.shields.io/github/downloads/Walt7/WFastPic/total?color=blue" alt="Download"></a>
   <a href="https://github.com/Walt7/WFastPic/actions/workflows/build.yml"><img src="https://github.com/Walt7/WFastPic/actions/workflows/build.yml/badge.svg" alt="Build e test"></a>
@@ -19,6 +20,7 @@
 
 **Un tributo open source a Picasa, per Windows: scegliere e sistemare in fretta centinaia di foto.**
 Versione attuale: **1.0.0** · [Scarica](https://github.com/Walt7/WFastPic/releases/latest) ·
+[Sito](https://wfastpic.walterdev.eu/it/) ·
 [novità](CHANGELOG.md) · [English version](README.en.md) · [English below](#english)
 
 Google ha smesso di sviluppare Picasa nel 2016 e non legge le foto HEIC dei telefoni di oggi. WFastPic è un omaggio al suo modo di lavorare — cartelle per anno, la barra spaziatrice
@@ -190,6 +192,7 @@ photos in one click and export. Everything is keyboard-driven and never makes yo
 - **Export:** JPEG at original or reduced size, watermark, tags, EXIF date and GPS preserved (or removed).
 - **Private:** everything runs on your PC; your photos never leave it ([privacy note](PRIVACY.en.md)).
 
+**Website:** [wfastpic.walterdev.eu](https://wfastpic.walterdev.eu/) ·
 **Download:** [latest release](https://github.com/Walt7/WFastPic/releases/latest) — run the setup
 (`…-win-x64-setup.exe`, no admin rights needed) or unzip the portable `.zip` and run `WFastPic.App.exe`
 (Windows 10 1809+ or Windows 11, x64). HEIC photos need the HEIF and HEVC extensions

@@ -5,6 +5,7 @@
 # WFastPic
 
 <p align="center">
+  <a href="https://wfastpic.walterdev.eu/"><img src="https://img.shields.io/badge/website-wfastpic.walterdev.eu-4cc2ff" alt="Website"></a>
   <a href="https://github.com/Walt7/WFastPic/releases/latest"><img src="https://img.shields.io/github/v/release/Walt7/WFastPic?label=release&color=2ea44f" alt="Latest release"></a>
   <a href="https://github.com/Walt7/WFastPic/releases"><img src="https://img.shields.io/github/downloads/Walt7/WFastPic/total?color=blue" alt="Downloads"></a>
   <a href="https://github.com/Walt7/WFastPic/actions/workflows/build.yml"><img src="https://github.com/Walt7/WFastPic/actions/workflows/build.yml/badge.svg" alt="Build and tests"></a>
@@ -19,6 +20,7 @@
 
 **An open source tribute to Google Picasa, for Windows: pick and fix hundreds of photos fast.**
 Current version: **1.0.0** · [Download](https://github.com/Walt7/WFastPic/releases/latest) ·
+[Website](https://wfastpic.walterdev.eu/) ·
 [Changelog](CHANGELOG.en.md) · [Italiano](README.md)
 
 Google stopped developing Picasa in 2016, and it does not read the HEIC photos phones take today.
