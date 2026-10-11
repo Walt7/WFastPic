@@ -17,7 +17,7 @@ Questo branch contiene **solo** il sito statico di WFastPic, pubblicato su
 | `robots.txt`, `sitemap.xml` | per i motori di ricerca |
 | `google….html` | verifica di Google Search Console: non cancellarlo |
 | `deploy/deploy.sh` | script lanciato dal webhook sul VPS |
-| `nginx-wfastpic.conf` | configurazione nginx del sito (copia di quella attiva sul server) |
+| `nginx-wfastpic.conf` | configurazione nginx del sito (copia di quella attiva sul server): blocca anche README e LICENSE |
 
 HTML statico, senza build: percorsi relativi, nessuna dipendenza. Unica richiesta esterna: i badge di
 shields.io e, nella pagina italiana, le date dell'ultima release e dell'ultimo commit lette da
@@ -27,7 +27,7 @@ api.github.com.
 
 Un push su `sito` fa partire il webhook del VPS, che esegue `deploy/deploy.sh`
 (`git fetch` + `git reset --hard origin/sito` nella cartella servita da nginx). nginx non serve
-mai `.git`, i file nascosti, `deploy/` e la sua configurazione.
+mai `.git`, i file nascosti, `deploy/`, la sua configurazione, `README.md` e `LICENSE`.
 
 Anteprima in locale:
 
