@@ -46,3 +46,8 @@ a `<Version>` del csproj su `master`. I badge invece si aggiornano da soli.
 
 Se cambiano le pagine, aggiorna anche `sitemap.xml`; se cambiano gli screenshot dell'app,
 rigenera i JPEG in `img/`.
+
+## Licenza
+
+[MIT](LICENSE), come l'app. Le foto negli screenshot sono con licenza CC0 da Wikimedia Commons
+([crediti](https://github.com/Walt7/WFastPic/blob/master/assets/crediti-foto-screenshot.md)).
