@@ -13,7 +13,8 @@ Questo branch contiene **solo** il sito statico di WFastPic, pubblicato su
 | `index.html` | pagina inglese (`/`) |
 | `it/index.html` | pagina italiana (`/it/`) |
 | `style.css` | stile comune, tema scuro come l'app |
-| `img/` | icone, screenshot (JPEG leggeri da `assets/screenshot-*.png` di master), anteprima social |
+| `img/` | icone, screenshot (JPEG leggeri da `assets/screenshot-*.png` di master), anteprime per WhatsApp e social `anteprima-it/en.jpg` |
+| `sorgenti/anteprima-social.html` | sorgente delle anteprime 1200×630 (istruzioni per rigenerarle dentro il file) |
 | `robots.txt`, `sitemap.xml` | per i motori di ricerca |
 | `google….html` | verifica di Google Search Console: non cancellarlo |
 | `deploy/deploy.sh` | script lanciato dal webhook sul VPS |
