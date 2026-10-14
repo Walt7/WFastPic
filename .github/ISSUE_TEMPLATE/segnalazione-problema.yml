@@ -33,7 +33,7 @@ body:
     attributes:
       label: "Versione di WFastPic / WFastPic version"
       description: "Nel titolo della finestra o in Informazioni / In the window title or in About"
-      placeholder: "1.0.0"
+      placeholder: "1.1.0"
     validations:
       required: true
   - type: dropdown

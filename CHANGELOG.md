@@ -3,20 +3,27 @@
 Le novità di WFastPic, versione per versione. La più recente è in cima. ([English](CHANGELOG.en.md))
 I dettagli tecnici (cause dei bug, file toccati) sono in [`doc/correzioni-e-novita.md`](doc/correzioni-e-novita.md).
 
-## [Non ancora rilasciato]
+## [1.1.0] — 2026-10-14
+
+Ricerca dei doppioni come in Picasa, anche tra cartelle diverse, e una nota chiara su cosa resta sul PC.
 
 ### Novità
 - **Doppioni, come "Mostra file duplicati" di Picasa**: nuovo filtro «Doppioni» (anche con Tab) con le foto
-  presenti più volte, divise per gruppi, anche con copie nelle altre cartelle che hai già aperto
-  ("anche in «Puglia»": quelle cartelle vengono solo lette, mai toccate). Trova i file identici e anche la stessa foto salvata
-  di nuovo più piccola o ricompressa (copia WhatsApp, foto esportata); due scatti diversi di una raffica non
-  sono doppioni. In ogni gruppo la copia da tenere ha la spunta verde: quella che hai scelto tu, altrimenti
-  l'originale più grande con la data di scatto. "Scarta le copie" (con conferma) o `Shift+Space` sulla copia
-  da tenere segnano le altre come scarti: niente viene cancellato senza passare da «Gestisci scarti».
+  presenti più volte, divise per gruppi, anche con copie nelle altre cartelle che hai già aperto ("anche in
+  «Puglia»": quelle cartelle vengono solo lette, mai toccate). Trova i file identici e anche la stessa foto
+  salvata di nuovo più piccola o ricompressa (copia WhatsApp, foto esportata); due scatti diversi di una
+  raffica non sono doppioni. In ogni gruppo la copia da tenere ha la spunta verde: quella che hai scelto tu,
+  altrimenti l'originale più grande con la data di scatto. "Scarta le copie" (con conferma) o `Shift+Space`
+  sulla copia da tenere segnano le altre come scarti: niente viene cancellato senza passare da «Gestisci
+  scarti».
 - **Nota sulla privacy** ([PRIVACY.md](PRIVACY.md)): cosa resta sul PC, cosa esce, verso chi, quando e come
   spegnerlo. Si apre anche da Informazioni → "Privacy".
 - **Moduli per le segnalazioni su GitHub**: "Problema" e "Proposta", in italiano e inglese, con il
   promemoria di non allegare foto personali, percorsi o nomi di persone.
+
+### Altro
+- Il pacchetto di installazione viene costruito da GitHub direttamente dai sorgenti pubblicati, e ogni
+  modifica viene compilata e provata in automatico.
 
 ## [1.0.0] — 2026-10-10
 
