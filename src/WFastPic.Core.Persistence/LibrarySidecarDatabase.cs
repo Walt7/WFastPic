@@ -20,6 +20,17 @@ public sealed record PhotoRecord(
     int? NumeroVolti = null,
     bool PersoneAnalizzate = false);
 
+/// <summary>Una foto di un'altra cartella, letta in sola lettura per cercarvi i doppioni della cartella aperta.</summary>
+public sealed record FotoAltraCartella(
+    string PathRelativo,
+    long Size,
+    DateTime? CaptureDate,
+    string Stato,
+    int Rating,
+    bool Modificata,
+    ulong? Impronta,
+    double? Rapporto);
+
 public sealed record SyncResult(int Nuove, int Aggiornate, int Invariate);
 
 /// <summary>Stato del nome su un volto: nessuno, proposto in automatico, confermato, "non è questa persona".</summary>
@@ -141,6 +152,66 @@ public sealed class LibrarySidecarDatabase : IDisposable
     }
 
     /// <summary>
+    /// Per i doppioni tra cartelle: le foto di un'altra cartella già aperta in passato, con le impronte
+    /// calcolate con <paramref name="versioneImpronte"/> (null se mancano). Sola lettura: non crea mai il
+    /// sidecar e non tocca lo schema; vuoto se manca o non è leggibile (disco scollegato, altra versione).
+    /// </summary>
+    public static IReadOnlyList<FotoAltraCartella> LeggiPerDoppioni(string cartellaFoto, int versioneImpronte)
+    {
+        var percorsoDb = Path.Combine(cartellaFoto, CartellaSidecar, NomeFileDatabase);
+        var risultato = new List<FotoAltraCartella>();
+        if (!File.Exists(percorsoDb)) return risultato;
+
+        try
+        {
+            using var connection = new SqliteConnection(new SqliteConnectionStringBuilder
+            {
+                DataSource = percorsoDb,
+                Mode = SqliteOpenMode.ReadOnly,
+                Pooling = false,
+            }.ToString());
+            connection.Open();
+
+            // Un sidecar scritto da una versione senza doppioni non ha la tabella: solo gli identici.
+            bool conImpronte;
+            using (var tabella = connection.CreateCommand())
+            {
+                tabella.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'impronte';";
+                conImpronte = Convert.ToInt64(tabella.ExecuteScalar()) > 0;
+            }
+
+            using var cmd = connection.CreateCommand();
+            cmd.CommandText = $"""
+                SELECT p.path_relativo, p.size, p.capture_date, s.stato, s.rating,
+                       EXISTS (SELECT 1 FROM edits e WHERE e.photo_id = p.id),
+                       {(conImpronte ? "i.impronta, i.rapporto" : "NULL, NULL")}
+                FROM photos p
+                JOIN selection_state s ON s.photo_id = p.id
+                {(conImpronte ? "LEFT JOIN impronte i ON i.photo_id = p.id AND i.versione = $versione" : "")};
+                """;
+            cmd.Parameters.AddWithValue("$versione", versioneImpronte);
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+            {
+                risultato.Add(new FotoAltraCartella(
+                    reader.GetString(0),
+                    reader.GetInt64(1),
+                    reader.IsDBNull(2) ? null : DateTime.Parse(reader.GetString(2)),
+                    reader.GetString(3),
+                    reader.GetInt32(4),
+                    reader.GetInt64(5) != 0,
+                    reader.IsDBNull(6) ? null : unchecked((ulong)reader.GetInt64(6)),
+                    reader.IsDBNull(7) ? null : reader.GetDouble(7)));
+            }
+        }
+        catch (Exception ex) when (ex is SqliteException or IOException or UnauthorizedAccessException or FormatException)
+        {
+            risultato.Clear(); // sidecar di un'altra versione, bloccato o su un disco scollegato
+        }
+        return risultato;
+    }
+
+    /// <summary>
     /// Per il pannello Persone (tutte le cartelle, come Picasa): in quante foto della cartella compare
     /// ogni persona con nome, proposte comprese. Sola lettura, non crea mai il sidecar; vuoto se manca,
     /// se è di una versione senza persone o se non è leggibile.
@@ -232,6 +303,14 @@ public sealed class LibrarySidecarDatabase : IDisposable
                 bruciati REAL NOT NULL,
                 chiusi REAL NOT NULL,
                 luminosita REAL NOT NULL
+            );
+
+            -- Impronta percettiva della miniatura (pHash, 64 bit) e proporzioni, per i doppioni quasi uguali.
+            CREATE TABLE IF NOT EXISTS impronte (
+                photo_id INTEGER PRIMARY KEY REFERENCES photos(id) ON DELETE CASCADE,
+                versione INTEGER NOT NULL,
+                impronta INTEGER NOT NULL,
+                rapporto REAL NOT NULL
             );
             """;
         cmd.ExecuteNonQuery();
@@ -364,6 +443,7 @@ public sealed class LibrarySidecarDatabase : IDisposable
                     UPDATE photos SET volti_cercati = 0 WHERE id = $id AND $fileCambiato = 1;
                     DELETE FROM volti WHERE photo_id = $id AND $fileCambiato = 1;
                     DELETE FROM qualita WHERE photo_id = $id AND $fileCambiato = 1;
+                    DELETE FROM impronte WHERE photo_id = $id AND $fileCambiato = 1;
                     """;
                 update.Parameters.AddWithValue("$alt", (object?)foto.Gps?.Altitude ?? DBNull.Value);
                 update.Parameters.AddWithValue("$fileCambiato",
@@ -940,6 +1020,39 @@ public sealed class LibrarySidecarDatabase : IDisposable
         cmd.Parameters.AddWithValue("$bruciati", q.Bruciati);
         cmd.Parameters.AddWithValue("$chiusi", q.Chiusi);
         cmd.Parameters.AddWithValue("$luminosita", q.Luminosita);
+        cmd.ExecuteNonQuery();
+    }
+
+    /// <summary>Impronte per i doppioni, solo quelle calcolate con <paramref name="versione"/>.</summary>
+    public IReadOnlyDictionary<long, (ulong Impronta, double Rapporto)> GetImpronte(int versione)
+    {
+        using var scope = _lock.EnterScope();
+        using var cmd = _connection.CreateCommand();
+        cmd.CommandText = "SELECT photo_id, impronta, rapporto FROM impronte WHERE versione = $versione;";
+        cmd.Parameters.AddWithValue("$versione", versione);
+        using var reader = cmd.ExecuteReader();
+        var impronte = new Dictionary<long, (ulong, double)>();
+        while (reader.Read())
+        {
+            impronte[reader.GetInt64(0)] = (unchecked((ulong)reader.GetInt64(1)), reader.GetDouble(2));
+        }
+        return impronte;
+    }
+
+    public void SalvaImpronta(long photoId, int versione, ulong impronta, double rapporto)
+    {
+        using var scope = _lock.EnterScope();
+        using var cmd = _connection.CreateCommand();
+        cmd.CommandText = """
+            INSERT INTO impronte (photo_id, versione, impronta, rapporto) VALUES ($id, $versione, $impronta, $rapporto)
+            ON CONFLICT(photo_id) DO UPDATE SET versione = excluded.versione, impronta = excluded.impronta,
+                rapporto = excluded.rapporto;
+            """;
+        cmd.Parameters.AddWithValue("$id", photoId);
+        cmd.Parameters.AddWithValue("$versione", versione);
+        // SQLite ha solo interi con segno: i 64 bit si salvano così come sono.
+        cmd.Parameters.AddWithValue("$impronta", unchecked((long)impronta));
+        cmd.Parameters.AddWithValue("$rapporto", rapporto);
         cmd.ExecuteNonQuery();
     }
 

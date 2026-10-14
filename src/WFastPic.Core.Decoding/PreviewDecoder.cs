@@ -41,4 +41,13 @@ public static class PreviewDecoder
 
         return (buffer, larghezza, altezza);
     }
+
+    /// <summary>Larghezza × altezza della foto (già girata), leggendo solo l'intestazione del file.</summary>
+    public static async Task<(int Width, int Height)> LeggiDimensioniAsync(string percorsoFoto)
+    {
+        using var fs = File.OpenRead(percorsoFoto);
+        using var winrtStream = fs.AsRandomAccessStream();
+        var decoder = await BitmapDecoder.CreateAsync(winrtStream);
+        return ((int)decoder.OrientedPixelWidth, (int)decoder.OrientedPixelHeight);
+    }
 }

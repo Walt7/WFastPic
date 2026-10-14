@@ -7,6 +7,13 @@ The app interface is in Italian: names of buttons and menus below are given as t
 ## [Unreleased]
 
 ### New
+- **Duplicates, like Picasa's "Show duplicate files"**: new «Doppioni» filter (also with Tab) with the photos
+  that are in the folder more than once, split into groups, also with copies in the other folders you have
+  already opened ("anche in «Puglia»": those folders are only read, never touched). It finds identical files and also the same photo
+  saved again smaller or recompressed (WhatsApp copy, exported photo); two different shots of a burst are not
+  duplicates. In each group the copy to keep has a green tick: the one you chose, otherwise the largest
+  original with the shooting date. "Scarta le copie" (with confirmation) or `Shift+Space` on the copy to keep
+  mark the others as rejects: nothing is deleted without going through «Gestisci scarti».
 - **Privacy note** ([PRIVACY.en.md](PRIVACY.en.md)): what stays on your PC, what leaves it, to whom, when and
   how to turn it off. Also opens from About → "Privacy".
 - **GitHub issue forms**: "Bug report" and "Feature request", in Italian and English, reminding not to

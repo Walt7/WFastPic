@@ -19,6 +19,7 @@ internal static partial class TestiEn
         PersoneCodice(d);
         Libreria(d);
         VotoAutomatico(d);
+        Doppioni(d);
         return d;
     }
 }

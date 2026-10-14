@@ -72,6 +72,9 @@ fotoritocco avanzato (esposizione a curve, maschere). WFastPic non carica le tue
 - **Raffiche** riconosciute da sole (foto scattate a pochi secondi): `Shift+Space` tiene questa e
   scarta le altre del gruppo. Nell'editor le foto della stessa raffica compaiono in piccolo accanto
   alla foto, per confrontarle al volo.
+- **Doppioni** come in Picasa: filtro «Doppioni» con le foto presenti più volte, identiche o salvate di
+  nuovo più piccole (copie WhatsApp, esportate), anche tra cartelle diverse, divise per gruppi con la copia da tenere suggerita.
+  "Scarta le copie" o `Shift+Space` segnano le altre come scarti, mai una cancellazione.
 - Scarti mai cancellati per sbaglio: vanno nel Cestino di Windows (con conferma) o nella cartella
   `Scarti/`, sempre insieme al video abbinato (Live Photo).
 
@@ -132,7 +135,7 @@ dotnet test tests/WFastPic.Core.Tests
 | Dove | Tasti |
 |---|---|
 | Griglia e editor | `←` / `→` foto precedente / successiva · `Space` seleziona · `Canc` scarta · `0`–`5` stelle |
-| Griglia | `Shift+Space` tieni e scarta il resto della raffica · `Tab` filtro · `Ctrl+A` seleziona le visibili · `Shift+rotella` dimensione miniature · `Invio` apri |
+| Griglia | `Shift+Space` tieni e scarta il resto della raffica (nel filtro Doppioni: le altre copie) · `Tab` filtro · `Ctrl+A` seleziona le visibili · `Shift+rotella` dimensione miniature · `Invio` apri |
 | Editor | `X` ritaglia · `L` raddrizza · `R` / `Shift+R` gira · `U` Ho fortuna · `B` originale · `Ctrl+Z` / `Ctrl+Y` · `F11` schermo intero · `Esc` chiudi |
 
 L'elenco completo è nell'app, sotto "Scorciatoie" nella barra in basso.

@@ -93,6 +93,7 @@ public partial class MainWindow
 
         foreach (var item in _tutte) item.VotoAuto = voti.GetValueOrDefault(item.Id);
         AggiornaScartaSuggerite();
+        AggiornaMiglioriDoppioni();
     }
 
     /// <summary>Dal pannello Persone (dopo ogni nome, unione, cerchia o stella): chi conta di più in ogni foto.</summary>

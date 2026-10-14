@@ -1,6 +1,7 @@
 using WFastPic.Core.Library;
 using WFastPic.Core.Metadata;
 using WFastPic.Core.Persistence;
+using WFastPic.Core.Selection;
 using Xunit;
 
 namespace WFastPic.Core.Tests;
@@ -66,6 +67,57 @@ public class PosizioneManualeTests
         {
             db.Dispose();
             Directory.Delete(cartella, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void Impronte_per_i_doppioni_salvate_a_64_bit_e_azzerate_se_il_file_cambia()
+    {
+        var (cartella, db, identita) = CreaDbConUnaFoto(null);
+        try
+        {
+            var id = db.GetAllPhotos().Single().Id;
+            const ulong impronta = 0xF0E1_D2C3_B4A5_9687; // bit alto acceso: in SQLite è un intero negativo
+
+            db.SalvaImpronta(id, 1, impronta, 0.75);
+            Assert.Equal((impronta, 0.75), db.GetImpronte(1)[id]);
+            Assert.Empty(db.GetImpronte(2));
+
+            db.SyncScan([new ScannedPhoto(identita with { Size = identita.Size + 1 }, null, null)]);
+            Assert.Empty(db.GetImpronte(1));
+        }
+        finally
+        {
+            db.Dispose();
+            Directory.Delete(cartella, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void Foto_di_un_altra_cartella_per_i_doppioni_in_sola_lettura()
+    {
+        var (cartella, db, _) = CreaDbConUnaFoto(null);
+        var senzaSidecar = Directory.CreateTempSubdirectory("wfastpic-mai-aperta-").FullName;
+        try
+        {
+            var id = db.GetAllPhotos().Single().Id;
+            db.UpdateStato(id, StatoSelezione.Selected);
+            db.SalvaImpronta(id, 1, 0xF0E1_D2C3_B4A5_9687, 0.75);
+
+            var foto = Assert.Single(LibrarySidecarDatabase.LeggiPerDoppioni(cartella, 1));
+            Assert.Equal((0xF0E1_D2C3_B4A5_9687UL, 0.75), (foto.Impronta, foto.Rapporto));
+            Assert.Equal(StatoSelezione.Selected, foto.Stato);
+            Assert.Null(Assert.Single(LibrarySidecarDatabase.LeggiPerDoppioni(cartella, 2)).Impronta);
+
+            // Una cartella mai aperta resta intatta: niente sidecar creato.
+            Assert.Empty(LibrarySidecarDatabase.LeggiPerDoppioni(senzaSidecar, 1));
+            Assert.False(Directory.Exists(Path.Combine(senzaSidecar, LibrarySidecarDatabase.CartellaSidecar)));
+        }
+        finally
+        {
+            db.Dispose();
+            Directory.Delete(cartella, recursive: true);
+            Directory.Delete(senzaSidecar, recursive: true);
         }
     }
 

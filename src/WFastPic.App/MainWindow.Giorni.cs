@@ -7,12 +7,18 @@ using WFastPic.Core.Library;
 
 namespace WFastPic.App;
 
-/// <summary>Un giorno di scatto nella griglia divisa per giorni; il titolo segue il numero di foto.</summary>
+/// <summary>
+/// Un gruppo della griglia divisa: un giorno di scatto, oppure (filtro Doppioni) un gruppo di copie della
+/// stessa foto. Il titolo segue il numero di foto.
+/// </summary>
 public sealed class GruppoGiorno : ObservableCollection<PhotoGridItem>
 {
-    public required DateOnly? Giorno { get; init; }
+    public DateOnly? Giorno { get; init; }
 
-    public string Titolo => GiorniScatto.Titolo(Giorno, Count);
+    /// <summary>Titolo diverso da quello del giorno (gruppi di doppioni).</summary>
+    public Func<GruppoGiorno, string>? TitoloPersonalizzato { get; init; }
+
+    public string Titolo => TitoloPersonalizzato?.Invoke(this) ?? GiorniScatto.Titolo(Giorno, Count);
 
     protected override void OnCollectionChanged(NotifyCollectionChangedEventArgs e)
     {
@@ -34,6 +40,12 @@ public partial class MainWindow
     private CollectionViewSource? _vistaGiorni;
     private bool _ricostruzioneGiorniProgrammata;
 
+    /// <summary>Griglia divisa in gruppi: per giorni se scelto, sempre nel filtro Doppioni.</summary>
+    private bool VistaRaggruppata => _dividiPerGiorni || Filtri[_filtroIndice] == FiltroDoppioni;
+
+    /// <summary>Com'è la sorgente della griglia adesso (per cambiarla solo quando serve).</summary>
+    private bool _vistaRaggruppataAttiva;
+
     private void InizializzaGiorni()
     {
         _visibili.CollectionChanged += Visibili_CollectionChanged;
@@ -51,8 +63,9 @@ public partial class MainWindow
     private void ApplicaModalitaGiorni()
     {
         var selezionata = Griglia.SelectedItem as PhotoGridItem;
+        _vistaRaggruppataAttiva = VistaRaggruppata;
 
-        if (_dividiPerGiorni)
+        if (_vistaRaggruppataAttiva)
         {
             RicostruisciGiorni();
             _vistaGiorni ??= new CollectionViewSource { IsSourceGrouped = true, Source = _gruppiGiorno };
@@ -70,6 +83,17 @@ public partial class MainWindow
     private void RicostruisciGiorni()
     {
         _gruppiGiorno.Clear();
+        if (Filtri[_filtroIndice] == FiltroDoppioni)
+        {
+            foreach (var copie in _visibili.GroupBy(f => f.DoppioneId))
+            {
+                var gruppo = new GruppoGiorno { TitoloPersonalizzato = TitoloGruppoDoppioni };
+                foreach (var f in copie) gruppo.Add(f);
+                _gruppiGiorno.Add(gruppo);
+            }
+            return;
+        }
+
         foreach (var (giorno, foto) in GiorniScatto.Raggruppa(_visibili, f => f.CaptureDate))
         {
             var gruppo = new GruppoGiorno { Giorno = giorno };
@@ -93,14 +117,13 @@ public partial class MainWindow
 
     private void Visibili_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
-        if (!_dividiPerGiorni) return;
+        if (!_vistaRaggruppataAttiva) return;
 
         if (e.Action == NotifyCollectionChangedAction.Remove && e.OldItems is not null && !_ricostruzioneGiorniProgrammata)
         {
             foreach (PhotoGridItem foto in e.OldItems)
             {
-                var giorno = GiorniScatto.Giorno(foto.CaptureDate);
-                var gruppo = _gruppiGiorno.FirstOrDefault(g => g.Giorno == giorno);
+                var gruppo = _gruppiGiorno.FirstOrDefault(g => g.Contains(foto));
                 if (gruppo is null) continue;
                 gruppo.Remove(foto);
                 if (gruppo.Count == 0) _gruppiGiorno.Remove(gruppo);
@@ -114,7 +137,7 @@ public partial class MainWindow
         DispatcherQueue.TryEnqueue(() =>
         {
             _ricostruzioneGiorniProgrammata = false;
-            if (!_dividiPerGiorni) return;
+            if (!_vistaRaggruppataAttiva) return;
 
             var selezionata = Griglia.SelectedItem as PhotoGridItem;
             RicostruisciGiorni();

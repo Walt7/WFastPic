@@ -164,6 +164,23 @@ Aggiunte fuori piano, su richiesta esplicita durante lo sviluppo:
 - Avviso di versione nuova (`MainWindow.Aggiornamenti.cs`): 5 s dopo l'avvio legge l'ultima release da
   api.github.com (`ControlloVersione`, testato: ignora bozze, anteprime e risposte strane, apre solo pagine
   github.com) e mostra un link piccolo nella barra in basso; opzione `ControllaAggiornamenti` nelle Informazioni.
+- Doppioni come "Mostra file duplicati" di Picasa (`MainWindow.Doppioni.cs`, logica in
+  `RicercaDoppioni` e `ImprontaPercettiva`, testate): identici = stessa dimensione, poi confronto byte per
+  byte solo tra quelli (mai hash di tutta la libreria); quasi uguali = pHash 64 bit dalla miniatura già in
+  cache (distanza ≤ 6, stesse proporzioni, stessa data di scatto o una delle due senza data: le raffiche
+  restano fuori). Impronte nel sidecar (tabella `impronte` con `versione`, azzerate se il file cambia),
+  calcolate in background a miniature finite prima dei volti. Filtro «Doppioni» con la griglia sempre divisa
+  per gruppi (`VistaRaggruppata`, stesso meccanismo di "Per giorni"), anche le copie scartate restano nel
+  gruppo. Copia da tenere (`ScegliMigliore`): non scartata > selezionata > voto > modificata > con data >
+  più pixel (letti solo per le foto doppie) > voto automatico > file più grande > nome non "copia"/"(1)".
+  "Scarta le copie" con conferma, `Shift+Space` nel filtro = tieni questa e scarta le altre copie.
+  Anche tra cartelle diverse: le altre cartelle note (`_cartelleRecenti`) si leggono dai loro sidecar in
+  sola lettura (`LibrarySidecarDatabase.LeggiPerDoppioni`, mai creati né scritti) una volta per cartella
+  aperta, in background; identici solo tra file con la dimensione di una foto di qui, quasi uguali solo
+  qui↔altrove (mai altrove↔altrove, `Raggruppa(..., altrove)`). In memoria restano solo le copie altrove
+  con un doppione qui e ancora esistenti (id negativi). In griglia si vedono solo le foto di qui; titolo e
+  tooltip dicono "anche in «Cartella»", la copia da tenere può essere altrove (allora quelle di qui sono
+  tutte scartabili). I file delle altre cartelle non vengono mai toccati.
 - Dettagli del viewer: sezione Voto (il tuo / automatico con i motivi) e sezione Volti come Picasa
   (miniature con nome, "?" se proposto, cerchia; clic = "Chi è?" su quel volto, via `IViewerHost`).
 
@@ -208,7 +225,7 @@ src/
 ├─ WFastPic.Core.Persistence/   (sidecar SQLite)
 └─ WFastPic.Core.Export/        (bake ricetta + watermark + tag EXIF + encode JPEG — Windows-targeted)
 tests/
-└─ WFastPic.Core.Tests/         (xUnit, 209 test — Library/Selection/Processing/Metadata/Export)
+└─ WFastPic.Core.Tests/         (xUnit, 227 test — Library/Selection/Processing/Metadata/Export)
 tools/
 ├─ HeicSmokeTest/                (Fase 0, smoke test decoding)
 ├─ ScanSmokeTest/
@@ -231,7 +248,7 @@ assets/                          (icon.ico, logo.png)
 
 ## Shortcut da tastiera implementati (mappa di riferimento)
 
-`←/→` naviga · `Space` seleziona · `Shift+Space` seleziona e scarta il resto della raffica ·
+`←/→` naviga · `Space` seleziona · `Shift+Space` seleziona e scarta il resto della raffica (nel filtro Doppioni: le altre copie) ·
 `Delete`/`Backspace` scarta (mai cancellazione fisica) · `0-5` rating · `Tab` filtro
 tutte/selezionate/scarti · `Ctrl+A` seleziona tutte visibili · `Shift+rotella` dimensione cella
 griglia · `Enter` / doppio click apri viewer. Nel Viewer: `←/→` naviga · `Space` seleziona ·
@@ -276,7 +293,7 @@ Nota: `Z`/`F` zoom, `M` riproduci video, `Ctrl+C/V` copia ricetta — presenti n
   `IViewerHost`; la finestra lo usa con `Viewer.Apri/Chiudi/IsAperto/SalvaRicettaCorrente` e l'evento
   `Chiuso`. Una nuova dipendenza va aggiunta all'interfaccia, non aggirata.
 
-- Test prima o insieme al codice per la logica in `Core.*` (xUnit) — 209 test attuali coprono
+- Test prima o insieme al codice per la logica in `Core.*` (xUnit) — 227 test attuali coprono
   scan/identità, raffiche, selezione, ricetta/crop/rotate/tono/geometria raddrizzamento, ordinamento
   cronologico, riapertura veloce, scarti, concorrenza sidecar, stima avanzamento, zoom/trascinamento viewer.
 - `LibrarySidecarDatabase` è condiviso tra thread UI e coda di scrittura: ogni metodo pubblico nuovo

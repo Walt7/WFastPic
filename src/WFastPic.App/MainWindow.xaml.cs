@@ -25,7 +25,7 @@ public partial class MainWindow : Window
     private const int CellSizeMax = 400;
     private const int CellSizeStep = 20;
 
-    private static readonly string[] Filtri = ["Tutte", "Selezionate", "Scarti", "Geolocalizzate", "Con volti", FiltroDaScartare];
+    private static readonly string[] Filtri = ["Tutte", "Selezionate", "Scarti", "Geolocalizzate", "Con volti", FiltroDaScartare, FiltroDoppioni];
 
     private readonly ObservableCollection<PhotoGridItem> _visibili = new();
     private readonly List<PhotoGridItem> _tutte = new();
@@ -226,6 +226,7 @@ public partial class MainWindow : Window
         _visibili.Clear();
         _perId.Clear();
         _gruppi.Clear();
+        AzzeraDoppioni();
         _conteggioSelezionate = 0;
         _conteggioScarti = 0;
         _filtroIndice = 0;
@@ -264,9 +265,10 @@ public partial class MainWindow : Window
         HashSet<long> conVideo;
         Dictionary<long, EditRecipe> ricette;
         IReadOnlyDictionary<long, QualitaSalvata> qualita;
+        IReadOnlyDictionary<long, (ulong Impronta, double Rapporto)> impronte;
         try
         {
-            (db, records, conVideo, ricette, qualita) = await Task.Run(() =>
+            (db, records, conVideo, ricette, qualita, impronte) = await Task.Run(() =>
             {
                 var database = LibrarySidecarDatabase.OpenOrCreate(cartella);
                 try
@@ -285,7 +287,9 @@ public partial class MainWindow : Window
                         .ToDictionary(r => r.Key, r => EditRecipeSerializer.FromJson(r.Value));
                     // Misure già fatte per il voto automatico: le stelline ci sono subito.
                     var misure = database.GetQualita(MisuraQualita.Versione);
-                    return (database, foto, video, modifiche, misure);
+                    // Impronte delle miniature: i doppioni quasi uguali ci sono subito.
+                    var giaCalcolate = database.GetImpronte(ImprontaPercettiva.Versione);
+                    return (database, foto, video, modifiche, misure, giaCalcolate);
                 }
                 catch
                 {
@@ -348,9 +352,11 @@ public partial class MainWindow : Window
         }
 
         AssegnaQualitaSalvate(_tutte, qualita);
+        AssegnaImpronteSalvate(_tutte, impronte);
         _importanzaFoto = [];
         RaggruppaRaffiche();
         RicalcolaVotiAutomatici();
+        RaggruppaDoppioni();
         ApplicaFiltro();
         AggiornaStatusBar();
         Griglia.Focus(FocusState.Programmatic);
@@ -434,6 +440,7 @@ public partial class MainWindow : Window
         NascondiDallaGriglia(daNascondere);
         AggiornaStatusBar();
         AggiornaScartaSuggerite();
+        AggiornaMiglioriDoppioni();
     }
 
     private bool ApplicaStato(PhotoGridItem item, string nuovoStato)
@@ -547,6 +554,7 @@ public partial class MainWindow : Window
     {
         item.Rating = rating;
         _selectionManager?.SetRating(item.Id, rating);
+        if (item.HasDoppione) AggiornaMiglioriDoppioni();
     }
 
     private static bool CorrispondeAlFiltro(PhotoGridItem item, string filtro) => filtro switch
@@ -557,6 +565,8 @@ public partial class MainWindow : Window
         "Con volti" => item.NumeroVolti > 0,
         // Solo quelle ancora da decidere: scartandole spariscono dall'elenco.
         FiltroDaScartare => item.DaScartareSuggerita && item.Stato != StatoSelezione.Reject,
+        // Anche le copie già scartate: il gruppo resta intero per confrontarle.
+        FiltroDoppioni => item.HasDoppione,
         _ => true,
     };
 
@@ -564,10 +574,14 @@ public partial class MainWindow : Window
     {
         var filtro = Filtri[_filtroIndice];
         _visibili.Clear();
-        foreach (var item in _tutte.Where(i => CorrispondeAlFiltro(i, filtro) && CorrispondeAllaPersona(i)))
+        var foto = _tutte.Where(i => CorrispondeAlFiltro(i, filtro) && CorrispondeAllaPersona(i));
+        // Doppioni: un gruppo dopo l'altro (la copia senza data starebbe in fondo), anche nel viewer.
+        if (filtro == FiltroDoppioni) foto = foto.OrderBy(i => i.DoppioneId);
+        foreach (var item in foto)
         {
             _visibili.Add(item);
         }
+        if (VistaRaggruppata != _vistaRaggruppataAttiva) ApplicaModalitaGiorni();
         AggiornaFiltroUI();
         AssicuraSelezione();
         AggiornaStatoVuoto();
@@ -660,6 +674,10 @@ public partial class MainWindow : Window
                 _tutte.Any(f => f.Qualita is null)
                     ? T("L'analisi delle foto è ancora in corso: quelle mosse o sfocate compariranno qui.")
                     : T("Nessuna foto mossa, sfocata o esposta male tra quelle ancora da decidere.")),
+            _ when Filtri[_filtroIndice] == FiltroDoppioni => (T("Nessun doppione"),
+                _tutte.Any(f => f.Impronta is null)
+                    ? T("La ricerca dei doppioni parte quando le miniature sono pronte: le foto doppie compariranno qui.")
+                    : T("In questa cartella ogni foto c'è una volta sola.")),
             _ => (T("Nessuna foto con questo filtro"), T("Premi Tab o scegli «Tutte» nel filtro in alto per rivederle tutte.")),
         };
         StatoVuotoPanel.Visibility = Visibility.Visible;
@@ -772,6 +790,7 @@ public partial class MainWindow : Window
             }
         }
         AggiornaScartaSuggerite();
+        AggiornaScartaDoppioni();
     }
 
     // --- Tastiera: ← → SPACE è il ciclo critico, nessuna operazione qui deve bloccare ---
@@ -786,6 +805,17 @@ public partial class MainWindow : Window
 
         switch (e.Key)
         {
+            case VirtualKey.Space when corrente is not null && shiftPremuto
+                && Filtri[_filtroIndice] == FiltroDoppioni && corrente.DoppioneId is int doppione:
+                // Nel filtro Doppioni: tiene questa copia e scarta le altre dello stesso gruppo.
+                var modificheDoppioni = new List<(PhotoGridItem, string)> { (corrente, StatoSelezione.Selected) };
+                modificheDoppioni.AddRange(_gruppiDoppioni[doppione]
+                    .Where(m => m.Id != corrente.Id)
+                    .Select(m => (m, StatoSelezione.Reject)));
+                SetStati(modificheDoppioni);
+                e.Handled = true;
+                break;
+
             case VirtualKey.Space when corrente is not null && shiftPremuto && corrente.GroupId is int groupId:
                 // Un'unica azione: tiene questa foto e scarta il resto della raffica.
                 var modificheRaffica = new List<(PhotoGridItem, string)> { (corrente, StatoSelezione.Selected) };
@@ -963,6 +993,7 @@ public partial class MainWindow : Window
         {
             // Le raffiche vanno ricalcolate: etichette "n/m" e membri di gruppo puntano a foto non più presenti.
             RaggruppaRaffiche();
+            RaggruppaDoppioni();
             NascondiDallaGriglia(rimosse);
             AggiornaStatusBar();
         }

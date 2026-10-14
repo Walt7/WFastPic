@@ -258,6 +258,7 @@
                         <ComboBoxItem Content="Geolocalizzate" />
                         <ComboBoxItem Content="Con volti" />
                         <ComboBoxItem Content="Da scartare?" />
+                        <ComboBoxItem Content="Doppioni" />
                     </ComboBox>
                     <!-- Solo nel filtro «Da scartare?»: scarta in un colpo le foto mosse o venute male (con conferma). -->
                     <Button
@@ -269,6 +270,18 @@
                         <StackPanel Orientation="Horizontal" Spacing="6">
                             <FontIcon Glyph="&#xE74D;" FontSize="14" Foreground="OrangeRed" />
                             <TextBlock x:Name="ScartaSuggeriteText" Text="Scarta tutte" />
+                        </StackPanel>
+                    </Button>
+                    <!-- Solo nel filtro «Doppioni»: in ogni gruppo tiene la copia suggerita e scarta le altre (con conferma). -->
+                    <Button
+                        x:Name="ScartaDoppioniButton"
+                        Margin="4,0,0,0"
+                        Visibility="Collapsed"
+                        Click="ScartaDoppioniButton_Click"
+                        ToolTipService.ToolTip="Tiene in ogni gruppo la copia suggerita e segna come scarti le altre (Shift+Space: tieni questa)">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <FontIcon Glyph="&#xE74D;" FontSize="14" Foreground="OrangeRed" />
+                            <TextBlock x:Name="ScartaDoppioniText" Text="Scarta le copie" />
                         </StackPanel>
                     </Button>
                     <Button
@@ -487,6 +500,18 @@
                                     <FontIcon Glyph="&#xE77B;" Foreground="Gold" FontSize="12" Visibility="{x:Bind CiSeiTu, Mode=OneWay}" />
                                     <FontIcon Glyph="&#xE8E1;" Foreground="#00B0FF" FontSize="12" Visibility="{x:Bind MiglioreRaffica, Mode=OneWay}" />
                                     <TextBlock Text="{x:Bind VotoAutoTesto, Mode=OneWay}" Foreground="#B39DDB" FontSize="12" />
+                                </StackPanel>
+                            </Border>
+                            <!-- Doppione: icona copia arancione, spunta verde sulla copia da tenere. -->
+                            <Border
+                                Background="#CC000000"
+                                CornerRadius="3"
+                                Padding="4,2"
+                                Visibility="{x:Bind HasDoppione, Mode=OneWay}"
+                                ToolTipService.ToolTip="{x:Bind DoppioneDescrizione, Mode=OneWay}">
+                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                    <FontIcon Glyph="&#xE8C8;" Foreground="#FFAB40" FontSize="12" />
+                                    <FontIcon Glyph="&#xE930;" Foreground="LimeGreen" FontSize="12" Visibility="{x:Bind MiglioreDoppione, Mode=OneWay}" />
                                 </StackPanel>
                             </Border>
                             <Border

@@ -76,6 +76,9 @@ advanced photo editing (curves, masks). WFastPic does not upload your photos any
 - **Bursts** detected automatically (photos taken seconds apart): `Shift+Space` keeps this one and
   rejects the rest of the group. In the editor the photos of the same burst appear small next to the
   photo, so you can compare them at a glance.
+- **Duplicates** like in Picasa: the «Doppioni» filter shows photos that are in the folder more than once,
+  identical or saved again smaller (WhatsApp copies, exports), also across folders, in groups with the copy to keep suggested.
+  "Scarta le copie" or `Shift+Space` mark the others as rejects, never a deletion.
 - Rejects are never deleted by accident: they go to the Windows Recycle Bin (with confirmation) or to a
   `Scarti/` folder, always together with the paired video (Live Photo).
 
@@ -134,7 +137,7 @@ dotnet test tests/WFastPic.Core.Tests
 | Where | Keys |
 |---|---|
 | Grid and editor | `←` / `→` previous / next photo · `Space` select · `Delete` reject · `0`–`5` stars |
-| Grid | `Shift+Space` keep and reject the rest of the burst · `Tab` filter · `Ctrl+A` select visible · `Shift+wheel` thumbnail size · `Enter` open |
+| Grid | `Shift+Space` keep and reject the rest of the burst (in the Duplicates filter: the other copies) · `Tab` filter · `Ctrl+A` select visible · `Shift+wheel` thumbnail size · `Enter` open |
 | Editor | `X` crop · `L` straighten · `R` / `Shift+R` rotate · `U` I'm Feeling Lucky · `B` original · `Ctrl+Z` / `Ctrl+Y` · `F11` full screen · `Esc` close |
 
 The full list is in the app, under "Scorciatoie" (shortcuts) in the bottom bar.

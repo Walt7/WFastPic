@@ -129,6 +129,86 @@ public sealed class PhotoGridItem : INotifyPropertyChanged
     public bool HasGroup => GroupId is not null;
     public string GruppoTesto => $"{PosizioneNelGruppo}/{DimensioneGruppo}";
 
+    // ---- Doppioni: la stessa foto più volte nella cartella (identica o ricompressa/ridimensionata)
+
+    /// <summary>Impronta percettiva della miniatura; null = non ancora calcolata.</summary>
+    public ulong? Impronta { get; set; }
+
+    /// <summary>Larghezza/altezza della miniatura su cui è calcolata l'impronta.</summary>
+    public double? RapportoMiniatura { get; set; }
+
+    private int? _doppioneId;
+    public int? DoppioneId
+    {
+        get => _doppioneId;
+        set
+        {
+            if (_doppioneId == value) return;
+            _doppioneId = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(HasDoppione));
+            OnPropertyChanged(nameof(DoppioneDescrizione));
+        }
+    }
+
+    public bool HasDoppione => DoppioneId is not null;
+
+    private bool _doppioneIdentico;
+    public bool DoppioneIdentico
+    {
+        get => _doppioneIdentico;
+        set
+        {
+            if (_doppioneIdentico == value) return;
+            _doppioneIdentico = value;
+            OnPropertyChanged(nameof(DoppioneDescrizione));
+        }
+    }
+
+    private bool _miglioreDoppione;
+    /// <summary>La copia suggerita da tenere (le scelte dell'utente contano più di tutto).</summary>
+    public bool MiglioreDoppione
+    {
+        get => _miglioreDoppione;
+        set
+        {
+            if (_miglioreDoppione == value) return;
+            _miglioreDoppione = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(DoppioneDescrizione));
+        }
+    }
+
+    private string? _doppioneAltrove;
+    /// <summary>Dove sono le copie in altre cartelle ("«Puglia» (2), «Roma»"), null se solo qui.</summary>
+    public string? DoppioneAltrove
+    {
+        get => _doppioneAltrove;
+        set
+        {
+            if (_doppioneAltrove == value) return;
+            _doppioneAltrove = value;
+            OnPropertyChanged(nameof(DoppioneDescrizione));
+        }
+    }
+
+    private string? _miglioreAltrove;
+    /// <summary>La copia da tenere è in un'altra cartella: quale («Puglia»).</summary>
+    public string? MiglioreAltrove
+    {
+        get => _miglioreAltrove;
+        set
+        {
+            if (_miglioreAltrove == value) return;
+            _miglioreAltrove = value;
+            OnPropertyChanged(nameof(DoppioneDescrizione));
+        }
+    }
+
+    public string DoppioneDescrizione => _doppioneId is null
+        ? ""
+        : EtichetteDoppioni.Descrivi(_doppioneIdentico, _miglioreDoppione, _doppioneAltrove, _miglioreAltrove);
+
     private BitmapImage? _thumbnail;
     public BitmapImage? Thumbnail
     {

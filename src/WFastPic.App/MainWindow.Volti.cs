@@ -55,6 +55,16 @@ public partial class MainWindow
         var manager = _selectionManager;
         if (manager is null) return;
 
+        // Per primi i doppioni: bastano le miniature appena pronte e finiscono in pochi secondi.
+        try
+        {
+            await AnalizzaDoppioniAsync(manager, token);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
         if (_riconoscimentoPersone is null) await ChiediRiconoscimentoPersoneAsync();
         if (token.IsCancellationRequested) return;
 

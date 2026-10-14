@@ -6,6 +6,13 @@ I dettagli tecnici (cause dei bug, file toccati) sono in [`doc/correzioni-e-novi
 ## [Non ancora rilasciato]
 
 ### Novità
+- **Doppioni, come "Mostra file duplicati" di Picasa**: nuovo filtro «Doppioni» (anche con Tab) con le foto
+  presenti più volte, divise per gruppi, anche con copie nelle altre cartelle che hai già aperto
+  ("anche in «Puglia»": quelle cartelle vengono solo lette, mai toccate). Trova i file identici e anche la stessa foto salvata
+  di nuovo più piccola o ricompressa (copia WhatsApp, foto esportata); due scatti diversi di una raffica non
+  sono doppioni. In ogni gruppo la copia da tenere ha la spunta verde: quella che hai scelto tu, altrimenti
+  l'originale più grande con la data di scatto. "Scarta le copie" (con conferma) o `Shift+Space` sulla copia
+  da tenere segnano le altre come scarti: niente viene cancellato senza passare da «Gestisci scarti».
 - **Nota sulla privacy** ([PRIVACY.md](PRIVACY.md)): cosa resta sul PC, cosa esce, verso chi, quando e come
   spegnerlo. Si apre anche da Informazioni → "Privacy".
 - **Moduli per le segnalazioni su GitHub**: "Problema" e "Proposta", in italiano e inglese, con il
