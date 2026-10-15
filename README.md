@@ -12,6 +12,8 @@ Questo branch contiene **solo** il sito statico di WFastPic, pubblicato su
 |---|---|
 | `index.html` | pagina inglese (`/`) |
 | `it/index.html` | pagina italiana (`/it/`) |
+| `heic-photos-windows/`, `it/foto-heic-windows/` | guida: aprire le foto HEIC su Windows (EN/IT) |
+| `picasa-alternative/`, `it/alternativa-picasa/` | guida: le alternative a Picasa (EN/IT) |
 | `style.css` | stile comune, tema scuro come l'app |
 | `img/` | icone, screenshot (JPEG leggeri da `assets/screenshot-*.png` di master), anteprime per WhatsApp e social `anteprima-it/en.jpg` |
 | `sorgenti/anteprima-social.html` | sorgente delle anteprime 1200×630 (istruzioni per rigenerarle dentro il file) |
@@ -62,7 +64,7 @@ La versione è scritta a mano in tutte e due le pagine: nel link del pulsante "S
 nome del setup nella sezione Installare e in `softwareVersion` del JSON-LD. Va aggiornata insieme
 a `<Version>` del csproj su `master`. I badge invece si aggiornano da soli.
 
-Se cambiano le pagine, aggiorna anche `sitemap.xml`; se cambiano gli screenshot dell'app,
+Se aggiungi o togli pagine, aggiorna `sitemap.xml` e l'elenco `pagineValide` in `contatore/main.go`; se cambiano gli screenshot dell'app,
 rigenera i JPEG in `img/`.
 
 ## Licenza

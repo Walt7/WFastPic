@@ -2,14 +2,44 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url>
     <loc>https://wfastpic.walterdev.eu/</loc>
+    <lastmod>2026-10-16</lastmod>
     <xhtml:link rel="alternate" hreflang="en" href="https://wfastpic.walterdev.eu/"/>
     <xhtml:link rel="alternate" hreflang="it" href="https://wfastpic.walterdev.eu/it/"/>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://wfastpic.walterdev.eu/"/>
   </url>
   <url>
     <loc>https://wfastpic.walterdev.eu/it/</loc>
+    <lastmod>2026-10-16</lastmod>
     <xhtml:link rel="alternate" hreflang="en" href="https://wfastpic.walterdev.eu/"/>
     <xhtml:link rel="alternate" hreflang="it" href="https://wfastpic.walterdev.eu/it/"/>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://wfastpic.walterdev.eu/"/>
+  </url>
+  <url>
+    <loc>https://wfastpic.walterdev.eu/heic-photos-windows/</loc>
+    <lastmod>2026-10-16</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://wfastpic.walterdev.eu/heic-photos-windows/"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://wfastpic.walterdev.eu/it/foto-heic-windows/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://wfastpic.walterdev.eu/heic-photos-windows/"/>
+  </url>
+  <url>
+    <loc>https://wfastpic.walterdev.eu/it/foto-heic-windows/</loc>
+    <lastmod>2026-10-16</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://wfastpic.walterdev.eu/heic-photos-windows/"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://wfastpic.walterdev.eu/it/foto-heic-windows/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://wfastpic.walterdev.eu/heic-photos-windows/"/>
+  </url>
+  <url>
+    <loc>https://wfastpic.walterdev.eu/picasa-alternative/</loc>
+    <lastmod>2026-10-16</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://wfastpic.walterdev.eu/picasa-alternative/"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://wfastpic.walterdev.eu/it/alternativa-picasa/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://wfastpic.walterdev.eu/picasa-alternative/"/>
+  </url>
+  <url>
+    <loc>https://wfastpic.walterdev.eu/it/alternativa-picasa/</loc>
+    <lastmod>2026-10-16</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://wfastpic.walterdev.eu/picasa-alternative/"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://wfastpic.walterdev.eu/it/alternativa-picasa/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://wfastpic.walterdev.eu/picasa-alternative/"/>
   </url>
 </urlset>

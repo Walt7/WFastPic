@@ -213,3 +213,56 @@ footer a { color: var(--tenue); }
 .badge a:hover { opacity: .85; }
 .badge img { height: 20px; width: auto; }
 .aggiornato { margin: 10px 0 0; font-size: 14px; color: var(--debole); }
+
+/* Guide (articoli) */
+.articolo { max-width: 780px; margin: 0 auto; padding-bottom: 8px; }
+.briciole { font-size: 14px; color: var(--debole); margin: 12px 0 0; }
+.briciole a { color: var(--tenue); }
+.articolo h1 { font-size: clamp(32px, 5.4vw, 48px); letter-spacing: -1px; margin: 14px 0 0; }
+.articolo .attacco { font-size: 19px; color: var(--tenue); margin: 18px 0 0; }
+.articolo .data { font-size: 14px; color: var(--debole); margin: 10px 0 0; }
+.articolo section { padding-top: 40px; }
+.articolo h2 { font-size: clamp(24px, 3.6vw, 30px); }
+.articolo h3 { margin-top: 24px; }
+.articolo p, .articolo li { color: #d6d6d6; }
+.articolo ul, .articolo ol { padding-left: 22px; }
+.articolo li + li { margin-top: 6px; }
+.articolo strong { color: var(--testo); }
+.indice {
+  margin: 28px 0 0; padding: 16px 20px;
+  background: var(--card); border: 1px solid var(--bordo); border-radius: var(--raggio);
+}
+.indice p { margin: 0 0 6px; font-weight: 600; color: var(--testo); }
+.indice ol { margin: 0; }
+.riquadro {
+  margin: 20px 0; padding: 16px 20px;
+  background: rgba(76, 194, 255, .07); border: 1px solid rgba(76, 194, 255, .3);
+  border-radius: var(--raggio);
+}
+.riquadro.attenzione { background: rgba(255, 214, 0, .06); border-color: rgba(255, 214, 0, .35); }
+.riquadro p { margin: 0; }
+.riquadro p + p { margin-top: 8px; }
+.alternativa {
+  margin: 16px 0; padding: 18px 22px;
+  background: var(--card); border: 1px solid var(--bordo); border-radius: var(--raggio);
+}
+.alternativa h3 { margin: 0 0 4px; }
+.alternativa .tipo { margin: 0 0 10px; font-size: 14px; color: var(--debole); }
+.alternativa.nostra { border-color: rgba(76, 194, 255, .45); }
+.alternativa ul { margin: 6px 0 0; }
+.invito {
+  margin: 40px 0 0; padding: 24px;
+  display: flex; flex-wrap: wrap; gap: 18px; align-items: center;
+  background: var(--card); border: 1px solid var(--bordo); border-radius: var(--raggio);
+}
+.invito img { width: 64px; height: 64px; }
+.invito div { flex: 1 1 260px; }
+.invito h2 { font-size: 22px; margin: 0 0 4px; }
+.invito p { margin: 0; color: var(--tenue); }
+.altre-guide { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+.altre-guide a {
+  display: block; padding: 16px 18px; color: var(--testo);
+  background: var(--card); border: 1px solid var(--bordo); border-radius: var(--raggio);
+}
+.altre-guide a:hover { text-decoration: none; border-color: rgba(76, 194, 255, .45); }
+.altre-guide span { display: block; font-size: 14px; color: var(--tenue); margin-top: 4px; }

@@ -36,7 +36,14 @@ import (
 )
 
 // Le sole pagine contate: tutto il resto viene ignorato, così nessuno riempie la tabella di spazzatura.
-var pagineValide = map[string]bool{"/": true, "/index.html": true, "/it/": true, "/it/index.html": true}
+var pagineValide = func() map[string]bool {
+	m := map[string]bool{}
+	for _, p := range []string{"/", "/it/", "/heic-photos-windows/", "/it/foto-heic-windows/",
+		"/picasa-alternative/", "/it/alternativa-picasa/"} {
+		m[p], m[p+"index.html"] = true, true
+	}
+	return m
+}()
 
 const (
 	nostroSito         = "wfastpic.walterdev.eu"

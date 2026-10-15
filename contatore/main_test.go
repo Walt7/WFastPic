@@ -7,7 +7,8 @@ import (
 
 func TestPaginaNormalizzata(t *testing.T) {
 	casi := map[string]string{"/": "/", "/index.html": "/", "/it/": "/it/", "/it/index.html": "/it/",
-		"/statistiche/": "", "/qualcosa": "", "": "", "/it": ""}
+		"/statistiche/": "", "/qualcosa": "", "": "", "/it": "",
+		"/heic-photos-windows/": "/heic-photos-windows/", "/it/alternativa-picasa/index.html": "/it/alternativa-picasa/"}
 	for in, atteso := range casi {
 		if got := PaginaNormalizzata(in); got != atteso {
 			t.Errorf("PaginaNormalizzata(%q) = %q, atteso %q", in, got, atteso)
