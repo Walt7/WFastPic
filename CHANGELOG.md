@@ -12,6 +12,10 @@ I dettagli tecnici (cause dei bug, file toccati) sono in [`doc/correzioni-e-novi
   sola e senza sovrascrivere ciò che lì hai già toccato; i dati delle sottocartelle non vengono modificati.
 - **Ricarica** nel menu di una cartella: la rilegge da disco.
 - **Persone a gruppi** (Io, Famiglia, Amici, Conoscenti, Altre persone, Sconosciuti) e **soprannome** per ogni persona.
+- **Menu del tasto destro sulle foto della griglia**: apri, seleziona, scarta, «Seleziona tutte», «Inverti
+  selezione», «Mostra in Esplora file» e, su una foto selezionata, **«Salva selezione…»**: le foto selezionate si
+  salvano con un nome, anche per ritrovarle o prepararne un pacchetto da condividere. «Seleziona tutte» e «Inverti»
+  avvisano che la selezione fatta va persa e offrono di salvarla prima.
 - **Server MCP** (`src/WFastPic.Mcp`): un assistente può cercare per cartella, persone, date e luogo, salvare
   selezioni con nome e preparare cartelle o zip di copie da condividere. Solo lettura sulle foto.
 

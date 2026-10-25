@@ -1,7 +1,7 @@
 using System.Text.Encodings.Web;
 using System.Text.Json;
 
-namespace WFastPic.Mcp;
+namespace WFastPic.Core.Library;
 
 public sealed record SelezioneSalvata(string Nome, DateTime Creata, List<string> Percorsi);
 
@@ -9,6 +9,7 @@ public sealed record SelezioneSalvata(string Nome, DateTime Creata, List<string>
 /// Selezioni con nome ("Matrimonio Alby e Eri"): elenchi di foto anche di cartelle diverse, da riusare
 /// per cercare o preparare pacchetti. Vivono in <c>selezioni.json</c> accanto a persone.db, non nei
 /// sidecar delle cartelle (una selezione può attraversarne più d'una); le foto non vengono mai toccate.
+/// Condivise tra l'app (menu della griglia) e il server MCP.
 /// </summary>
 public static class Selezioni
 {
@@ -17,7 +18,12 @@ public static class Selezioni
         WriteIndented = true, Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
     };
 
-    private static string File_ => Path.Combine(Ricerca.DatiApp, "selezioni.json");
+    /// <summary>Cartella dati dell'app (LocalAppData\WFastPic); <c>WFASTPIC_DATA</c> la sposta, per le prove.</summary>
+    public static string CartellaDati =>
+        Environment.GetEnvironmentVariable("WFASTPIC_DATA")
+        ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "WFastPic");
+
+    private static string File_ => Path.Combine(CartellaDati, "selezioni.json");
 
     public static List<SelezioneSalvata> Elenco()
     {
@@ -62,7 +68,7 @@ public static class Selezioni
     // Scrittura atomica: un'interruzione a metà non deve lasciare un file a metà.
     private static void Scrivi(List<SelezioneSalvata> elenco)
     {
-        Directory.CreateDirectory(Ricerca.DatiApp);
+        Directory.CreateDirectory(CartellaDati);
         var temp = File_ + ".tmp";
         File.WriteAllText(temp, JsonSerializer.Serialize(elenco, Opzioni));
         File.Move(temp, File_, overwrite: true);

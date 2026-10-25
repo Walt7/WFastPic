@@ -158,8 +158,10 @@ Due sessioni hanno sviluppato insieme il pannello Persone; nell'integrazione:
 - **Soprannome** (`persone.soprannome`, `ArchivioPersone.ImpostaSoprannome`, dialogo `DaiSoprannomeAsync`).
 - **Server MCP** `src/WFastPic.Mcp`: JSON-RPC su stdio scritto a mano (nessun pacchetto MCP); query SQL dirette
   in sola lettura (non usa `OpenOrCreate`, quindi non crea né migra sidecar). Test in `McpTests`.
+- **Menu della griglia** (`MainWindow.MenuGriglia.cs`) e selezioni salvate: `Selezioni` vive in `Core.Library`
+  (cartella dati = `WFASTPIC_DATA` o LocalAppData\WFastPic) per essere usata sia dall'app sia dal server MCP.
 - Limiti noti: l'import non rimette in sincronia i due sidecar dopo la prima volta; la ricerca per luogo usa solo
-  i nomi già in cache nei sidecar; salvare una selezione dall'interfaccia dell'app non c'è ancora (solo via MCP).
+  i nomi già in cache nei sidecar; la selezione dell’app si salva dal menu del tasto destro.
 
 ## Verifica
 

@@ -187,6 +187,11 @@ Aggiunte fuori piano, su richiesta esplicita durante lo sviluppo:
   `sidecar_importati`; mai sovrascrive ciò che qui è già stato toccato). Menu cartella: "Ricarica".
 - Persone: elenco a gruppi (Io, Famiglia, Amici, Conoscenti, Altre persone, Sconosciuti = senza nome,
   `RaggruppaPersone`); soprannome per persona (`persone.soprannome`, solo etichetta, cercabile dal server MCP).
+- Menu del tasto destro sulla griglia (`MainWindow.MenuGriglia.cs`): Apri, Seleziona/Togli, Scarta/Rimetti, "Seleziona
+  tutte", "Inverti selezione" (gli scarti restano), "Salva selezione…" (solo su una foto selezionata: salva tutte le
+  selezionate della cartella con un nome in `selezioni.json`, `Core.Library.Selezioni`, condiviso col server MCP),
+  "Mostra in Esplora file". "Seleziona tutte" e "Inverti" avvisano che si perde la selezione fatta (se ce n'è una)
+  e offrono di salvarla prima; la selezione non ha annulla.
 - Server MCP `src/WFastPic.Mcp` (stdio, JSON-RPC a mano, nessuna dipendenza da WinUI, funziona con l'app
   chiusa): legge sidecar e `persone.db` **in sola lettura** (mai crea sidecar). Strumenti: `elenco_cartelle`,
   `elenco_persone`, `cerca_foto` (cartella con sottocartelle, persone per nome/soprannome tutte insieme, date,

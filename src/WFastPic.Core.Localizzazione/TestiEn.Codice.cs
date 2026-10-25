@@ -6,6 +6,30 @@ internal static partial class TestiEn
     private static void FinestraCodice(Dictionary<string, string> d)
     {
         // Barra di stato, caricamento, stato vuoto
+        d["Apri"] = "Open";
+        d["Togli la selezione"] = "Unselect";
+        d["Seleziona"] = "Select";
+        d["Rimetti tra le foto"] = "Put back";
+        d["Scarta"] = "Reject";
+        d["Seleziona tutte"] = "Select all";
+        d["Inverti selezione"] = "Invert selection";
+        d["Salva selezione…"] = "Save selection…";
+        d["Mostra in Esplora file"] = "Show in File Explorer";
+        d["Nome della selezione"] = "Selection name";
+        d["Salva selezione"] = "Save selection";
+        d["Salva"] = "Save";
+        d["Annulla"] = "Cancel";
+        d["{0} da salvare. Selezioni già salvate: {1}."] = "{0} to save. Already saved selections: {1}.";
+        d["{0} da salvare."] = "{0} to save.";
+        d["Esiste già una selezione «{0}»"] = "A selection «{0}» already exists";
+        d["Vuoi sostituirla con queste {0}?"] = "Replace it with these {0}?";
+        d["Sostituisci"] = "Replace";
+        d["Selezione «{0}» salvata: {1}"] = "Selection «{0}» saved: {1}";
+        d["Impossibile salvare la selezione: {0}"] = "Cannot save the selection: {0}";
+        d["Perdi la selezione fatta"] = "You will lose your selection";
+        d["Hai {0} selezionate: questa operazione cambia la selezione e non si può annullare. Vuoi salvarla prima?"] = "You have {0} selected: this changes the selection and cannot be undone. Save it first?";
+        d["Salva e continua"] = "Save and continue";
+        d["Continua senza salvare"] = "Continue without saving";
         d["Lettura foto…"] = "Reading photos…";
         d["Miniature"] = "Thumbnails";
         d["Impossibile aprire «{0}»: {1}"] = "Cannot open «{0}»: {1}";

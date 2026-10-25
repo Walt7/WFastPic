@@ -365,6 +365,7 @@
             Padding="8,8,4,8"
             SelectionChanged="Griglia_SelectionChanged"
             DoubleTapped="Griglia_DoubleTapped"
+            RightTapped="Griglia_RightTapped"
             ContainerContentChanging="Griglia_ContainerContentChanging"
             Loaded="Griglia_Loaded">
             <ListView.Resources>
