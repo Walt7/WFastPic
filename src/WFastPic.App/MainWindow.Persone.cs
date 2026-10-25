@@ -283,7 +283,7 @@ public partial class MainWindow
                 Proposte = proposte,
                 Foto = foto,
                 Impronte = qui.Select(v => Impronte.DaByte(v.Impronta!)).ToList(),
-                MiniatureVolti = qui.Where(v => v.Miniatura is not null).Select(v => v.Miniatura!).Take(60).ToList(),
+                MiniatureVolti = MiniatureOrdinate(qui),
                 AltreCartelle = altrove,
                 Cerchia = persona.Cerchia,
                 Preferita = persona.Preferita,
@@ -318,6 +318,7 @@ public partial class MainWindow
                 Foto = foto,
                 Impronte = gruppo.Select(v => Impronte.DaByte(v.Impronta!)).ToList(),
                 AvatarJpeg = MiglioreMiniatura(gruppo),
+                MiniatureVolti = MiniatureOrdinate(gruppo),
             }, MiglioreMiniatura(gruppo)));
         }
 
@@ -329,10 +330,15 @@ public partial class MainWindow
     /// (un volto piccolo o mosso ingrandito nella miniatura sembra una macchia). Una miniatura JPEG con più
     /// dettaglio pesa di più, e un volto grande nella foto ha più pixel: si premia il prodotto dei due.
     /// </summary>
-    private static byte[]? MiglioreMiniatura(IEnumerable<VoltoSalvato> volti) =>
+    private static byte[]? MiglioreMiniatura(IEnumerable<VoltoSalvato> volti) => MiniatureOrdinate(volti, 1).FirstOrDefault();
+
+    /// <summary>Le miniature dei volti dalla più nitida (per sfogliarle nel dialogo del nome e in "Cambia immagine").</summary>
+    private static List<byte[]> MiniatureOrdinate(IEnumerable<VoltoSalvato> volti, int massimo = 60) =>
         volti.Where(v => v.Miniatura is not null)
             .OrderByDescending(v => v.Miniatura!.Length * Math.Sqrt(Math.Max(1e-6, (v.X1 - v.X0) * (v.Y1 - v.Y0))))
-            .FirstOrDefault()?.Miniatura;
+            .Select(v => v.Miniatura!)
+            .Take(massimo)
+            .ToList();
 
     // ---------------------------------------------------------------- filtro griglia, apertura cartella
 
@@ -604,7 +610,45 @@ public partial class MainWindow
         };
 
         var contenuto = new StackPanel { Spacing = 12 };
-        if (persona.Avatar is not null)
+        // Più volti: si sfogliano con le frecce per essere sicuri di chi è; quello mostrato diventa l'immagine di chi si nomina.
+        byte[]? avatarScelto = null;
+        var miniature = persona.MiniatureVolti;
+        if (miniature.Count > 1)
+        {
+            var indice = 0;
+            var immagine = new Image { Stretch = Stretch.UniformToFill };
+            var contatore = new TextBlock
+            {
+                HorizontalAlignment = HorizontalAlignment.Center, FontSize = 12,
+                Foreground = new SolidColorBrush(Microsoft.UI.Colors.Gray),
+            };
+            async void Mostra(int i)
+            {
+                indice = (i + miniature.Count) % miniature.Count;
+                avatarScelto = miniature[indice];
+                contatore.Text = T("{0} di {1}", indice + 1, miniature.Count);
+                immagine.Source = await CreaImmagineAsync(avatarScelto);
+            }
+
+            Button Freccia(string glifo, string suggerimento, int passo)
+            {
+                var b = new Button { Content = new FontIcon { Glyph = glifo }, VerticalAlignment = VerticalAlignment.Center };
+                ToolTipService.SetToolTip(b, suggerimento);
+                Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(b, suggerimento);
+                b.Click += (_, _) => Mostra(indice + passo);
+                return b;
+            }
+
+            var riga = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12, HorizontalAlignment = HorizontalAlignment.Center };
+            riga.Children.Add(Freccia("", T("Volto precedente"), -1));
+            riga.Children.Add(new Border { Width = 96, Height = 96, CornerRadius = new CornerRadius(48), Child = immagine });
+            riga.Children.Add(Freccia("", T("Volto successivo"), 1));
+            contenuto.Children.Add(riga);
+            contenuto.Children.Add(contatore);
+            Mostra(0);
+            avatarScelto = null; // finché non si sfoglia vale quello già scelto come migliore
+        }
+        else if (persona.Avatar is not null)
             contenuto.Children.Add(new Border { Width = 96, Height = 96, CornerRadius = new CornerRadius(48), Child = new Image { Source = persona.Avatar, Stretch = Stretch.UniformToFill } });
         contenuto.Children.Add(casella);
         var casellaSoprannome = new TextBox { PlaceholderText = T("Soprannome (facoltativo)"), Text = persona.Soprannome, Width = 300 };
@@ -670,7 +714,7 @@ public partial class MainWindow
         var dbCorrente = _db;
         if (dbCorrente is null) return;
         var esisteva = Archivio.EsisteNome(nome);
-        var nuovaId = Archivio.TrovaOCrea(nome, persona.AvatarJpeg);
+        var nuovaId = Archivio.TrovaOCrea(nome, avatarScelto ?? persona.AvatarJpeg);
         if (soprannome.Length > 0) Archivio.ImpostaSoprannome(nuovaId, soprannome);
         var campioniPrima = Archivio.Elenco().FirstOrDefault(p => p.Id == nuovaId)?.Campioni.ToList() ?? [];
         if (_selectionManager is not null) await _selectionManager.SvuotaAsync();

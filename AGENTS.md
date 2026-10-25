@@ -188,7 +188,8 @@ Aggiunte fuori piano, su richiesta esplicita durante lo sviluppo:
 - Persone: elenco a gruppi (Io, Famiglia, Amici, Conoscenti, Altre persone, Sconosciuti = senza nome,
   `RaggruppaPersone`); soprannome per persona (`persone.soprannome`, solo etichetta, cercabile dal server MCP; si
   scrive nel dialogo "Chi è?"/"Rinomina" o dalla voce "Soprannome…"). L'immagine di una persona o di un gruppo è il
-  volto più nitido (`MiglioreMiniatura`: peso JPEG × grandezza del volto), non il primo.
+  volto più nitido (`MiglioreMiniatura`: peso JPEG × grandezza del volto), non il primo; nel dialogo "Chi è?" si
+  sfogliano i volti del gruppo con le frecce (`MiniatureOrdinate`) e quello mostrato diventa l'immagine di chi si nomina.
 - Menu del tasto destro sulla griglia (`MainWindow.MenuGriglia.cs`): Apri, Seleziona/Togli, Scarta/Rimetti, "Seleziona
   tutte", "Inverti selezione" (gli scarti restano), "Salva selezione…" (solo su una foto selezionata: salva tutte le
   selezionate della cartella con un nome in `selezioni.json`, `Core.Library.Selezioni`, condiviso col server MCP),

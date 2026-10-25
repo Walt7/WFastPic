@@ -45,6 +45,8 @@ internal static partial class TestiEn
         d["Famiglia"] = "Family";
         d["Io"] = "Me";
         d["Soprannome…"] = "Nickname…";
+        d["Volto precedente"] = "Previous face";
+        d["Volto successivo"] = "Next face";
         d["Soprannome (facoltativo)"] = "Nickname (optional)";
         d["Soprannome"] = "Nickname";
         d["Soprannome di {0}"] = "Nickname of {0}";

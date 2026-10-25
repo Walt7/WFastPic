@@ -13,7 +13,8 @@ The app interface is in Italian: names of buttons and menus below are given as t
   without overwriting what you already touched there; the subfolders' data is not modified.
 - **Reload** («Ricarica») in a folder's menu: rereads it from disk.
 - **People in groups** (Me, Family, Friends, Acquaintances, Other people, Unknown people) and a **nickname** for each person
-  (in the name dialog). A person's or group's picture is now the sharpest face, not the first one.
+  (in the name dialog). A person's or group's picture is now the sharpest face, not the first one; in the «Chi è?» (Who is it?) dialog you
+  can browse the group's faces with arrows before naming.
 - **Right-click menu on grid photos**: open, select, reject, «Seleziona tutte» (Select all), «Inverti selezione»
   (Invert selection), show in File Explorer and, on a selected photo, **«Salva selezione…» (Save selection…)**: the
   selected photos are saved under a name, to find them again or prepare a package to share. Select all and Invert
