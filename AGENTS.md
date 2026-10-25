@@ -197,6 +197,10 @@ Aggiunte fuori piano, su richiesta esplicita durante lo sviluppo:
   e offrono di salvarla prima; la selezione non ha annulla. Le selezioni salvate con almeno una foto nella cartella
   aperta compaiono in coda al menu dei filtri sotto «Selezioni salvate» (`MainWindow.SelezioniFiltro.cs`: la
   ComboBox non ha sottomenu); sceglierne una mostra solo quelle foto, `Tab` torna ai filtri normali.
+- Viewer, sezione Volti: passando il mouse su un volto compare un cerchio sulla foto (`MostraPosizioneVolto`: il riquadro
+  salvato sull'originale segue gira/specchia → raddrizza → ritaglia; niente cerchio in ritaglio o se è fuori dal ritaglio).
+  Menu di una persona con volti da confermare: "Conferma volti…" (revisione con spunte, `RivediProposteAsync`) e
+  "Conferma tutte le proposte".
 - Server MCP `src/WFastPic.Mcp` (stdio, JSON-RPC a mano, nessuna dipendenza da WinUI, funziona con l'app
   chiusa): legge sidecar e `persone.db` **in sola lettura** (mai crea sidecar). Strumenti: `elenco_cartelle`,
   `elenco_persone`, `cerca_foto` (cartella con sottocartelle, persone per nome/soprannome tutte insieme, date,

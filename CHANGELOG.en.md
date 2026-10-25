@@ -20,6 +20,9 @@ The app interface is in Italian: names of buttons and menus below are given as t
   selected photos are saved under a name, to find them again or prepare a package to share. Select all and Invert
   warn that your selection will be lost and offer to save it first. A folder's saved selections appear in the
   filter menu under «Selezioni salvate» (Saved selections): picking one shows only those photos.
+- **Faces to confirm**: «Conferma volti…» (Confirm faces…) in a person's menu, with thumbnails of the suggested faces
+  to check one by one (next to «Conferma tutte le proposte»).
+- **Where the face is**: in the details column, hovering a face draws a circle on the photo.
 - **MCP server** (`src/WFastPic.Mcp`): an assistant can search by folder, people, dates and place, save named
   selections and prepare folders or zips of copies to share. Read-only on your photos.
 

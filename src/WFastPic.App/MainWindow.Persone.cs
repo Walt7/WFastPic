@@ -1090,7 +1090,7 @@ public partial class MainWindow
                             ? perId.GetValueOrDefault(pid) : null;
                         return new VoltoDellaFoto(v.Id, v.PhotoId, v.Miniatura, Impronte.DaByte(v.Impronta!),
                             persona?.Nome, v.Stato == StatoPersona.Proposto, persona?.Cerchia ?? CerchiaPersona.Nessuna,
-                            persona?.Preferita ?? false);
+                            persona?.Preferita ?? false, v.X0, v.Y0, v.X1, v.Y1);
                     })
                     .ToList();
             });

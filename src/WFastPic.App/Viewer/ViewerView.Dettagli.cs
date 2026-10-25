@@ -109,6 +109,7 @@ public sealed partial class ViewerView
         var volti = await Host.VoltiDellaFotoAsync(foto);
         if (richiesta != _richiestaVolti) return;
 
+        NascondiPosizioneVolto();
         ViewerVoltiPanel.Children.Clear();
         ViewerVoltiStatoText.Text = volti switch
         {
@@ -124,6 +125,43 @@ public sealed partial class ViewerView
             if (richiesta != _richiestaVolti) return;
             ViewerVoltiPanel.Children.Add(elemento);
         }
+    }
+
+    private void NascondiPosizioneVolto() => ViewerVoltoCerchio.Visibility = Visibility.Collapsed;
+
+    /// <summary>
+    /// Cerchio sulla foto dove si trova il volto. Il riquadro è salvato sulla foto originale: segue la stessa
+    /// strada della ricetta (gira/specchia → raddrizza → ritaglia) per cadere sul punto giusto di quella mostrata.
+    /// Con la geometria aperta (ritaglio/raddrizza) la foto è un'altra: niente cerchio.
+    /// </summary>
+    private void MostraPosizioneVolto(VoltoDellaFoto volto)
+    {
+        var larghezzaMostrata = ViewerImage.ActualWidth;
+        var altezzaMostrata = ViewerImage.ActualHeight;
+        if (_geometriaAttiva || larghezzaMostrata <= 0 || altezzaMostrata <= 0 || volto.X1 <= volto.X0) { NascondiPosizioneVolto(); return; }
+
+        var r = _ricettaCorrente;
+        var (ox0, oy0, ox1, oy1) = Core.Processing.Orientamento.TrasformaRettangolo(volto.X0, volto.Y0, volto.X1, volto.Y1, r);
+
+        // Tela raddrizzata: la foto mostrata è un suo ritaglio, quindi le sue proporzioni si ricavano dal ritaglio.
+        var cw = r.CropWidth > 0 ? r.CropWidth : 1;
+        var ch = r.CropHeight > 0 ? r.CropHeight : 1;
+        double tela = larghezzaMostrata / cw, telaAltezza = altezzaMostrata / ch;
+        var (rx0, ry0, rx1, ry1) = Core.Processing.StraightenGeometry.RuotaRettangolo(
+            tela, telaAltezza, r.StraightenAngleDegrees, ox0 * tela, oy0 * telaAltezza, ox1 * tela, oy1 * telaAltezza);
+
+        // Dalla tela alla foto mostrata (scarto del ritaglio).
+        double x0 = rx0 - r.CropX * tela, x1 = rx1 - r.CropX * tela;
+        double y0 = ry0 - r.CropY * telaAltezza, y1 = ry1 - r.CropY * telaAltezza;
+        double centroX = (x0 + x1) / 2, centroY = (y0 + y1) / 2;
+        if (centroX < 0 || centroY < 0 || centroX > larghezzaMostrata || centroY > altezzaMostrata) { NascondiPosizioneVolto(); return; } // ritagliato via
+
+        var diametro = Math.Max(24, Math.Max(x1 - x0, y1 - y0) * 1.5);
+        ViewerVoltoCerchio.Width = diametro;
+        ViewerVoltoCerchio.Height = diametro;
+        Canvas.SetLeft(ViewerVoltoCerchio, centroX - diametro / 2);
+        Canvas.SetTop(ViewerVoltoCerchio, centroY - diametro / 2);
+        ViewerVoltoCerchio.Visibility = Visibility.Visible;
     }
 
     /// <summary>Miniatura tonda, nome sotto ("Anna?" se solo proposto) e chi è (Sono io, ★, Famiglia…).</summary>
@@ -173,6 +211,8 @@ public sealed partial class ViewerView
             IsTabStop = false,
             AllowFocusOnInteraction = false,
         };
+        pulsante.PointerEntered += (_, _) => MostraPosizioneVolto(volto);
+        pulsante.PointerExited += (_, _) => NascondiPosizioneVolto();
         ToolTipService.SetToolTip(pulsante, volto.Proposto ? T("Proposta: clic per confermare o correggere") : T("Chi è?"));
         pulsante.Click += async (_, _) =>
         {

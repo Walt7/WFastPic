@@ -42,4 +42,5 @@ internal interface IViewerHost
 /// <summary>Un volto nei dettagli del viewer: miniatura, persona (anche solo proposta) e chi è per l'utente.</summary>
 internal sealed record VoltoDellaFoto(
     long Id, long PhotoId, byte[]? Miniatura, float[] Impronta,
-    string? Nome, bool Proposto, int Cerchia, bool Preferita);
+    string? Nome, bool Proposto, int Cerchia, bool Preferita,
+    double X0 = 0, double Y0 = 0, double X1 = 0, double Y1 = 0); // riquadro normalizzato (0..1) sulla foto originale

@@ -19,6 +19,9 @@ I dettagli tecnici (cause dei bug, file toccati) sono in [`doc/correzioni-e-novi
   salvano con un nome, anche per ritrovarle o prepararne un pacchetto da condividere. «Seleziona tutte» e «Inverti»
   avvisano che la selezione fatta va persa e offrono di salvarla prima. Le selezioni salvate di una cartella
   compaiono nel menu dei filtri, sotto «Selezioni salvate»: sceglierne una mostra solo quelle foto.
+- **Volti da confermare**: voce «Conferma volti…» nel menu di una persona, con le miniature dei volti proposti da
+  spuntare uno per uno (accanto a «Conferma tutte le proposte»).
+- **Dove sta il volto**: nella colonna dei dettagli, passando il mouse su un volto compare un cerchio sulla foto.
 - **Server MCP** (`src/WFastPic.Mcp`): un assistente può cercare per cartella, persone, date e luogo, salvare
   selezioni con nome e preparare cartelle o zip di copie da condividere. Solo lettura sulle foto.
 

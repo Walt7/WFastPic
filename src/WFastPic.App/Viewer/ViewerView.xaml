@@ -454,6 +454,10 @@
                         </Grid.RenderTransform>
                         <Grid.RenderTransformOrigin>0.5,0.5</Grid.RenderTransformOrigin>
                         <Image x:Name="ViewerImage" Stretch="Fill" />
+                        <!-- Passando il mouse su un volto della colonna dei dettagli: cerchio sul punto della foto. -->
+                        <Canvas x:Name="ViewerVoltoCanvas" IsHitTestVisible="False">
+                            <Ellipse x:Name="ViewerVoltoCerchio" Stroke="#FFD600" StrokeThickness="3" Fill="#22FFD600" Visibility="Collapsed" />
+                        </Canvas>
                         <Border
                             x:Name="ViewerSelectionBorder"
                             BorderBrush="#FFD600"
