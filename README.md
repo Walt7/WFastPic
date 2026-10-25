@@ -89,7 +89,12 @@ fotoritocco avanzato (esposizione a curve, maschere). WFastPic non carica le tue
 **Ritrovare**
 - Cartelle raggruppate per anno, come in Picasa.
 - Mappa delle foto, nomi dei luoghi, posizione correggibile a mano.
-- Persone (opzionale): volti simili raggruppati, ai quali dai un nome che vale in tutte le cartelle.
+- Persone (opzionale): volti simili raggruppati, ai quali dai un nome (e un soprannome) che vale in tutte le cartelle; elenco a gruppi: Io, Famiglia, Amici, Conoscenti, Altre persone, Sconosciuti.
+- Cartelle madre (es. tutto `E:\Fotocamera`): le sottocartelle sono incluse, e il lavoro già fatto nelle sottocartelle (selezioni, voti, ricette, persone) viene riportato nella madre alla prima apertura. "Ricarica" nel menu della cartella la rilegge da disco.
+
+**Con un assistente AI (MCP, opzionale)**
+- `src/WFastPic.Mcp` è un server MCP che permette a un assistente (es. Claude Code) di cercare nelle foto già catalogate per cartella, persone, date e luogo, salvare selezioni con nome e preparare una cartella o uno zip di *copie* da dare a qualcuno. Legge i dati in sola lettura, non sposta né cancella foto e non invia nulla. Registrazione: `claude mcp add wfastpic -- dotnet <percorso>\src\WFastPic.Mcp\bin\Debug
+et10.0\WFastPic.Mcp.dll`.
 
 **Esportare**
 - JPEG alle dimensioni originali o ridimensionati, qualità a scelta, filigrana, tag.

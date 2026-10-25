@@ -146,6 +146,21 @@ Due sessioni hanno sviluppato insieme il pannello Persone; nell'integrazione:
   volti con un id che non esiste più tornano senza nome quando la loro cartella viene aperta
   (`SostituisciPersona`, unico caso in cui il sidecar viene riscritto). L'Annulla in sospeso sparisce.
 - Test: `Archivio_persone_avatar_ed_eliminazione_con_le_unite`. Suite: 138 test.
+### Cartelle madre, import dei sidecar, persone a gruppi, soprannome, server MCP
+- **Scansione ricorsiva** (`FolderScanner`): `PathRelativo` è il percorso dentro la cartella; salta nascoste,
+  di sistema, `Scarti`, `Export` (`FolderScanner.DaSaltare`). "Sposta in Scarti/" usa solo il nome del file
+  (`RejectManager.SpostaInScarti`). Prima era una sola cartella: una madre con le foto nelle sottocartelle mostrava 0 foto.
+- **Import dai sidecar figli** (`LibrarySidecarDatabase.Importa.cs`, `ImportaDaSidecarFigli`, chiamato dopo
+  `SyncScan`): sola lettura sui figli; una volta per figlio (`sidecar_importati`); stessa foto = stesso percorso,
+  dimensione e data; stato/voto solo se qui ancora intatti, ricette/misure/impronte `INSERT OR IGNORE`, volti
+  solo se la foto qui non ne ha, posizione a mano solo se qui non c'è.
+- **Ricarica** (`CartellaRicarica_Click`) e **Persone a gruppi** (`RaggruppaPersone`, `GruppoPersone`).
+- **Soprannome** (`persone.soprannome`, `ArchivioPersone.ImpostaSoprannome`, dialogo `DaiSoprannomeAsync`).
+- **Server MCP** `src/WFastPic.Mcp`: JSON-RPC su stdio scritto a mano (nessun pacchetto MCP); query SQL dirette
+  in sola lettura (non usa `OpenOrCreate`, quindi non crea né migra sidecar). Test in `McpTests`.
+- Limiti noti: l'import non rimette in sincronia i due sidecar dopo la prima volta; la ricerca per luogo usa solo
+  i nomi già in cache nei sidecar; salvare una selezione dall'interfaccia dell'app non c'è ancora (solo via MCP).
+
 ## Verifica
 
 - `dotnet build WFastPic.slnx`: 0 errori di codice (con l'app chiusa).

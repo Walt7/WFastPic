@@ -3,6 +3,21 @@
 Le novità di WFastPic, versione per versione. La più recente è in cima. ([English](CHANGELOG.en.md))
 I dettagli tecnici (cause dei bug, file toccati) sono in [`doc/correzioni-e-novita.md`](doc/correzioni-e-novita.md).
 
+## Non ancora rilasciato
+
+### Novità
+- **Cartelle madre**: la lettura include le sottocartelle (salta nascoste, di sistema, `Scarti` ed `Export`),
+  così puoi catalogare un'intera raccolta come `E:\Fotocamera`. Alla prima apertura il lavoro già fatto nelle
+  sottocartelle (selezioni, voti, ricette, posizioni, persone, misure) viene riportato nella madre, una volta
+  sola e senza sovrascrivere ciò che lì hai già toccato; i dati delle sottocartelle non vengono modificati.
+- **Ricarica** nel menu di una cartella: la rilegge da disco.
+- **Persone a gruppi** (Io, Famiglia, Amici, Conoscenti, Altre persone, Sconosciuti) e **soprannome** per ogni persona.
+- **Server MCP** (`src/WFastPic.Mcp`): un assistente può cercare per cartella, persone, date e luogo, salvare
+  selezioni con nome e preparare cartelle o zip di copie da condividere. Solo lettura sulle foto.
+
+### Altro
+- L'opzione di esportazione si chiama ora «Sovrascrivi i file già esportati con lo stesso nome».
+
 ## [1.1.0] — 2026-10-14
 
 Ricerca dei doppioni come in Picasa, anche tra cartelle diverse, e una nota chiara su cosa resta sul PC.

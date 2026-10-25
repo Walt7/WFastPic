@@ -4,6 +4,21 @@ What is new in WFastPic, version by version. The newest is on top. ([Italiano](C
 Technical details (bug causes, files touched) are in [`doc/correzioni-e-novita.md`](doc/correzioni-e-novita.md) (in Italian).
 The app interface is in Italian: names of buttons and menus below are given as they appear in the app.
 
+## Unreleased
+
+### New
+- **Parent folders**: reading now includes subfolders (skipping hidden, system, `Scarti` and `Export`), so you can
+  catalogue a whole collection such as `E:\Fotocamera`. The first time you open it, work already done in the
+  subfolders (selections, ratings, edits, positions, people, measurements) is carried into the parent, once and
+  without overwriting what you already touched there; the subfolders' data is not modified.
+- **Reload** («Ricarica») in a folder's menu: rereads it from disk.
+- **People in groups** (Me, Family, Friends, Acquaintances, Other people, Unknown people) and a **nickname** for each person.
+- **MCP server** (`src/WFastPic.Mcp`): an assistant can search by folder, people, dates and place, save named
+  selections and prepare folders or zips of copies to share. Read-only on your photos.
+
+### Other
+- The export option is now called «Sovrascrivi i file già esportati con lo stesso nome» (Overwrite already exported files with the same name).
+
 ## [1.1.0] — 2026-10-14
 
 Duplicate search like in Picasa, also across folders, and a clear note on what stays on your PC.
