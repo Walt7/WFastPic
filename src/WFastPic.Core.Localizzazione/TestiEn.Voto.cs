@@ -43,6 +43,15 @@ internal static partial class TestiEn
         d["Non specificato"] = "Not specified";
         d["Sono io"] = "It's me";
         d["Famiglia"] = "Family";
+        d["Io"] = "Me";
+        d["Soprannome…"] = "Nickname…";
+        d["Soprannome"] = "Nickname";
+        d["Soprannome di {0}"] = "Nickname of {0}";
+        d["Compare sotto il nome nell'elenco Persone. Lascia vuoto per toglierlo."] = "Shown under the name in the People list. Leave empty to remove it.";
+        d["Amici"] = "Friends";
+        d["Conoscenti"] = "Acquaintances";
+        d["Altre persone"] = "Other people";
+        d["Sconosciuti"] = "Unknown people";
         d["Amico"] = "Friend";
         d["Conoscente"] = "Acquaintance";
         d["Il volto prende questo nome (anche di una persona già nota); WFastPic lo proporrà anche sui volti somiglianti, in tutte le cartelle."] =

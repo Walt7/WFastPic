@@ -181,6 +181,20 @@ Aggiunte fuori piano, su richiesta esplicita durante lo sviluppo:
   con un doppione qui e ancora esistenti (id negativi). In griglia si vedono solo le foto di qui; titolo e
   tooltip dicono "anche in «Cartella»", la copia da tenere può essere altrove (allora quelle di qui sono
   tutte scartabili). I file delle altre cartelle non vengono mai toccati.
+- Cartelle madre: la scansione è ricorsiva (`FolderScanner`, `PathRelativo` = percorso dentro la cartella; salta
+  nascoste, di sistema, `Scarti`, `Export`). La prima apertura riversa nel sidecar della madre quello dei
+  sidecar figli (`ImportaDaSidecarFigli`, sola lettura sui figli, una volta per figlio: tabella
+  `sidecar_importati`; mai sovrascrive ciò che qui è già stato toccato). Menu cartella: "Ricarica".
+- Persone: elenco a gruppi (Io, Famiglia, Amici, Conoscenti, Altre persone, Sconosciuti = senza nome,
+  `RaggruppaPersone`); soprannome per persona (`persone.soprannome`, solo etichetta, cercabile dal server MCP).
+- Server MCP `src/WFastPic.Mcp` (stdio, JSON-RPC a mano, nessuna dipendenza da WinUI, funziona con l'app
+  chiusa): legge sidecar e `persone.db` **in sola lettura** (mai crea sidecar). Strumenti: `elenco_cartelle`,
+  `elenco_persone`, `cerca_foto` (cartella con sottocartelle, persone per nome/soprannome tutte insieme, date,
+  luogo, selezionate, voto, selezione salvata), `salva_selezione`/`elenco_selezioni`/`elimina_selezione`
+  (`selezioni.json` in LocalAppData\WFastPic: unico file che scrive oltre ai pacchetti), `prepara_pacchetto`
+  (cartella o zip con COPIE degli originali + video abbinato; mai dentro una cartella di foto, mai sovrascrive,
+  accetta solo estensioni foto; non invia nulla). `WFASTPIC_DATA` sposta la cartella dati (test). Registrazione:
+  `claude mcp add wfastpic -- dotnet <percorso>\src\WFastPic.Mcp\bin\Debug\net10.0\WFastPic.Mcp.dll`.
 - Dettagli del viewer: sezione Voto (il tuo / automatico con i motivi) e sezione Volti come Picasa
   (miniature con nome, "?" se proposto, cerchia; clic = "Chi è?" su quel volto, via `IViewerHost`).
 
@@ -217,6 +231,7 @@ src/
 ├─ WFastPic.App/               (WinUI 3, XAML + code-behind, no MVVM toolkit)
 │  ├─ MainWindow.*.cs          (griglia, cartelle, persone, mappa, export: partial della finestra)
 │  └─ Viewer/                  (ViewerView: UserControl con viewer + editor, legato a MainWindow da IViewerHost)
+├─ WFastPic.Mcp/                (server MCP stdio: ricerca foto/persone, selezioni salvate, pacchetti da condividere)
 ├─ WFastPic.Core.Library/       (scan cartelle, identità foto, raggruppamento raffiche, video abbinato)
 ├─ WFastPic.Core.Decoding/      (thumbnail/preview/full decode via WIC — Windows-targeted)
 ├─ WFastPic.Core.Processing/    (EditRecipe, crop/rotate/auto-correct — pure, testabile)

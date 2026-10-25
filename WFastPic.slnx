@@ -20,6 +20,7 @@
     <Project Path="src/WFastPic.Core.Persone/WFastPic.Core.Persone.csproj" />
     <Project Path="src/WFastPic.Core.Processing/WFastPic.Core.Processing.csproj" />
     <Project Path="src/WFastPic.Core.Selection/WFastPic.Core.Selection.csproj" />
+    <Project Path="src/WFastPic.Mcp/WFastPic.Mcp.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/WFastPic.Core.Tests/WFastPic.Core.Tests.csproj" />

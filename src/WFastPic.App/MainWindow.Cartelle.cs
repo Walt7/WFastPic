@@ -170,6 +170,18 @@ public partial class MainWindow
         foreach (var riga in menu.Items) riga.DataContext = voce;
     }
 
+    // Rilegge la cartella da disco, sottocartelle comprese: foto nuove o tolte da fuori compaiono o spariscono.
+    private async void CartellaRicarica_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement { DataContext: VoceCartella voce }) return;
+        if (!voce.Esiste)
+        {
+            StatusText.Text = T("Cartella non trovata: {0} (disco scollegato o cartella spostata)", voce.Percorso);
+            return;
+        }
+        await CaricaCartellaAsync(voce.Percorso);
+    }
+
     private void CartellaApriInEsplora_Click(object sender, RoutedEventArgs e)
     {
         if (sender is not FrameworkElement { DataContext: VoceCartella { Esiste: true } voce }) return;

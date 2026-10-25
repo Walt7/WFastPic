@@ -51,7 +51,7 @@ public sealed class RejectManager
         var cartellaScarti = Path.Combine(_db.CartellaFoto, "Scarti");
         Directory.CreateDirectory(cartellaScarti);
         var (destinazioneFoto, destinazioneVideo) = DestinazioniLibere(
-            cartellaScarti, foto.PathRelativo, video is null ? null : Path.GetExtension(video));
+            cartellaScarti, Path.GetFileName(foto.PathRelativo), video is null ? null : Path.GetExtension(video));
 
         VerificaNonBloccato(origine);
         VerificaNonBloccato(video);

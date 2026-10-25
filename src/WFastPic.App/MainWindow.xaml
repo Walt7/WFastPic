@@ -82,6 +82,15 @@
                                     <Setter Property="HorizontalContentAlignment" Value="Stretch" />
                                 </Style>
                             </ListView.ItemContainerStyle>
+                            <ListView.GroupStyle>
+                                <GroupStyle>
+                                    <GroupStyle.HeaderTemplate>
+                                        <DataTemplate x:DataType="local:GruppoPersone">
+                                            <TextBlock Text="{x:Bind Titolo}" Foreground="{StaticResource TitoloSezioneBrush}" FontSize="13" FontWeight="SemiBold" Margin="0,8,0,0" />
+                                        </DataTemplate>
+                                    </GroupStyle.HeaderTemplate>
+                                </GroupStyle>
+                            </ListView.GroupStyle>
                             <ListView.ItemTemplate>
                                 <DataTemplate x:DataType="local:PersonaUi">
                                     <Grid Padding="0,4" ColumnDefinitions="Auto,*" ColumnSpacing="10" Opacity="{x:Bind Opacita}">
@@ -151,6 +160,11 @@
                                     </StackPanel>
                                     <Grid.ContextFlyout>
                                         <MenuFlyout Opening="MenuCartella_Opening">
+                                            <MenuFlyoutItem Text="{x:Bind local:Etichette.RicaricaCartella}" Click="CartellaRicarica_Click">
+                                                <MenuFlyoutItem.Icon>
+                                                    <FontIcon Glyph="&#xE72C;" />
+                                                </MenuFlyoutItem.Icon>
+                                            </MenuFlyoutItem>
                                             <MenuFlyoutItem Text="{x:Bind local:Etichette.ApriInEsplora}" Click="CartellaApriInEsplora_Click">
                                                 <MenuFlyoutItem.Icon>
                                                     <FontIcon Glyph="&#xEC50;" />
@@ -745,7 +759,7 @@
                     <TextBlock Text="Altre opzioni" FontWeight="SemiBold" Margin="0,8,0,0" />
                     <TextBox x:Name="ExportTagTextBox" Header="Tag (separati da virgola)" PlaceholderText="es. vacanza, puglia, 2026" />
                     <CheckBox x:Name="ExportRimuoviGpsCheck" Content="Rimuovi la posizione GPS dai file esportati" />
-                    <CheckBox x:Name="ExportSostituisciCheck" Content="Sostituisci i file già esportati con lo stesso nome" IsChecked="True" />
+                    <CheckBox x:Name="ExportSostituisciCheck" Content="Sovrascrivi i file già esportati con lo stesso nome" IsChecked="True" />
 
                     <ProgressBar x:Name="ExportProgressBar" Minimum="0" Maximum="100" Value="0" Visibility="Collapsed" Margin="0,8,0,0" />
                     <TextBlock x:Name="ExportStatusText" Foreground="#AAAAAA" FontSize="12" TextWrapping="Wrap" />

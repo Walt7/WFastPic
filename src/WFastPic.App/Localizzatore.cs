@@ -162,6 +162,7 @@ internal static class Localizzatore
 /// </summary>
 public static class Etichette
 {
+    public static string RicaricaCartella => Testi.T("Ricarica");
     public static string ApriInEsplora => Testi.T("Apri in Esplora file");
     public static string TogliDallElenco => Testi.T("Togli dall'elenco");
     public static string LivePhoto => Testi.T("Live Photo: video abbinato (.mov/.mp4)");

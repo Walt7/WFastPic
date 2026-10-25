@@ -5,7 +5,7 @@ namespace WFastPic.Core.Persistence;
 /// <summary>Una persona con nome: avatar (JPEG del volto) e campioni di impronta confermati.</summary>
 public sealed record PersonaArchivio(
     long Id, string Nome, byte[]? Avatar, IReadOnlyList<byte[]> Campioni,
-    bool Preferita = false, int Cerchia = CerchiaPersona.Nessuna)
+    bool Preferita = false, int Cerchia = CerchiaPersona.Nessuna, string Soprannome = "")
 {
     public bool SonoIo => Cerchia == CerchiaPersona.Io;
 }
@@ -79,6 +79,7 @@ public sealed class ArchivioPersone : IDisposable
                  {
                      ("unita_a", "INTEGER NULL"),
                      ("preferita", "INTEGER NOT NULL DEFAULT 0"), ("cerchia", "INTEGER NOT NULL DEFAULT 0"),
+                     ("soprannome", "TEXT NOT NULL DEFAULT ''"),
                  })
         {
             if (colonne.Contains(colonna)) continue;
@@ -107,7 +108,7 @@ public sealed class ArchivioPersone : IDisposable
 
         using var persone = _connection.CreateCommand();
         persone.CommandText = """
-            SELECT id, nome, avatar, preferita, cerchia FROM persone
+            SELECT id, nome, avatar, preferita, cerchia, soprannome FROM persone
             WHERE unita_a IS NULL ORDER BY nome COLLATE NOCASE;
             """;
         using var r = persone.ExecuteReader();
@@ -117,7 +118,7 @@ public sealed class ArchivioPersone : IDisposable
             var id = r.GetInt64(0);
             elenco.Add(new PersonaArchivio(id, r.GetString(1), r.IsDBNull(2) ? null : (byte[])r[2],
                 campioni.TryGetValue(id, out var c) ? c : [],
-                Preferita: r.GetInt64(3) != 0, Cerchia: r.GetInt32(4)));
+                Preferita: r.GetInt64(3) != 0, Cerchia: r.GetInt32(4), Soprannome: r.GetString(5)));
         }
         return elenco;
     }
@@ -174,6 +175,17 @@ public sealed class ArchivioPersone : IDisposable
         using var cmd = _connection.CreateCommand();
         cmd.CommandText = "UPDATE persone SET nome = $nome WHERE id = $id;";
         cmd.Parameters.AddWithValue("$nome", nuovoNome.Trim());
+        cmd.Parameters.AddWithValue("$id", personaId);
+        cmd.ExecuteNonQuery();
+    }
+
+    /// <summary>Come la chiami tu ("Alby", "la nonna"): solo un'etichetta, il nome resta quello di riferimento. Vuoto = nessuno.</summary>
+    public void ImpostaSoprannome(long personaId, string soprannome)
+    {
+        using var scope = _lock.EnterScope();
+        using var cmd = _connection.CreateCommand();
+        cmd.CommandText = "UPDATE persone SET soprannome = $s WHERE id = $id;";
+        cmd.Parameters.AddWithValue("$s", soprannome.Trim());
         cmd.Parameters.AddWithValue("$id", personaId);
         cmd.ExecuteNonQuery();
     }

@@ -23,6 +23,7 @@
     <ProjectReference Include="..\..\src\WFastPic.Core.Processing\WFastPic.Core.Processing.csproj" />
     <ProjectReference Include="..\..\src\WFastPic.Core.Export\WFastPic.Core.Export.csproj" />
     <ProjectReference Include="..\..\src\WFastPic.Core.Persone\WFastPic.Core.Persone.csproj" />
+    <ProjectReference Include="..\..\src\WFastPic.Mcp\WFastPic.Mcp.csproj" />
   </ItemGroup>
 
 </Project>

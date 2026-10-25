@@ -276,6 +276,8 @@ public partial class MainWindow : Window
                     // Come Picasa: riaprire una cartella già vista legge solo le foto nuove o modificate.
                     var scanned = FolderScanner.Scan(cartella, database.CreaRisolutoreMetadatiNoti(), progressoScansione);
                     database.SyncScan(scanned);
+                    // Cartella madre: il lavoro già fatto nei sidecar delle sottocartelle entra qui, una volta sola.
+                    database.ImportaDaSidecarFigli();
                     var foto = database.GetAllPhotos();
                     // File.Exists ×2 per foto: su un disco esterno con ~1300 foto non deve girare sul thread UI.
                     var video = foto

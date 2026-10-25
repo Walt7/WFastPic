@@ -1,6 +1,7 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
+using Microsoft.UI.Xaml.Data;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
@@ -33,6 +34,7 @@ public sealed class PersonaUi
     /// <summary>Io, famiglia, amico, conoscente (<see cref="CerchiaPersona"/>) e la stella: pesano nel voto automatico.</summary>
     public int Cerchia { get; init; }
     public bool Preferita { get; init; }
+    public string Soprannome { get; init; } = "";
 
     public ImportanzaPersone Importanza => SenzaNome
         ? ImportanzaPersone.Nessuna
@@ -59,6 +61,12 @@ public sealed class PersonaUi
     public Brush ColoreNome => SenzaNome
         ? _grigio ??= new SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(255, 0xAA, 0xAA, 0xAA))
         : _bianco ??= new SolidColorBrush(Microsoft.UI.Colors.White);
+}
+
+/// <summary>Un gruppo dell'elenco Persone (Io, Famiglia, Amici, Conoscenti, Altre persone, Sconosciuti).</summary>
+public sealed class GruppoPersone : List<PersonaUi>
+{
+    public required string Titolo { get; init; }
 }
 
 /// <summary>
@@ -161,7 +169,7 @@ public partial class MainWindow
         if (richiesta != _richiestaPersone) return;
 
         _personeCorrenti = elenco.Select(e => e.Persona).ToList();
-        PersoneList.ItemsSource = _personeCorrenti;
+        PersoneList.ItemsSource = new CollectionViewSource { IsSourceGrouped = true, Source = RaggruppaPersone(_personeCorrenti) }.View;
         AggiornaImportanzaPersone(_personeCorrenti);
         Viewer.AggiornaVoltiFotoCorrente();
         RiallineaFiltroPersona();
@@ -177,6 +185,29 @@ public partial class MainWindow
             var persona = _personeCorrenti.FirstOrDefault(p => p.PersonaId == daFiltrare.PersonaId && p.Foto.Count > 0);
             if (persona is not null) FiltraPersona(persona);
         }
+    }
+
+    /// <summary>Cartelle di persone come in Picasa: tu, famiglia, amici, conoscenti, le altre con nome, gli sconosciuti.</summary>
+    private static List<GruppoPersone> RaggruppaPersone(IEnumerable<PersonaUi> persone)
+    {
+        var gruppi = new (string Titolo, Func<PersonaUi, bool> Contiene)[]
+        {
+            (T("Io"), p => !p.SenzaNome && p.Cerchia == CerchiaPersona.Io),
+            (T("Famiglia"), p => !p.SenzaNome && p.Cerchia == CerchiaPersona.Famiglia),
+            (T("Amici"), p => !p.SenzaNome && p.Cerchia == CerchiaPersona.Amico),
+            (T("Conoscenti"), p => !p.SenzaNome && p.Cerchia == CerchiaPersona.Conoscente),
+            (T("Altre persone"), p => !p.SenzaNome && p.Cerchia is not (CerchiaPersona.Io or CerchiaPersona.Famiglia or CerchiaPersona.Amico or CerchiaPersona.Conoscente)),
+            (T("Sconosciuti"), p => p.SenzaNome),
+        };
+        var elenco = persone.ToList();
+        var risultato = new List<GruppoPersone>();
+        foreach (var (titolo, contiene) in gruppi)
+        {
+            var gruppo = new GruppoPersone { Titolo = titolo };
+            gruppo.AddRange(elenco.Where(contiene).OrderByDescending(p => p.Preferita)); // stabile: poi l'ordine alfabetico
+            if (gruppo.Count > 0) risultato.Add(gruppo);
+        }
+        return risultato;
     }
 
     private static async Task<ImageSource> CreaImmagineAsync(byte[] jpeg)
@@ -236,6 +267,7 @@ public partial class MainWindow
 
             var proposte = qui.Where(v => v.Stato == StatoPersona.Proposto).Select(v => v.Id).ToList();
             var parti = new List<string>();
+            if (persona.Soprannome.Length > 0) parti.Add($"«{persona.Soprannome}»");
             if (EtichettaCerchia(persona.Cerchia, persona.Preferita) is { } etichetta) parti.Add(etichetta);
             parti.Add(Foto(totale));
             if (foto.Count == 0) parti.Add(altrove.Count == 1 ? ArchivioCartelle.Nome(altrove[0].Cartella) : T("{0} cartelle", altrove.Count));
@@ -255,6 +287,7 @@ public partial class MainWindow
                 AltreCartelle = altrove,
                 Cerchia = persona.Cerchia,
                 Preferita = persona.Preferita,
+                Soprannome = persona.Soprannome,
             }, persona.Avatar ?? qui.FirstOrDefault()?.Miniatura));
         }
 
@@ -403,6 +436,7 @@ public partial class MainWindow
             if (persona.Proposte.Count > 0)
                 Voce(menu.Items, T("Conferma le proposte ({0})", persona.Proposte.Count), "", () => _ = ConfermaProposteAsync(persona));
             Voce(menu.Items, T("Rinomina…"), "", () => _ = DaiNomeAsync(persona, persona.Nome));
+            Voce(menu.Items, T("Soprannome…"), "", () => _ = DaiSoprannomeAsync(persona));
             if (persona.MiniatureVolti.Count > 1)
                 Voce(menu.Items, T("Cambia immagine…"), "", () => _ = CambiaImmagineAsync(persona));
 
@@ -515,6 +549,37 @@ public partial class MainWindow
         contenuto.Children.Add(elenco);
         flyout.Content = contenuto;
         flyout.ShowAt(PersoneList, new FlyoutShowOptions { Position = posizione });
+    }
+
+    private async Task DaiSoprannomeAsync(PersonaUi persona)
+    {
+        if (persona.PersonaId is not long id) return;
+        var casella = new TextBox { PlaceholderText = T("Soprannome"), Text = persona.Soprannome, Width = 300 };
+        var dialogo = new ContentDialog
+        {
+            XamlRoot = Content.XamlRoot,
+            Title = T("Soprannome di {0}", persona.Nome),
+            Content = new StackPanel
+            {
+                Spacing = 12,
+                Children =
+                {
+                    casella,
+                    new TextBlock
+                    {
+                        Text = T("Compare sotto il nome nell'elenco Persone. Lascia vuoto per toglierlo."),
+                        TextWrapping = TextWrapping.Wrap, Foreground = new SolidColorBrush(Microsoft.UI.Colors.Gray), MaxWidth = 320,
+                    },
+                },
+            },
+            PrimaryButtonText = T("Salva"),
+            CloseButtonText = T("Annulla"),
+            DefaultButton = ContentDialogButton.Primary,
+        };
+
+        if (await dialogo.ShowAsync() != ContentDialogResult.Primary) return;
+        Archivio.ImpostaSoprannome(id, casella.Text);
+        AggiornaPannelloPersone();
     }
 
     /// <param name="suggerito">Nome già proposto o dato al volto (dal viewer): scritto nella casella.</param>

@@ -67,7 +67,7 @@ public sealed record RiepilogoCartella(int NumeroFoto, DateTime? PrimoScatto, Da
 /// Thread-safe: la stessa istanza è usata dalla coda di scrittura di SelectionManager (thread
 /// di background) e dal thread UI; una SqliteConnection non lo è, quindi ogni accesso è serializzato.
 /// </summary>
-public sealed class LibrarySidecarDatabase : IDisposable
+public sealed partial class LibrarySidecarDatabase : IDisposable
 {
     public const string CartellaSidecar = ".wfastpic";
     public const string NomeFileDatabase = "library.db";
@@ -311,6 +311,11 @@ public sealed class LibrarySidecarDatabase : IDisposable
                 versione INTEGER NOT NULL,
                 impronta INTEGER NOT NULL,
                 rapporto REAL NOT NULL
+            );
+
+            -- Sidecar di sottocartelle già riversati in questo (una volta sola): da lì in poi vale questo.
+            CREATE TABLE IF NOT EXISTS sidecar_importati (
+                percorso TEXT PRIMARY KEY
             );
             """;
         cmd.ExecuteNonQuery();

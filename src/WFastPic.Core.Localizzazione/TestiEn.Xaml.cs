@@ -33,7 +33,7 @@ internal static partial class TestiEn
         d["Selezionate"] = "Selected";
         d["Sfoglia…"] = "Browse…";
         d["Solo selezionate"] = "Selected only";
-        d["Sostituisci i file già esportati con lo stesso nome"] = "Replace already exported files with the same name";
+        d["Sovrascrivi i file già esportati con lo stesso nome"] = "Overwrite already exported files with the same name";
         d["Sposta in Scarti/"] = "Move to Scarti/";
         d["Sposta nel Cestino"] = "Move to the Recycle Bin";
         d["Tutte le foto"] = "All photos";
@@ -51,6 +51,7 @@ internal static partial class TestiEn
         d["0 – 5"] = "0 – 5";
         d["Altre opzioni"] = "Other options";
         d["Apri in Esplora file"] = "Open in File Explorer";
+        d["Ricarica"] = "Reload";
         d["Apri la foto"] = "Open the photo";
         d["Apri una cartella di foto per iniziare: scegli le migliori con Space, scarta con Canc, sistema e esporta. Le cartelle aperte restano nel pannello a sinistra, divise per anno."] =
             "Open a photo folder to start: pick the best with Space, reject with Delete, fix and export. Folders you open stay in the left panel, grouped by year.";
