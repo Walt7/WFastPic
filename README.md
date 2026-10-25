@@ -93,8 +93,7 @@ fotoritocco avanzato (esposizione a curve, maschere). WFastPic non carica le tue
 - Cartelle madre (es. tutto `E:\Fotocamera`): le sottocartelle sono incluse, e il lavoro già fatto nelle sottocartelle (selezioni, voti, ricette, persone) viene riportato nella madre alla prima apertura. "Ricarica" nel menu della cartella la rilegge da disco.
 
 **Con un assistente AI (MCP, opzionale)**
-- `src/WFastPic.Mcp` è un server MCP che permette a un assistente (es. Claude Code) di cercare nelle foto già catalogate per cartella, persone, date e luogo, salvare selezioni con nome e preparare una cartella o uno zip di *copie* da dare a qualcuno. Legge i dati in sola lettura, non sposta né cancella foto e non invia nulla. Registrazione: `claude mcp add wfastpic -- dotnet <percorso>\src\WFastPic.Mcp\bin\Debug
-et10.0\WFastPic.Mcp.dll`.
+- `src/WFastPic.Mcp` è un server MCP che permette a un assistente (es. Claude Code) di cercare nelle foto già catalogate per cartella, persone, date e luogo, salvare selezioni con nome e preparare una cartella o uno zip di *copie* da dare a qualcuno. Legge i dati in sola lettura, non sposta né cancella foto e non invia nulla. Registrazione: `claude mcp add wfastpic -- dotnet <percorso>\src\WFastPic.Mcp\bin\Debug\net10.0\WFastPic.Mcp.dll`.
 
 **Esportare**
 - JPEG alle dimensioni originali o ridimensionati, qualità a scelta, filigrana, tag.

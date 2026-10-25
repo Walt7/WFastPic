@@ -96,8 +96,7 @@ advanced photo editing (curves, masks). WFastPic does not upload your photos any
 - Parent folders (e.g. all of `E:\Fotocamera`): subfolders are included, and work already done in the subfolders (selections, ratings, edits, people) is carried into the parent the first time you open it. "Ricarica" (Reload) in the folder menu rereads it from disk.
 
 **With an AI assistant (MCP, optional)**
-- `src/WFastPic.Mcp` is an MCP server that lets an assistant (e.g. Claude Code) search your catalogued photos by folder, people, dates and place, save named selections and prepare a folder or zip of *copies* to hand to someone. It reads your data read-only, never moves or deletes photos and sends nothing. Register it with `claude mcp add wfastpic -- dotnet <path>\src\WFastPic.Mcp\bin\Debug
-et10.0\WFastPic.Mcp.dll`.
+- `src/WFastPic.Mcp` is an MCP server that lets an assistant (e.g. Claude Code) search your catalogued photos by folder, people, dates and place, save named selections and prepare a folder or zip of *copies* to hand to someone. It reads your data read-only, never moves or deletes photos and sends nothing. Register it with `claude mcp add wfastpic -- dotnet <path>\src\WFastPic.Mcp\bin\Debug\net10.0\WFastPic.Mcp.dll`.
 
 **Export**
 - JPEG at original or reduced size, chosen quality, watermark, tags.
