@@ -698,12 +698,14 @@
             Grid.Row="0"
             Grid.RowSpan="3"
             Title="Esporta foto"
-            PrimaryButtonText="Esporta"
-            CloseButtonText="Chiudi"
-            DefaultButton="Primary"
-            PrimaryButtonClick="DialogExport_PrimaryButtonClick"
             Closing="DialogExport_Closing">
-            <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="620" Padding="0,0,14,0">
+            <!--
+                Pulsanti e avanzamento fuori dall'area che scorre, con la barra SOTTO i pulsanti: con le opzioni lunghe
+                stava in fondo alla lista, nascosta, e l'export sembrava fermo. I pulsanti sono nostri (non quelli del
+                dialog, che non lasciano spazio sotto).
+            -->
+            <StackPanel Spacing="10" Width="454">
+            <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="500" Padding="0,0,14,0">
                 <StackPanel Spacing="8" Width="440">
                     <TextBlock Text="Foto da esportare" FontWeight="SemiBold" />
                     <RadioButton x:Name="ExportAmbitoSelezionateRadio" GroupName="ExportAmbito" IsChecked="True" Checked="ExportOpzione_Changed" />
@@ -761,12 +763,18 @@
                     <TextBox x:Name="ExportTagTextBox" Header="Tag (separati da virgola)" PlaceholderText="es. vacanza, puglia, 2026" />
                     <CheckBox x:Name="ExportRimuoviGpsCheck" Content="Rimuovi la posizione GPS dai file esportati" />
                     <CheckBox x:Name="ExportSostituisciCheck" Content="Sovrascrivi i file già esportati con lo stesso nome" IsChecked="True" />
-
-                    <ProgressBar x:Name="ExportProgressBar" Minimum="0" Maximum="100" Value="0" Visibility="Collapsed" Margin="0,8,0,0" />
-                    <TextBlock x:Name="ExportStatusText" Foreground="#AAAAAA" FontSize="12" TextWrapping="Wrap" />
-                    <ListView x:Name="ExportErroriList" MaxHeight="120" Visibility="Collapsed" SelectionMode="None" FontSize="12" />
                 </StackPanel>
             </ScrollViewer>
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                <Button x:Name="ExportEsportaButton" Content="Esporta" Click="ExportEsportaButton_Click" HorizontalAlignment="Stretch" Style="{StaticResource AccentButtonStyle}" />
+                <Button x:Name="ExportChiudiButton" Grid.Column="1" Content="Chiudi" Click="ExportChiudiButton_Click" HorizontalAlignment="Stretch" />
+            </Grid>
+            <StackPanel Spacing="6">
+                <ProgressBar x:Name="ExportProgressBar" Minimum="0" Maximum="100" Value="0" Visibility="Collapsed" Height="6" />
+                <TextBlock x:Name="ExportStatusText" Foreground="#AAAAAA" FontSize="12" TextWrapping="Wrap" />
+                <ListView x:Name="ExportErroriList" MaxHeight="120" Visibility="Collapsed" SelectionMode="None" FontSize="12" />
+            </StackPanel>
+            </StackPanel>
         </ContentDialog>
 
         <Grid

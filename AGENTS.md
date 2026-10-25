@@ -55,7 +55,8 @@ Aggiunte fuori piano, su richiesta esplicita durante lo sviluppo:
   suggerimenti, restano foto e pannello di modifica; `Esc` esce prima dallo schermo intero.
 - Export stile Picasa: posizione + nome cartella, "dimensioni originali" o "ridimensiona a" N px
   (slider + valore esatto), qualità a preset, filigrana; opzioni ricordate in `ImpostazioniStore`.
-  Gira in background, annullabile, "Esporta N foto", errori elencati, a fine export apre la cartella.
+  Gira in background, annullabile, "Esporta N foto", errori elencati, a fine export apre la cartella. Pulsanti e barra di
+  avanzamento sono fuori dall'area che scorre, con la barra sotto i pulsanti (nostri, non quelli del ContentDialog).
   Mai gli scarti; riesportando sostituisce (mai nella cartella delle foto: lì numera `_2`). Decode
   convertito in sRGB (le HEIC iPhone sono Display P3). **Metadati scritti con query WIC dirette**
   (`/app1/ifd/...`, rational = UInt64 con numeratore nei 32 bit bassi): i nomi `System.GPS.*`

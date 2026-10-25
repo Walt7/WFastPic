@@ -25,6 +25,8 @@ The app interface is in Italian: names of buttons and menus below are given as t
 - **Where the face is**: in the details column, hovering a face draws a circle on the photo.
 - **Rotate and flip**: there is now a vertical flip too (besides the horizontal one), and the 90° rotate buttons are also
   in the crop and straighten panel (they apply the crop in progress first).
+- **Export**: the progress bar is below the buttons and always visible (it used to sit at the bottom of the options and
+  only showed when scrolling).
 - **MCP server** (`src/WFastPic.Mcp`): an assistant can search by folder, people, dates and place, save named
   selections and prepare folders or zips of copies to share. Read-only on your photos.
 

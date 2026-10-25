@@ -111,9 +111,9 @@ public partial class MainWindow
         ExportDestinazioneText.Text = cartella is not null ? T("Le foto verranno salvate in {0}", cartella) : errore;
 
         var numero = FotoDaEsportareNelDialog();
-        DialogExport.PrimaryButtonText = T("Esporta {0}", Foto(numero));
-        DialogExport.IsPrimaryButtonEnabled = modificabile && numero > 0 && cartella is not null;
-        DialogExport.CloseButtonText = _exportInCorso ? T("Annulla esportazione") : T("Chiudi");
+        ExportEsportaButton.Content = T("Esporta {0}", Foto(numero));
+        ExportEsportaButton.IsEnabled = modificabile && numero > 0 && cartella is not null;
+        ExportChiudiButton.Content = _exportInCorso ? T("Annulla esportazione") : T("Chiudi");
     }
 
     private int QualitaScelta() => ExportQualitaCombo.SelectedIndex is >= 0 and < QualitaPersonalizzataIndice
@@ -176,10 +176,9 @@ public partial class MainWindow
         }
     }
 
-    private async void DialogExport_PrimaryButtonClick(ContentDialog sender, ContentDialogButtonClickEventArgs args)
+    private async void ExportEsportaButton_Click(object sender, RoutedEventArgs e)
     {
         // Il dialog resta aperto per mostrare avanzamento ed esito; si chiude con "Chiudi".
-        args.Cancel = true;
         if (_db is null || _exportInCorso) return;
 
         var cartella = CartellaOutputDialog(out var errore);
@@ -262,6 +261,9 @@ public partial class MainWindow
             catch { /* Explorer non disponibile: l'esito resta comunque nel dialog */ }
         }
     }
+
+    // Chiudi = Hide(): durante l'export il Closing lo trasforma in "annulla".
+    private void ExportChiudiButton_Click(object sender, RoutedEventArgs e) => DialogExport.Hide();
 
     // Chiudi o Esc durante l'export = annulla. Il dialog resta aperto finché la foto in corso è
     // finita, così l'esito (quante esportate) si vede e non resta un export orfano in background.
