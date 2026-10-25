@@ -11,7 +11,8 @@ I dettagli tecnici (cause dei bug, file toccati) sono in [`doc/correzioni-e-novi
   sottocartelle (selezioni, voti, ricette, posizioni, persone, misure) viene riportato nella madre, una volta
   sola e senza sovrascrivere ciò che lì hai già toccato; i dati delle sottocartelle non vengono modificati.
 - **Ricarica** nel menu di una cartella: la rilegge da disco.
-- **Persone a gruppi** (Io, Famiglia, Amici, Conoscenti, Altre persone, Sconosciuti) e **soprannome** per ogni persona.
+- **Persone a gruppi** (Io, Famiglia, Amici, Conoscenti, Altre persone, Sconosciuti) e **soprannome** per ogni persona
+  (nel dialogo del nome). Come immagine di una persona o di un gruppo si sceglie il volto più nitido, non il primo.
 - **Menu del tasto destro sulle foto della griglia**: apri, seleziona, scarta, «Seleziona tutte», «Inverti
   selezione», «Mostra in Esplora file» e, su una foto selezionata, **«Salva selezione…»**: le foto selezionate si
   salvano con un nome, anche per ritrovarle o prepararne un pacchetto da condividere. «Seleziona tutte» e «Inverti»

@@ -45,6 +45,7 @@ internal static partial class TestiEn
         d["Famiglia"] = "Family";
         d["Io"] = "Me";
         d["Soprannome…"] = "Nickname…";
+        d["Soprannome (facoltativo)"] = "Nickname (optional)";
         d["Soprannome"] = "Nickname";
         d["Soprannome di {0}"] = "Nickname of {0}";
         d["Compare sotto il nome nell'elenco Persone. Lascia vuoto per toglierlo."] = "Shown under the name in the People list. Leave empty to remove it.";

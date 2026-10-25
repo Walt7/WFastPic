@@ -288,7 +288,7 @@ public partial class MainWindow
                 Cerchia = persona.Cerchia,
                 Preferita = persona.Preferita,
                 Soprannome = persona.Soprannome,
-            }, persona.Avatar ?? qui.FirstOrDefault()?.Miniatura));
+            }, persona.Avatar ?? MiglioreMiniatura(qui)));
         }
 
         // In cima tu, poi le persone con la stella e la famiglia; le altre in ordine alfabetico.
@@ -317,12 +317,22 @@ public partial class MainWindow
                 Proposte = [],
                 Foto = foto,
                 Impronte = gruppo.Select(v => Impronte.DaByte(v.Impronta!)).ToList(),
-                AvatarJpeg = gruppo.First().Miniatura,
-            }, gruppo.First().Miniatura));
+                AvatarJpeg = MiglioreMiniatura(gruppo),
+            }, MiglioreMiniatura(gruppo)));
         }
 
         return risultato;
     }
+
+    /// <summary>
+    /// Il volto da mostrare come immagine di una persona o di un gruppo: il più nitido, non il primo che capita
+    /// (un volto piccolo o mosso ingrandito nella miniatura sembra una macchia). Una miniatura JPEG con più
+    /// dettaglio pesa di più, e un volto grande nella foto ha più pixel: si premia il prodotto dei due.
+    /// </summary>
+    private static byte[]? MiglioreMiniatura(IEnumerable<VoltoSalvato> volti) =>
+        volti.Where(v => v.Miniatura is not null)
+            .OrderByDescending(v => v.Miniatura!.Length * Math.Sqrt(Math.Max(1e-6, (v.X1 - v.X0) * (v.Y1 - v.Y0))))
+            .FirstOrDefault()?.Miniatura;
 
     // ---------------------------------------------------------------- filtro griglia, apertura cartella
 
@@ -597,6 +607,8 @@ public partial class MainWindow
         if (persona.Avatar is not null)
             contenuto.Children.Add(new Border { Width = 96, Height = 96, CornerRadius = new CornerRadius(48), Child = new Image { Source = persona.Avatar, Stretch = Stretch.UniformToFill } });
         contenuto.Children.Add(casella);
+        var casellaSoprannome = new TextBox { PlaceholderText = T("Soprannome (facoltativo)"), Text = persona.Soprannome, Width = 300 };
+        contenuto.Children.Add(casellaSoprannome);
         contenuto.Children.Add(new TextBlock
         {
             Text = nomeAttuale is null && persona.Volti.Count == 1
@@ -620,10 +632,20 @@ public partial class MainWindow
         if (await dialogo.ShowAsync() != ContentDialogResult.Primary) return;
         var nome = casella.Text.Trim();
         if (nome.Length == 0) return;
+        var soprannome = casellaSoprannome.Text.Trim();
 
         if (persona.PersonaId is long id)
         {
-            if (nome == nomeAttuale) return;
+            if (nome == nomeAttuale)
+            {
+                // Solo il soprannome è cambiato.
+                if (soprannome != persona.Soprannome)
+                {
+                    Archivio.ImpostaSoprannome(id, soprannome);
+                    AggiornaPannelloPersone();
+                }
+                return;
+            }
 
             // Il nome di un'altra persona: è la stessa, confluisce in lei (come trascinare un volto in Picasa).
             var omonima = Archivio.Elenco().FirstOrDefault(p => p.Id != id && string.Equals(p.Nome, nome, StringComparison.CurrentCultureIgnoreCase));
@@ -631,10 +653,11 @@ public partial class MainWindow
             {
                 var db = _db;
                 if (db is not null) await UnisciInAsync(db, persona, omonima.Id, omonima.Nome);
+                if (soprannome.Length > 0) Archivio.ImpostaSoprannome(omonima.Id, soprannome);
                 return;
             }
 
-            try { Archivio.Rinomina(id, nome); }
+            try { Archivio.Rinomina(id, nome); Archivio.ImpostaSoprannome(id, soprannome); }
             catch (Microsoft.Data.Sqlite.SqliteException) { StatusText.Text = T("Esiste già una persona chiamata «{0}».", nome); return; }
             if (_filtroPersona is { } f && f.Nome == nomeAttuale) FiltroPersonaText.Text = nome;
             AggiornaPannelloPersone();
@@ -648,6 +671,7 @@ public partial class MainWindow
         if (dbCorrente is null) return;
         var esisteva = Archivio.EsisteNome(nome);
         var nuovaId = Archivio.TrovaOCrea(nome, persona.AvatarJpeg);
+        if (soprannome.Length > 0) Archivio.ImpostaSoprannome(nuovaId, soprannome);
         var campioniPrima = Archivio.Elenco().FirstOrDefault(p => p.Id == nuovaId)?.Campioni.ToList() ?? [];
         if (_selectionManager is not null) await _selectionManager.SvuotaAsync();
         var voltiPrima = await Task.Run(() => FotografaVolti(dbCorrente));
