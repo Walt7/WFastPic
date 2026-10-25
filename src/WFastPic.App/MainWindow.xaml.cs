@@ -230,6 +230,7 @@ public partial class MainWindow : Window
         _conteggioSelezionate = 0;
         _conteggioScarti = 0;
         _filtroIndice = 0;
+        TogliSelezioneAttiva();
         _miniatureCompletate = 0;
         _miniatureTotali = 0;
         AggiornaAvanzamentoMiniature();
@@ -359,6 +360,7 @@ public partial class MainWindow : Window
         RaggruppaRaffiche();
         RicalcolaVotiAutomatici();
         RaggruppaDoppioni();
+        RicaricaVociSelezioni();
         ApplicaFiltro();
         AggiornaStatusBar();
         Griglia.Focus(FocusState.Programmatic);
@@ -576,7 +578,7 @@ public partial class MainWindow : Window
     {
         var filtro = Filtri[_filtroIndice];
         _visibili.Clear();
-        var foto = _tutte.Where(i => CorrispondeAlFiltro(i, filtro) && CorrispondeAllaPersona(i));
+        var foto = _tutte.Where(i => CorrispondeAlFiltro(i, filtro) && CorrispondeAllaPersona(i) && CorrispondeAllaSelezione(i));
         // Doppioni: un gruppo dopo l'altro (la copia senza data starebbe in fondo), anche nel viewer.
         if (filtro == FiltroDoppioni) foto = foto.OrderBy(i => i.DoppioneId);
         foreach (var item in foto)
@@ -770,21 +772,28 @@ public partial class MainWindow : Window
     private void FiltroComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (_aggiornamentoFiltroInCorso) return;
-        if (FiltroComboBox.SelectedIndex >= 0 && FiltroComboBox.SelectedIndex < Filtri.Length && FiltroComboBox.SelectedIndex != _filtroIndice)
+        var indice = FiltroComboBox.SelectedIndex;
+        if (indice >= Filtri.Length && FiltroComboBox.SelectedItem is ComboBoxItem { Tag: string nomeSelezione })
         {
-            _filtroIndice = FiltroComboBox.SelectedIndex;
+            ApplicaSelezioneScelta(nomeSelezione);
+        }
+        else if (indice >= 0 && indice < Filtri.Length && (indice != _filtroIndice || _selezioneAttiva is not null))
+        {
+            TogliSelezioneAttiva();
+            _filtroIndice = indice;
             ApplicaFiltro();
         }
     }
 
     private void AggiornaFiltroUI()
     {
-        if (FiltroComboBox.SelectedIndex != _filtroIndice)
+        var indiceLista = IndiceFiltroNellaLista();
+        if (FiltroComboBox.SelectedIndex != indiceLista)
         {
             _aggiornamentoFiltroInCorso = true;
             try
             {
-                FiltroComboBox.SelectedIndex = _filtroIndice;
+                FiltroComboBox.SelectedIndex = indiceLista;
             }
             finally
             {
@@ -855,6 +864,7 @@ public partial class MainWindow : Window
                 SetRating(corrente, 5); e.Handled = true; break;
 
             case VirtualKey.Tab:
+                TogliSelezioneAttiva();
                 _filtroIndice = (_filtroIndice + 1) % Filtri.Length;
                 ApplicaFiltro();
                 e.Handled = true;

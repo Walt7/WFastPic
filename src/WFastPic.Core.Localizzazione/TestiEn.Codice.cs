@@ -30,6 +30,7 @@ internal static partial class TestiEn
         d["Hai {0} selezionate: questa operazione cambia la selezione e non si può annullare. Vuoi salvarla prima?"] = "You have {0} selected: this changes the selection and cannot be undone. Save it first?";
         d["Salva e continua"] = "Save and continue";
         d["Continua senza salvare"] = "Continue without saving";
+        d["Selezioni salvate"] = "Saved selections";
         d["Lettura foto…"] = "Reading photos…";
         d["Miniature"] = "Thumbnails";
         d["Impossibile aprire «{0}»: {1}"] = "Cannot open «{0}»: {1}";

@@ -16,7 +16,8 @@ The app interface is in Italian: names of buttons and menus below are given as t
 - **Right-click menu on grid photos**: open, select, reject, «Seleziona tutte» (Select all), «Inverti selezione»
   (Invert selection), show in File Explorer and, on a selected photo, **«Salva selezione…» (Save selection…)**: the
   selected photos are saved under a name, to find them again or prepare a package to share. Select all and Invert
-  warn that your selection will be lost and offer to save it first.
+  warn that your selection will be lost and offer to save it first. A folder's saved selections appear in the
+  filter menu under «Selezioni salvate» (Saved selections): picking one shows only those photos.
 - **MCP server** (`src/WFastPic.Mcp`): an assistant can search by folder, people, dates and place, save named
   selections and prepare folders or zips of copies to share. Read-only on your photos.
 

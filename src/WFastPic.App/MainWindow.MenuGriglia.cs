@@ -164,6 +164,7 @@ public partial class MainWindow
         {
             var salvata = Selezioni.Salva(nome, percorsi, sovrascrivi);
             StatusText.Text = T("Selezione «{0}» salvata: {1}", salvata.Nome, Foto(salvata.Percorsi.Count));
+            RicaricaVociSelezioni();
             return true;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
