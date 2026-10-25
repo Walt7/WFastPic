@@ -128,6 +128,25 @@ public partial class MainWindow
         AggiornaPannelloPersone();
     }
 
+    /// <summary>
+    /// Azione dell'utente lanciata senza attenderla: finisce nel registro (attivita.db) e un errore non resta muto,
+    /// compare nella barra di stato invece di perdersi (prima, un errore qui faceva solo "non succede niente").
+    /// </summary>
+    private async void Lancia(string azione, Func<Task> lavoro)
+    {
+        RegistroAttivita.Scrivi(azione, "avvio");
+        try
+        {
+            await lavoro();
+            RegistroAttivita.Scrivi(azione, "fine");
+        }
+        catch (Exception ex)
+        {
+            RegistroAttivita.Errore(azione, ex);
+            StatusText.Text = T("Errore: {0}", ex.Message);
+        }
+    }
+
     /// <summary>Ricostruisce l'elenco dal sidecar (dopo aver scritto quanto in coda), dalle altre cartelle e dall'archivio persone.</summary>
     private async void AggiornaPannelloPersone()
     {
@@ -462,20 +481,20 @@ public partial class MainWindow
 
         if (persona.SenzaNome)
         {
-            Voce(menu.Items, T("Dai un nome…"), "", () => _ = DaiNomeAsync(persona, null));
-            Voce(menu.Items, T("Ignora questi volti"), "", () => _ = AssegnaEAggiornaAsync(persona.Volti, null, StatoPersona.Rifiutato));
+            Voce(menu.Items, T("Dai un nome…"), "", () => Lancia("persona.dai-nome", () => DaiNomeAsync(persona, null)));
+            Voce(menu.Items, T("Ignora questi volti"), "", () => Lancia("volti.ignora", () => AssegnaEAggiornaAsync(persona.Volti, null, StatoPersona.Rifiutato)));
         }
         else
         {
             if (persona.Proposte.Count > 0)
             {
-                Voce(menu.Items, T("Conferma volti… ({0})", persona.Proposte.Count), "", () => _ = RivediProposteAsync(persona));
-                Voce(menu.Items, T("Conferma tutte le proposte ({0})", persona.Proposte.Count), "", () => _ = ConfermaProposteAsync(persona));
+                Voce(menu.Items, T("Conferma volti… ({0})", persona.Proposte.Count), "", () => Lancia("persona.rivedi-proposte", () => RivediProposteAsync(persona)));
+                Voce(menu.Items, T("Conferma tutte le proposte ({0})", persona.Proposte.Count), "", () => Lancia("persona.conferma-tutte", () => ConfermaProposteAsync(persona)));
             }
-            Voce(menu.Items, T("Rinomina…"), "", () => _ = DaiNomeAsync(persona, persona.Nome));
-            Voce(menu.Items, T("Soprannome…"), "", () => _ = DaiSoprannomeAsync(persona));
+            Voce(menu.Items, T("Rinomina…"), "", () => Lancia("persona.rinomina", () => DaiNomeAsync(persona, persona.Nome)));
+            Voce(menu.Items, T("Soprannome…"), "", () => Lancia("persona.soprannome", () => DaiSoprannomeAsync(persona)));
             if (persona.MiniatureVolti.Count > 1)
-                Voce(menu.Items, T("Cambia immagine…"), "", () => _ = CambiaImmagineAsync(persona));
+                Voce(menu.Items, T("Cambia immagine…"), "", () => Lancia("persona.cambia-immagine", () => CambiaImmagineAsync(persona)));
 
             menu.Items.Add(new MenuFlyoutSeparator());
             var preferita = new ToggleMenuFlyoutItem { Text = T("Preferita"), IsChecked = persona.Preferita, Icon = new FontIcon { Glyph = "" } };
@@ -509,7 +528,7 @@ public partial class MainWindow
         if (!persona.SenzaNome)
         {
             menu.Items.Add(new MenuFlyoutSeparator());
-            Voce(menu.Items, T("Elimina la persona…"), "", () => _ = EliminaPersonaAsync(persona));
+            Voce(menu.Items, T("Elimina la persona…"), "", () => Lancia("persona.elimina", () => EliminaPersonaAsync(persona)));
         }
 
         menu.ShowAt(e.OriginalSource as FrameworkElement, e.GetPosition(e.OriginalSource as UIElement));
@@ -585,7 +604,7 @@ public partial class MainWindow
         {
             if (args.ClickedItem is not FrameworkElement { Tag: PersonaUi scelta }) return;
             flyout.Hide();
-            _ = UnisciPersoneAsync(persona, scelta);
+            Lancia("persona.unisci", () => UnisciPersoneAsync(persona, scelta));
         };
 
         var contenuto = new StackPanel { Spacing = 8 };
@@ -710,6 +729,7 @@ public partial class MainWindow
         var nome = casella.Text.Trim();
         if (nome.Length == 0) return;
         var soprannome = casellaSoprannome.Text.Trim();
+        RegistroAttivita.Scrivi("persona.nome", $"nome «{nome}», soprannome «{soprannome}», {persona.Volti.Count} volti, persona {(persona.PersonaId?.ToString() ?? "nuova")}");
 
         if (persona.PersonaId is long id)
         {
@@ -751,6 +771,7 @@ public partial class MainWindow
         if (dbCorrente is null) return;
         var esisteva = Archivio.EsisteNome(nome);
         var nuovaId = Archivio.TrovaOCrea(nome, avatarScelto ?? persona.AvatarJpeg);
+        RegistroAttivita.Scrivi("persona.crea-o-trova", $"«{nome}» → id {nuovaId} (già esisteva: {esisteva})");
         if (soprannome.Length > 0) Archivio.ImpostaSoprannome(nuovaId, soprannome);
         var campioniPrima = Archivio.Elenco().FirstOrDefault(p => p.Id == nuovaId)?.Campioni.ToList() ?? [];
         if (_selectionManager is not null) await _selectionManager.SvuotaAsync();
@@ -830,6 +851,7 @@ public partial class MainWindow
         var db = _db;
         if (db is null) return;
 
+        RegistroAttivita.Scrivi("persona.unisci-scelta", $"«{cliccata.Nome}» ({cliccata.Volti.Count} volti) con «{altra.Nome}» ({altra.Volti.Count} volti)");
         if (cliccata.SenzaNome && altra.SenzaNome)
         {
             await DaiNomeAsync(new PersonaUi
@@ -893,6 +915,7 @@ public partial class MainWindow
     private async Task UnisciInAsync(LibrarySidecarDatabase db, PersonaUi assorbita, long tieniId, string tieniNome)
     {
         if (assorbita.PersonaId is not long assorbitaId || assorbitaId == tieniId) return;
+        RegistroAttivita.Scrivi("persona.unita", $"«{assorbita.Nome}» (id {assorbitaId}) confluisce in «{tieniNome}» (id {tieniId})");
 
         var elenco = Archivio.Elenco();
         var campioniTieni = elenco.FirstOrDefault(p => p.Id == tieniId)?.Campioni.ToList() ?? [];
@@ -1065,6 +1088,7 @@ public partial class MainWindow
         if (db is null) return;
         if (_selectionManager is not null) await _selectionManager.SvuotaAsync();
 
+        RegistroAttivita.Scrivi("volti.assegna", $"{volti.Count} volti → persona {(personaId?.ToString() ?? "nessuna")}, stato {stato}, cartella {db.CartellaFoto}");
         var persone = PersoneNote();
         await Task.Run(() =>
         {

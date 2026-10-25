@@ -7,6 +7,7 @@ using WFastPic.Core.Export;
 using WFastPic.Core.Library;
 using WinRT.Interop;
 using static WFastPic.Core.Localizzazione.Testi;
+using WFastPic.Core.Persistence;
 
 namespace WFastPic.App;
 
@@ -203,6 +204,7 @@ public partial class MainWindow
         ExportProgressBar.Value = 0;
         ExportStatusText.Text = T("Preparazione…");
         var cronometro = Stopwatch.StartNew();
+        RegistroAttivita.Scrivi("export.avvio", $"{FotoDaEsportareNelDialog()} foto → {cartella}");
 
         try
         {
@@ -221,10 +223,12 @@ public partial class MainWindow
             });
 
             var risultati = await Task.Run(() => Exporter.EseguiAsync(db, opzioni, progresso, cts.Token));
+            RegistroAttivita.Scrivi("export.fine", $"{risultati.Count(r => r.Successo)} riuscite, {risultati.Count(r => !r.Successo)} no, annullato: {cts.IsCancellationRequested}, {cronometro.Elapsed.TotalSeconds:F0} s");
             MostraEsitoExport(risultati, opzioni.CartellaOutput, cts.IsCancellationRequested, cronometro.Elapsed);
         }
         catch (Exception ex)
         {
+            RegistroAttivita.Errore("export", ex);
             ExportStatusText.Text = T("Errore: {0}", ex.Message);
         }
         finally

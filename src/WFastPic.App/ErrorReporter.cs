@@ -5,6 +5,7 @@ using WFastPic.Core.Localizzazione;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Windows.ApplicationModel.DataTransfer;
+using WFastPic.Core.Persistence;
 
 namespace WFastPic.App;
 
@@ -49,6 +50,7 @@ public static class ErrorReporter
     /// <summary>Scrive il report su disco e mostra il dialogo. Sicuro da qualunque thread; non lancia mai.</summary>
     public static void Segnala(Exception? eccezione, string origine)
     {
+        if (eccezione is not null) RegistroAttivita.Errore("errore-inatteso", eccezione, origine);
         try
         {
             var percorso = ScriviReport(eccezione, origine, out var testo);

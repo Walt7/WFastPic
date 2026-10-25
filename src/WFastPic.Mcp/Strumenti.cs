@@ -63,6 +63,14 @@ public static class Strumenti
         return new JsonArray
         {
             Strumento("elenco_cartelle", "Cartelle di foto già aperte in WFastPic, con numero di foto, periodo e quante selezionate.", Schema([])),
+            Strumento("ultime_attivita",
+                "Mini registro di quello che ha fatto l'app (nomi dati, unioni, import, esportazioni, errori…), dal più recente. " +
+                "Serve a capire cosa è successo. Sola lettura.",
+                Schema(new JsonObject
+                {
+                    ["limite"] = Prop("integer", "Quanti eventi (default 50, massimo 500)."),
+                    ["tipo"] = Prop("string", "Solo i tipi che iniziano così, es. «persona», «cartella», «export», «errore»."),
+                })),
             Strumento("elenco_persone", "Persone con nome conosciute da WFastPic (nome, soprannome, chi è: io/famiglia/amico/conoscente).", Schema([])),
             Strumento("cerca_foto",
                 "Cerca foto già catalogate per cartella (sottocartelle comprese), persone, date e luogo. Sola lettura. " +
@@ -97,6 +105,12 @@ public static class Strumenti
                 {
                     cartella = c.Percorso, foto = c.Foto, selezionate = c.Selezionate,
                     dal = c.Primo?.ToString("yyyy-MM-dd"), al = c.Ultimo?.ToString("yyyy-MM-dd"),
+                }));
+
+            case "ultime_attivita":
+                return Serializza(Ricerca.UltimeAttivita(Int(args, "limite") ?? 50, Testo(args, "tipo")).Select(e => new
+                {
+                    quando = e.Quando.ToString("yyyy-MM-dd HH:mm:ss"), tipo = e.Tipo, dettaglio = e.Dettaglio, errore = e.Errore,
                 }));
 
             case "elenco_persone":

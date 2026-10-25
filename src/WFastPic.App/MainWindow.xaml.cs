@@ -281,7 +281,8 @@ public partial class MainWindow : Window
                     var scanned = FolderScanner.Scan(cartella, database.CreaRisolutoreMetadatiNoti(), progressoScansione);
                     database.SyncScan(scanned);
                     // Cartella madre: il lavoro già fatto nei sidecar delle sottocartelle entra qui, una volta sola.
-                    database.ImportaDaSidecarFigli();
+                    var importate = database.ImportaDaSidecarFigli();
+                    if (importate > 0) RegistroAttivita.Scrivi("cartella.import-figli", $"{importate} sottocartelle riversate in {cartella}");
                     var foto = database.GetAllPhotos();
                     // File.Exists ×2 per foto: su un disco esterno con ~1300 foto non deve girare sul thread UI.
                     var video = foto
@@ -370,6 +371,7 @@ public partial class MainWindow : Window
         _cronometroMiniature.Restart();
         _thumbnailLoader.AvviaCaricamento(_tutte);
 
+        RegistroAttivita.Scrivi("cartella.apri", $"{cartella}: {_tutte.Count} foto, {_conteggioSelezionate} selezionate, {_conteggioScarti} scarti");
         PercorsoTextBox.Text = cartella;
         RegistraCartellaAperta(cartella);
         AggiornaPannelloPersone();

@@ -134,6 +134,21 @@ public class McpTests : IDisposable
     }
 
     [Fact]
+    public void Registro_attivita_scrive_legge_e_il_server_mcp_lo_mostra()
+    {
+        RegistroAttivita.Scrivi("persona.nome", "nome «Laura», 12 volti");
+        RegistroAttivita.Errore("persona.unisci", new InvalidOperationException("prova"));
+
+        var ultimi = RegistroAttivita.Ultimi(10);
+        Assert.Equal(["persona.unisci", "persona.nome"], ultimi.Select(e => e.Tipo));
+        Assert.Contains("prova", ultimi[0].Errore);
+
+        var json = Strumenti.Chiama("ultime_attivita", JsonNode.Parse("""{"tipo":"persona.n"}""")!.AsObject());
+        Assert.Contains("Laura", json);
+        Assert.DoesNotContain("prova", json);
+    }
+
+    [Fact]
     public void Strumenti_rispondono_in_json_e_rifiutano_un_pacchetto_senza_filtri()
     {
         Prepara(out _);

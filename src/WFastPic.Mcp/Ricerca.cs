@@ -65,6 +65,31 @@ public static class Ricerca
         return connessione;
     }
 
+    // ---------------------------------------------------------------- registro delle attività
+
+    public sealed record EventoAttivita(DateTime Quando, string Tipo, string Dettaglio, string? Errore);
+
+    /// <summary>Ultimi eventi di <c>attivita.db</c> (il mini registro dell'app), dal più recente; sola lettura.</summary>
+    public static List<EventoAttivita> UltimeAttivita(int quanti, string? tipo)
+    {
+        var risultato = new List<EventoAttivita>();
+        var file = Path.Combine(DatiApp, "attivita.db");
+        if (!File.Exists(file)) return risultato;
+        try
+        {
+            using var c = ApriLettura(file);
+            using var cmd = c.CreateCommand();
+            cmd.CommandText = "SELECT quando, tipo, dettaglio, errore FROM eventi WHERE $t IS NULL OR tipo LIKE $t || '%' ORDER BY id DESC LIMIT $n;";
+            cmd.Parameters.AddWithValue("$t", (object?)tipo ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$n", Math.Clamp(quanti, 1, 500));
+            using var r = cmd.ExecuteReader();
+            while (r.Read())
+                risultato.Add(new EventoAttivita(DateTime.Parse(r.GetString(0), CultureInfo.InvariantCulture), r.GetString(1), r.GetString(2), r.IsDBNull(3) ? null : r.GetString(3)));
+        }
+        catch (Exception ex) when (ex is SqliteException or IOException or FormatException) { }
+        return risultato;
+    }
+
     // ---------------------------------------------------------------- persone
 
     public static List<PersonaNotaMcp> ElencoPersone()

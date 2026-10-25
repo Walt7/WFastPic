@@ -212,6 +212,13 @@ Aggiunte fuori piano, su richiesta esplicita durante lo sviluppo:
   salvato sull'originale segue gira/specchia → raddrizza → ritaglia; niente cerchio in ritaglio o se è fuori dal ritaglio).
   Menu di una persona con volti da confermare: "Conferma volti…" (revisione con spunte, `RivediProposteAsync`) e
   "Conferma tutte le proposte".
+- Mini registro delle attività (`RegistroAttivita`, `attivita.db` accanto a persone.db, ultimi 20000 eventi, mai foto né
+  impronte, ogni errore di scrittura ignorato): cartelle aperte, import dai figli, nomi/unioni/assegnazioni di volti,
+  selezioni salvate, export, errori inattesi. Le azioni del menu Persone partono da `Lancia(...)`, che le registra e
+  mostra in barra di stato un errore invece di perderlo (prima `_ = ...` lo ingoiava). Lo legge anche il server MCP
+  (`ultime_attivita`). Attenzione: Claude Desktop è un'app MSIX e da lì `%LOCALAPPDATA%` è virtualizzato
+  (`Packages\Claude_*\LocalCache\Local\WFastPic`), non i dati veri dell'app; per leggere quelli veri serve un processo
+  fuori dal pacchetto (il terminale dell'utente).
 - Server MCP `src/WFastPic.Mcp` (stdio, JSON-RPC a mano, nessuna dipendenza da WinUI, funziona con l'app
   chiusa): legge sidecar e `persone.db` **in sola lettura** (mai crea sidecar). Strumenti: `elenco_cartelle`,
   `elenco_persone`, `cerca_foto` (cartella con sottocartelle, persone per nome/soprannome tutte insieme, date,

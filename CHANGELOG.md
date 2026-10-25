@@ -26,6 +26,8 @@ I dettagli tecnici (cause dei bug, file toccati) sono in [`doc/correzioni-e-novi
   90° a destra e a sinistra anche dal pannello di ritaglio e raddrizzamento (applicano prima il ritaglio in corso).
 - **Esportazione**: la barra di avanzamento è sotto i pulsanti, sempre visibile (prima stava in fondo alle opzioni e
   si vedeva solo scorrendo).
+- **Registro delle attività** (`attivita.db`): cosa ha fatto l'app (nomi, unioni, import, esportazioni, errori), per
+  capire dopo cosa è successo. Un errore in un'azione del menu Persone ora compare nella barra di stato.
 - **Server MCP** (`src/WFastPic.Mcp`): un assistente può cercare per cartella, persone, date e luogo, salvare
   selezioni con nome e preparare cartelle o zip di copie da condividere. Solo lettura sulle foto.
 

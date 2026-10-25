@@ -27,6 +27,8 @@ The app interface is in Italian: names of buttons and menus below are given as t
   in the crop and straighten panel (they apply the crop in progress first).
 - **Export**: the progress bar is below the buttons and always visible (it used to sit at the bottom of the options and
   only showed when scrolling).
+- **Activity log** (`attivita.db`): what the app did (names, merges, imports, exports, errors), to understand later what
+  happened. An error in a People menu action now shows in the status bar.
 - **MCP server** (`src/WFastPic.Mcp`): an assistant can search by folder, people, dates and place, save named
   selections and prepare folders or zips of copies to share. Read-only on your photos.
 

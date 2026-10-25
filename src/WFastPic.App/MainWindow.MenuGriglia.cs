@@ -6,6 +6,7 @@ using Microsoft.UI.Xaml.Media;
 using WFastPic.Core.Library;
 using WFastPic.Core.Selection;
 using static WFastPic.Core.Localizzazione.Testi;
+using WFastPic.Core.Persistence;
 
 namespace WFastPic.App;
 
@@ -163,6 +164,7 @@ public partial class MainWindow
         try
         {
             var salvata = Selezioni.Salva(nome, percorsi, sovrascrivi);
+            RegistroAttivita.Scrivi("selezione.salva", $"«{salvata.Nome}»: {salvata.Percorsi.Count} foto (sostituita: {sovrascrivi})");
             StatusText.Text = T("Selezione «{0}» salvata: {1}", salvata.Nome, Foto(salvata.Percorsi.Count));
             RicaricaVociSelezioni();
             return true;
