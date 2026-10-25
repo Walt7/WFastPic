@@ -45,6 +45,14 @@ internal static partial class TestiEn
         d["Famiglia"] = "Family";
         d["Io"] = "Me";
         d["Soprannome…"] = "Nickname…";
+        d["Conferma volti… ({0})"] = "Confirm faces… ({0})";
+        d["Conferma tutte le proposte ({0})"] = "Confirm all suggestions ({0})";
+        d["{0} di {1} confermati"] = "{0} of {1} confirmed";
+        d["Spunta tutti"] = "Check all";
+        d["Togli tutte"] = "Uncheck all";
+        d["Spunta i volti che sono davvero {0}. Quelli senza spunta restano da confermare."] = "Check the faces that really are {0}. Unchecked ones stay to be confirmed.";
+        d["Conferma volti di {0}"] = "Confirm faces of {0}";
+        d["Conferma"] = "Confirm";
         d["Volto precedente"] = "Previous face";
         d["Volto successivo"] = "Next face";
         d["Soprannome (facoltativo)"] = "Nickname (optional)";

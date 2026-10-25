@@ -48,6 +48,9 @@ public sealed class PersonaUi
             _ => ImportanzaPersone.ConNome,
         };
 
+    /// <summary>I volti proposti (da confermare) con la miniatura, per la revisione "Conferma volti…".</summary>
+    public IReadOnlyList<(long Id, byte[]? Miniatura)> VoltiProposti { get; init; } = [];
+
     /// <summary>Miniature dei volti nella cartella aperta, per "Cambia immagine".</summary>
     public IReadOnlyList<byte[]> MiniatureVolti { get; init; } = [];
 
@@ -281,6 +284,7 @@ public partial class MainWindow
                 PersonaId = persona.Id,
                 Volti = qui.Select(v => v.Id).ToList(),
                 Proposte = proposte,
+                VoltiProposti = qui.Where(v => v.Stato == StatoPersona.Proposto).Select(v => (v.Id, v.Miniatura)).ToList(),
                 Foto = foto,
                 Impronte = qui.Select(v => Impronte.DaByte(v.Impronta!)).ToList(),
                 MiniatureVolti = MiniatureOrdinate(qui),
@@ -450,7 +454,10 @@ public partial class MainWindow
         else
         {
             if (persona.Proposte.Count > 0)
-                Voce(menu.Items, T("Conferma le proposte ({0})", persona.Proposte.Count), "", () => _ = ConfermaProposteAsync(persona));
+            {
+                Voce(menu.Items, T("Conferma volti… ({0})", persona.Proposte.Count), "", () => _ = RivediProposteAsync(persona));
+                Voce(menu.Items, T("Conferma tutte le proposte ({0})", persona.Proposte.Count), "", () => _ = ConfermaProposteAsync(persona));
+            }
             Voce(menu.Items, T("Rinomina…"), "", () => _ = DaiNomeAsync(persona, persona.Nome));
             Voce(menu.Items, T("Soprannome…"), "", () => _ = DaiSoprannomeAsync(persona));
             if (persona.MiniatureVolti.Count > 1)
@@ -923,13 +930,73 @@ public partial class MainWindow
         AggiornaPannelloPersone();
     }
 
-    private async Task ConfermaProposteAsync(PersonaUi persona)
+    /// <summary>
+    /// Revisione dei volti proposti: miniature con la spunta (tutte spuntate); si conferma chi è davvero lei/lui.
+    /// I volti senza spunta restano da confermare, non cambiano.
+    /// </summary>
+    private async Task RivediProposteAsync(PersonaUi persona)
+    {
+        if (persona.PersonaId is not long) return;
+
+        var caselle = new List<(long Id, CheckBox Casella)>();
+        var griglia = new GridView { SelectionMode = ListViewSelectionMode.None, IsItemClickEnabled = true, MaxHeight = 380, Width = 520 };
+        foreach (var (idVolto, miniatura) in persona.VoltiProposti)
+        {
+            var casella = new CheckBox { IsChecked = true, MinWidth = 0, Content = "", HorizontalAlignment = HorizontalAlignment.Center };
+            var immagine = new Image { Width = 80, Height = 80, Stretch = Stretch.UniformToFill };
+            if (miniatura is not null) immagine.Source = await CreaImmagineAsync(miniatura);
+            var cella = new StackPanel { Spacing = 2, Tag = casella };
+            cella.Children.Add(new Border { Width = 80, Height = 80, CornerRadius = new CornerRadius(6), Child = immagine });
+            cella.Children.Add(casella);
+            griglia.Items.Add(cella);
+            caselle.Add((idVolto, casella));
+        }
+        griglia.ItemClick += (_, a) =>
+        {
+            if (a.ClickedItem is StackPanel { Tag: CheckBox c }) c.IsChecked = c.IsChecked != true;
+        };
+
+        var riepilogo = new TextBlock { Foreground = new SolidColorBrush(Microsoft.UI.Colors.Gray), FontSize = 12 };
+        void Aggiorna() => riepilogo.Text = T("{0} di {1} confermati", caselle.Count(c => c.Casella.IsChecked == true), caselle.Count);
+        foreach (var (_, c) in caselle) { c.Checked += (_, _) => Aggiorna(); c.Unchecked += (_, _) => Aggiorna(); }
+        Aggiorna();
+
+        var tutti = new HyperlinkButton { Content = T("Spunta tutti"), Padding = new Thickness(0) };
+        tutti.Click += (_, _) => { foreach (var (_, c) in caselle) c.IsChecked = true; };
+        var nessuno = new HyperlinkButton { Content = T("Togli tutte"), Padding = new Thickness(0) };
+        nessuno.Click += (_, _) => { foreach (var (_, c) in caselle) c.IsChecked = false; };
+
+        var contenuto = new StackPanel { Spacing = 8 };
+        contenuto.Children.Add(new TextBlock
+        {
+            Text = T("Spunta i volti che sono davvero {0}. Quelli senza spunta restano da confermare.", persona.Nome),
+            TextWrapping = TextWrapping.Wrap, MaxWidth = 520,
+        });
+        contenuto.Children.Add(new StackPanel { Orientation = Orientation.Horizontal, Spacing = 16, Children = { tutti, nessuno, riepilogo } });
+        contenuto.Children.Add(griglia);
+
+        var dialogo = new ContentDialog
+        {
+            XamlRoot = Content.XamlRoot,
+            Title = T("Conferma volti di {0}", persona.Nome),
+            Content = contenuto,
+            PrimaryButtonText = T("Conferma"),
+            CloseButtonText = T("Annulla"),
+            DefaultButton = ContentDialogButton.Primary,
+        };
+        if (await dialogo.ShowAsync() != ContentDialogResult.Primary) return;
+
+        var scelti = caselle.Where(c => c.Casella.IsChecked == true).Select(c => c.Id).ToList();
+        if (scelti.Count > 0) await ConfermaProposteAsync(persona, scelti);
+    }
+
+    private async Task ConfermaProposteAsync(PersonaUi persona, IReadOnlyList<long>? soloQuesti = null)
     {
         if (persona.PersonaId is not long id) return;
-        var idProposte = persona.Proposte.ToHashSet();
+        var idProposte = (soloQuesti ?? persona.Proposte).ToHashSet();
         var impronte = persona.Volti.Select((v, i) => (v, i)).Where(x => idProposte.Contains(x.v)).Select(x => persona.Impronte[x.i]);
         AggiungiCampioni(id, impronte);
-        await AssegnaEAggiornaAsync(persona.Proposte, id, StatoPersona.Confermato);
+        await AssegnaEAggiornaAsync(idProposte.ToList(), id, StatoPersona.Confermato);
     }
 
     private void AggiungiCampioni(long personaId, IEnumerable<float[]> nuovi)
