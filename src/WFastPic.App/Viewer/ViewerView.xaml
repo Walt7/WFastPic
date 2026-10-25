@@ -154,6 +154,33 @@
                             <Button Grid.Column="0" Content="Applica (Invio)" Click="ViewerGeometriaApplica_Click" HorizontalAlignment="Stretch" Style="{StaticResource AccentButtonStyle}" IsTabStop="False" AllowFocusOnInteraction="False" />
                             <Button Grid.Column="1" Content="Annulla (Esc)" Click="ViewerGeometriaAnnulla_Click" HorizontalAlignment="Stretch" IsTabStop="False" AllowFocusOnInteraction="False" />
                         </Grid>
+                        <TextBlock Text="Gira e specchia" Foreground="{StaticResource TestoSecondarioBrush}" FontSize="12" />
+                        <Grid ColumnDefinitions="*,*,*,*" ColumnSpacing="6">
+                            <Button Click="ViewerRuotaAntiorario_Click" HorizontalAlignment="Stretch" Padding="0,8" IsTabStop="False" AllowFocusOnInteraction="False"
+                                    ToolTipService.ToolTip="Gira a sinistra (Shift+R)" AutomationProperties.Name="Gira a sinistra">
+                                <FontIcon Glyph="&#xE7AD;" FontSize="16" RenderTransformOrigin="0.5,0.5">
+                                    <FontIcon.RenderTransform>
+                                        <ScaleTransform ScaleX="-1" />
+                                    </FontIcon.RenderTransform>
+                                </FontIcon>
+                            </Button>
+                            <Button Grid.Column="1" Click="ViewerRuotaOrario_Click" HorizontalAlignment="Stretch" Padding="0,8" IsTabStop="False" AllowFocusOnInteraction="False"
+                                    ToolTipService.ToolTip="Gira a destra (R)" AutomationProperties.Name="Gira a destra">
+                                <FontIcon Glyph="&#xE7AD;" FontSize="16" />
+                            </Button>
+                            <Button Grid.Column="2" Click="ViewerSpecchia_Click" HorizontalAlignment="Stretch" Padding="0,8" IsTabStop="False" AllowFocusOnInteraction="False"
+                                    ToolTipService.ToolTip="Specchia orizzontale (sinistra ↔ destra)" AutomationProperties.Name="Specchia orizzontale">
+                                <FontIcon Glyph="&#xE8AB;" FontSize="16" />
+                            </Button>
+                            <Button Grid.Column="3" Click="ViewerSpecchiaVerticale_Click" HorizontalAlignment="Stretch" Padding="0,8" IsTabStop="False" AllowFocusOnInteraction="False"
+                                    ToolTipService.ToolTip="Specchia verticale (alto ↔ basso)" AutomationProperties.Name="Specchia verticale">
+                                <FontIcon Glyph="&#xE8AB;" FontSize="16" RenderTransformOrigin="0.5,0.5">
+                                    <FontIcon.RenderTransform>
+                                        <RotateTransform Angle="90" />
+                                    </FontIcon.RenderTransform>
+                                </FontIcon>
+                            </Button>
+                        </Grid>
 
                         <!-- Come Picasa: ritagli già pronti come miniature; un clic posiziona il riquadro. -->
                         <Grid ColumnDefinitions="*,Auto" Margin="0,8,0,0">
@@ -198,7 +225,7 @@
                             </Grid>
                         </Button>
                         <!-- Gira di 90° e specchia, come i pulsanti di Picasa: il ritaglio già fatto gira con la foto. -->
-                        <Grid ColumnDefinitions="*,*,*" ColumnSpacing="6">
+                        <Grid ColumnDefinitions="*,*,*,*" ColumnSpacing="6">
                             <Button Click="ViewerRuotaAntiorario_Click" HorizontalAlignment="Stretch" Padding="0,8" IsTabStop="False" AllowFocusOnInteraction="False"
                                     ToolTipService.ToolTip="Gira a sinistra (Shift+R)" AutomationProperties.Name="Gira a sinistra">
                                 <FontIcon Glyph="&#xE7AD;" FontSize="16" RenderTransformOrigin="0.5,0.5">
@@ -212,8 +239,16 @@
                                 <FontIcon Glyph="&#xE7AD;" FontSize="16" />
                             </Button>
                             <Button Grid.Column="2" Click="ViewerSpecchia_Click" HorizontalAlignment="Stretch" Padding="0,8" IsTabStop="False" AllowFocusOnInteraction="False"
-                                    ToolTipService.ToolTip="Specchia (sinistra ↔ destra)" AutomationProperties.Name="Specchia">
+                                    ToolTipService.ToolTip="Specchia orizzontale (sinistra ↔ destra)" AutomationProperties.Name="Specchia orizzontale">
                                 <FontIcon Glyph="&#xE8AB;" FontSize="16" />
+                            </Button>
+                            <Button Grid.Column="3" Click="ViewerSpecchiaVerticale_Click" HorizontalAlignment="Stretch" Padding="0,8" IsTabStop="False" AllowFocusOnInteraction="False"
+                                    ToolTipService.ToolTip="Specchia verticale (alto ↔ basso)" AutomationProperties.Name="Specchia verticale">
+                                <FontIcon Glyph="&#xE8AB;" FontSize="16" RenderTransformOrigin="0.5,0.5">
+                                    <FontIcon.RenderTransform>
+                                        <RotateTransform Angle="90" />
+                                    </FontIcon.RenderTransform>
+                                </FontIcon>
                             </Button>
                         </Grid>
                         <TextBlock Text="Correzione automatica" Foreground="{StaticResource TestoSecondarioBrush}" FontSize="12" Margin="0,8,0,0" />

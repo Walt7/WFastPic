@@ -23,6 +23,8 @@ The app interface is in Italian: names of buttons and menus below are given as t
 - **Faces to confirm**: «Conferma volti…» (Confirm faces…) in a person's menu, with thumbnails of the suggested faces
   to check one by one (next to «Conferma tutte le proposte»).
 - **Where the face is**: in the details column, hovering a face draws a circle on the photo.
+- **Rotate and flip**: there is now a vertical flip too (besides the horizontal one), and the 90° rotate buttons are also
+  in the crop and straighten panel (they apply the crop in progress first).
 - **MCP server** (`src/WFastPic.Mcp`): an assistant can search by folder, people, dates and place, save named
   selections and prepare folders or zips of copies to share. Read-only on your photos.
 

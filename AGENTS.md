@@ -130,7 +130,9 @@ Aggiunte fuori piano, su richiesta esplicita durante lo sviluppo:
 - Gira di 90° e specchia (`Orientamento`, testato): `RotationDegrees` + `FlipHorizontal` nella ricetta,
   primo passo di `RecipeApplier` (ritaglio e raddrizzamento sono sulla foto già girata); girando una
   foto già ritagliata il riquadro gira con lei, specchiando si inverte anche il raddrizzamento.
-  Miniature girate con RenderTransform. Pulsanti nel pannello, `R` / `Shift+R`.
+  Miniature girate con RenderTransform. Pulsanti nel pannello (gira a sinistra/destra, specchia orizzontale e
+  verticale: `Orientamento.SpecchiaVerticale` = specchio + mezzo giro), `R` / `Shift+R`; anche dal pannello di ritaglio, dove
+  prima applicano il ritaglio in corso e poi girano.
 - Viewer a tre colonne: modifiche a sinistra, dettagli a destra (giorno della settimana, data, ora,
   file, raffica, luogo e mini-mappa), entrambe comprimibili e ricordate. Foto della stessa raffica in
   piccolo sopra la foto se orizzontale, a fianco se verticale (`ViewerView.Dettagli.cs`).

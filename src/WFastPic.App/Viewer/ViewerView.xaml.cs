@@ -698,13 +698,21 @@ public sealed partial class ViewerView : UserControl
 
     private void ViewerSpecchia_Click(object sender, RoutedEventArgs e) => Orienta(Orientamento.Specchia);
 
+    private void ViewerSpecchiaVerticale_Click(object sender, RoutedEventArgs e) => Orienta(Orientamento.SpecchiaVerticale);
+
     /// <summary>
     /// Gira di 90° / specchia come Picasa: un passo di ricetta (annullabile), il ritaglio già fatto
     /// gira con la foto. Lo zoom torna al 100%: la foto cambia proporzioni.
     /// </summary>
     private void Orienta(Func<EditRecipe, EditRecipe> operazione)
     {
-        if (!EditingPronto || _geometriaAttiva) return;
+        if (!EditingPronto) return;
+        // Dal ritaglio: prima si applica quello che si sta facendo (come Applica), poi si gira la foto.
+        if (_geometriaAttiva)
+        {
+            ApplicaGeometria();
+            if (!EditingPronto) return;
+        }
         ImpostaZoomViewer(1);
         ModificaRicetta(operazione(_ricettaCorrente));
     }

@@ -173,6 +173,11 @@ internal static partial class TestiEn
         d["Ripeti (Ctrl+Y)"] = "Redo (Ctrl+Y)";
         d["Rotella per lo zoom, trascina per spostare"] = "Wheel to zoom, drag to pan";
         d["Specchia (sinistra ↔ destra)"] = "Flip (left ↔ right)";
+        d["Gira e specchia"] = "Rotate and flip";
+        d["Specchia orizzontale"] = "Flip horizontally";
+        d["Specchia orizzontale (sinistra ↔ destra)"] = "Flip horizontally (left ↔ right)";
+        d["Specchia verticale"] = "Flip vertically";
+        d["Specchia verticale (alto ↔ basso)"] = "Flip vertically (top ↔ bottom)";
         d["Togli il raddrizzamento"] = "Remove the straightening";
         d["Torna alla griglia (Esc)"] = "Back to the grid (Esc)";
     }

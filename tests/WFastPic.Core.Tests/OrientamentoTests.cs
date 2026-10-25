@@ -33,6 +33,33 @@ public class OrientamentoTests
     }
 
     [Fact]
+    public void Specchia_verticale_inverte_le_righe_e_due_volte_torna_come_prima()
+    {
+        var src = Immagine(3, 2); // 0 1 2 / 3 4 5
+        var ricetta = Orientamento.SpecchiaVerticale(EditRecipe.Default);
+        var (dst, w, h) = Orientamento.Applica(src, 3, 2, ricetta);
+
+        Assert.Equal((3, 2), (w, h));
+        Assert.Equal(3, Pixel(dst, w, 0, 0));
+        Assert.Equal(5, Pixel(dst, w, 2, 0));
+        Assert.Equal(0, Pixel(dst, w, 0, 1));
+        Assert.Equal(2, Pixel(dst, w, 2, 1));
+
+        var due = Orientamento.Applica(src, 3, 2, Orientamento.SpecchiaVerticale(ricetta)).Bgra;
+        Assert.Equal(src, due);
+    }
+
+    [Fact]
+    public void Specchia_verticale_porta_con_se_il_ritaglio()
+    {
+        // Ritaglio nella metà alta: dopo lo specchio verticale è nella metà bassa.
+        var r = Orientamento.SpecchiaVerticale(new EditRecipe { CropX = 0, CropY = 0, CropWidth = 1, CropHeight = 0.5 });
+        Assert.Equal(0.5, r.CropY, 6);
+        Assert.Equal(0.5, r.CropHeight, 6);
+        Assert.Equal(0, r.CropX, 6);
+    }
+
+    [Fact]
     public void Specchia_inverte_le_colonne()
     {
         var src = Immagine(3, 2);

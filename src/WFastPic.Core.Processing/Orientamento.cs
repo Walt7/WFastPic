@@ -50,6 +50,9 @@ public static class Orientamento
         CropX = 1 - (r.CropX + r.CropWidth),
     };
 
+    /// <summary>Specchia verticalmente (alto ↔ basso): uno specchio orizzontale più mezzo giro.</summary>
+    public static EditRecipe SpecchiaVerticale(EditRecipe r) => RuotaOrario(RuotaOrario(Specchia(r)));
+
     /// <summary>Dimensioni dopo l'orientamento (larghezza e altezza scambiate a 90° e 270°).</summary>
     public static (int Larghezza, int Altezza) Dimensioni(int larghezza, int altezza, EditRecipe r) =>
         Normalizza(r.RotationDegrees) is 90 or 270 ? (altezza, larghezza) : (larghezza, altezza);

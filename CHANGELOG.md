@@ -22,6 +22,8 @@ I dettagli tecnici (cause dei bug, file toccati) sono in [`doc/correzioni-e-novi
 - **Volti da confermare**: voce «Conferma volti…» nel menu di una persona, con le miniature dei volti proposti da
   spuntare uno per uno (accanto a «Conferma tutte le proposte»).
 - **Dove sta il volto**: nella colonna dei dettagli, passando il mouse su un volto compare un cerchio sulla foto.
+- **Gira e specchia**: ora ci sono anche lo specchio verticale (oltre a quello orizzontale) e i pulsanti per girare di
+  90° a destra e a sinistra anche dal pannello di ritaglio e raddrizzamento (applicano prima il ritaglio in corso).
 - **Server MCP** (`src/WFastPic.Mcp`): un assistente può cercare per cartella, persone, date e luogo, salvare
   selezioni con nome e preparare cartelle o zip di copie da condividere. Solo lettura sulle foto.
 
