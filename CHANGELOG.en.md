@@ -26,6 +26,32 @@ The app interface is in Italian: names of buttons and menus below are given as t
 - **MCP server** (`src/WFastPic.Mcp`): an assistant can search by folder, people, dates and place, save named
   selections and prepare folders or zips of copies to share. Read-only on your photos.
 
+### Fixes
+- **Duplicates with parent folders**: a photo is no longer a duplicate of itself when both a folder and one of its
+  subfolders are known (before, «Scarta le copie» could offer to reject the only original). Copies you selected are
+  never rejected, and the list is recomputed after you confirm.
+- **Unreadable subfolders** (permissions, network): their photos no longer vanish from the library together with
+  selections and edits; files disappearing while reading, links to parent folders and folders renamed by changing
+  only letter case are handled too.
+- **Recycle Bin**: on USB sticks, SD cards and network drives (which have no Recycle Bin) the app no longer deletes
+  forever: it asks you to use «Sposta in Scarti/». Read-only photos can be moved.
+- **Export**: never replaces files that may be originals (photo subfolders, other catalogued folders); a new export
+  folder is marked and does not come back into the library as duplicates; stable names when exporting again; GPS
+  coordinates always valid.
+- **Map**: changing folder during «Riscansiona GPS» no longer puts positions on the wrong photos.
+- **People**: an automatic suggestion no longer overwrites a name you just gave; «Elimina la persona…» is back in
+  the menu; photo counts no longer add up a parent folder and its subfolders twice.
+- **Viewer**: Space while cropping with a filter applies the crop instead of losing it; after Esc from cropping the
+  latest edit is shown; more precise undo with sliders; no wrong thumbnail when scrolling fast; less memory while
+  the viewer is closed.
+- **Rotated JPEG thumbnails** (Android phones, cameras) upright in the grid.
+- **MCP server**: the parent folder always wins over subfolders; searching a subfolder of a parent folder finds its
+  photos; packages copy only catalogued photos, never land inside photo folders and are never left half-done; video
+  names are always distinct.
+- **Saved selections**: a damaged file is no longer overwritten (a `.bak` copy is kept), and the app and the MCP
+  server no longer lose each other's saves.
+- Background errors after changing folder no longer show the error window.
+
 ### Other
 - The export option is now called «Sovrascrivi i file già esportati con lo stesso nome» (Overwrite already exported files with the same name).
 

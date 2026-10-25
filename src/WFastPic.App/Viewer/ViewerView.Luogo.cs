@@ -66,6 +66,11 @@ public sealed partial class ViewerView
         {
             // Foto cambiata: il pannello è già di un'altra.
         }
+        catch (Exception)
+        {
+            // async void: file sparito o luogo non risolto non devono chiudere l'app; restano le coordinate.
+            if (!ct.IsCancellationRequested && ViewerLuogoNome.Text == "…") ViewerLuogoNome.Text = T("Luogo sconosciuto");
+        }
     }
 
     private Task<bool>? _preparazioneMappaGrande;
@@ -244,7 +249,9 @@ public sealed partial class ViewerView
         var foto = _fotoViewerCorrente;
         if (foto is null) return;
 
-        var gps = await Task.Run(() => PhotoMetadataReader.Read(foto.PercorsoCompleto).Gps);
+        WFastPic.Core.Metadata.GeoCoordinate? gps;
+        try { gps = await Task.Run(() => PhotoMetadataReader.Read(foto.PercorsoCompleto).Gps); }
+        catch (Exception) { return; } // file sparito o illeggibile: la posizione a mano resta
         foto.Latitude = gps?.Latitude;
         foto.Longitude = gps?.Longitude;
         foto.Altitude = gps?.Altitude;

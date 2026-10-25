@@ -104,22 +104,38 @@ public sealed partial class MainWindow
 
         var updates = new List<(long Id, WFastPic.Core.Metadata.GeoCoordinate? Gps)>();
 
-        await Task.Run(() =>
+        // Gli id valgono solo nel sidecar di questa cartella: se intanto se ne apre un'altra, niente si
+        // scrive (né sul sidecar nuovo né sulle sue foto in memoria).
+        var db = _db;
+        try
         {
-            foreach (var item in daScansionare)
+            await Task.Run(() =>
             {
-                var meta = WFastPic.Core.Metadata.PhotoMetadataReader.Read(item.PercorsoCompleto);
-                if (meta.Gps.HasValue)
+                foreach (var item in daScansionare)
                 {
-                    updates.Add((item.Id, meta.Gps));
+                    if (db != _db) return;
+                    var meta = WFastPic.Core.Metadata.PhotoMetadataReader.Read(item.PercorsoCompleto);
+                    if (meta.Gps.HasValue)
+                    {
+                        updates.Add((item.Id, meta.Gps));
+                    }
                 }
-            }
 
-            if (updates.Count > 0 && _db is not null)
-            {
-                _db.UpdateGpsBatch(updates);
-            }
-        });
+                if (updates.Count > 0 && db is not null && db == _db)
+                {
+                    db.UpdateGpsBatch(updates);
+                }
+            });
+        }
+        catch (ObjectDisposedException)
+        {
+            // cartella cambiata durante la scrittura
+        }
+        if (db != _db)
+        {
+            MapLoadingRing.IsActive = false;
+            return;
+        }
 
         foreach (var (id, gps) in updates)
         {

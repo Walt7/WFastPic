@@ -77,6 +77,7 @@ public sealed partial class ViewerView
         if (!_geometriaAttiva)
         {
             _geometriaAttiva = true;
+            NascondiPosizioneVolto(); // in ritaglio la foto mostrata è la tela intera: il cerchio cadrebbe altrove
             _mostraOriginale = false;
             ImpostaZoomViewer(1);
 
@@ -96,7 +97,11 @@ public sealed partial class ViewerView
 
             // Foto già ritagliata/raddrizzata: si passa subito alla tela intera (solo il tono arriva
             // col render), invece di mostrare per un attimo maniglie e rotazione sulla foto ritagliata.
-            _bufferPrimaGeometria = _viewerPixelCorrenti is not null ? (_viewerPixelCorrenti, _displayWidth, _displayHeight) : null;
+            // Solo se il buffer mostrato è il risultato della ricetta attuale: con un render in corso o da
+            // rifare (slider appena mosso, foto appena caricata) Esc deve ricalcolare, non rimettere il vecchio.
+            _bufferPrimaGeometria = _viewerPixelCorrenti is not null && !_renderInCorso && !_renderSporco
+                ? (_viewerPixelCorrenti, _displayWidth, _displayHeight)
+                : null;
             if (r.HasGeometry && _viewerPixelOriginali is not null)
             {
                 // Tela = foto già girata/specchiata: ritaglio e raddrizzamento sono espressi su quella.

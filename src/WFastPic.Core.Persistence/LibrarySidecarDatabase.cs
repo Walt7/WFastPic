@@ -74,6 +74,20 @@ public sealed partial class LibrarySidecarDatabase : IDisposable
 
     private readonly SqliteConnection _connection;
     private readonly Lock _lock = new();
+    private bool _chiuso;
+
+    // Ogni accesso passa di qui: dopo Dispose (cartella cambiata, app chiusa) un lavoro in background
+    // riceve ObjectDisposedException, che i chiamanti gestiscono, e non un errore SQLite qualsiasi.
+    private Lock.Scope Entra()
+    {
+        var scope = _lock.EnterScope();
+        if (_chiuso)
+        {
+            scope.Dispose();
+            throw new ObjectDisposedException(nameof(LibrarySidecarDatabase));
+        }
+        return scope;
+    }
 
     public string CartellaFoto { get; }
 
@@ -216,7 +230,11 @@ public sealed partial class LibrarySidecarDatabase : IDisposable
     /// ogni persona con nome, proposte comprese. Sola lettura, non crea mai il sidecar; vuoto se manca,
     /// se è di una versione senza persone o se non è leggibile.
     /// </summary>
-    public static IReadOnlyDictionary<long, int> LeggiFotoPerPersona(string cartellaFoto)
+    /// <param name="escludiSottocartelle">
+    /// Percorsi relativi di sottocartelle da non contare: sono catalogate anche altrove (es. la cartella
+    /// aperta dentro questa cartella madre), e contarle qui le conterebbe due volte.
+    /// </param>
+    public static IReadOnlyDictionary<long, int> LeggiFotoPerPersona(string cartellaFoto, IReadOnlyCollection<string>? escludiSottocartelle = null)
     {
         var percorsoDb = Path.Combine(cartellaFoto, CartellaSidecar, NomeFileDatabase);
         var risultato = new Dictionary<long, int>();
@@ -233,20 +251,63 @@ public sealed partial class LibrarySidecarDatabase : IDisposable
             connection.Open();
             using var cmd = connection.CreateCommand();
             cmd.CommandText = """
-                SELECT persona_id, COUNT(DISTINCT photo_id) FROM volti
-                WHERE persona_id IS NOT NULL AND stato_persona IN ($proposto, $confermato)
-                GROUP BY persona_id;
+                SELECT DISTINCT v.persona_id, v.photo_id, p.path_relativo FROM volti v JOIN photos p ON p.id = v.photo_id
+                WHERE v.persona_id IS NOT NULL AND v.stato_persona IN ($proposto, $confermato);
                 """;
             cmd.Parameters.AddWithValue("$proposto", StatoPersona.Proposto);
             cmd.Parameters.AddWithValue("$confermato", StatoPersona.Confermato);
             using var reader = cmd.ExecuteReader();
-            while (reader.Read()) risultato[reader.GetInt64(0)] = reader.GetInt32(1);
+            while (reader.Read())
+            {
+                if (DentroCartellaNonLetta(reader.GetString(2), escludiSottocartelle)) continue;
+                var persona = reader.GetInt64(0);
+                risultato[persona] = risultato.GetValueOrDefault(persona) + 1;
+            }
         }
         catch (Exception ex) when (ex is SqliteException or IOException or UnauthorizedAccessException)
         {
             risultato.Clear(); // sidecar senza colonne persone, bloccato o su un disco scollegato
         }
         return risultato;
+    }
+
+    // Vero se il percorso relativo sta dentro una delle sottocartelle (anch'esse relative) indicate.
+    private static bool DentroCartellaNonLetta(string percorso, IReadOnlyCollection<string>? cartelleNonLette) =>
+        cartelleNonLette is not null && cartelleNonLette.Any(c =>
+            percorso.StartsWith(Path.TrimEndingDirectorySeparator(c) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>
+    /// Cartella o file rinominati cambiando solo maiuscole e minuscole ("giorno 2" → "Giorno 2"): la riga
+    /// resta la stessa (con selezione, ricetta, volti) e prende il nuovo percorso, invece di raddoppiare.
+    /// </summary>
+    private void RinominaSoloMaiuscole(IReadOnlyList<ScannedPhoto> fotoScansionate, SqliteTransaction transaction)
+    {
+        var esatti = new HashSet<string>(StringComparer.Ordinal);
+        var senzaMaiuscole = new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase);
+        using (var cmd = _connection.CreateCommand())
+        {
+            cmd.Transaction = transaction;
+            cmd.CommandText = "SELECT id, path_relativo FROM photos;";
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+            {
+                var percorso = reader.GetString(1);
+                esatti.Add(percorso);
+                senzaMaiuscole.TryAdd(percorso, reader.GetInt64(0));
+            }
+        }
+
+        foreach (var foto in fotoScansionate)
+        {
+            var percorso = foto.Identity.PathRelativo;
+            if (esatti.Contains(percorso) || !senzaMaiuscole.Remove(percorso, out var id)) continue;
+            using var update = _connection.CreateCommand();
+            update.Transaction = transaction;
+            update.CommandText = "UPDATE photos SET path_relativo = $path WHERE id = $id;";
+            update.Parameters.AddWithValue("$path", percorso);
+            update.Parameters.AddWithValue("$id", id);
+            update.ExecuteNonQuery();
+        }
     }
 
     private void EnsureSchema()
@@ -395,12 +456,17 @@ public sealed partial class LibrarySidecarDatabase : IDisposable
     /// Allinea il database al risultato di una scansione cartella. Confronta solo
     /// PathRelativo + Size + LastWriteUtc (nessun hash): file invariati non toccano il DB.
     /// </summary>
-    public SyncResult SyncScan(IReadOnlyList<ScannedPhoto> fotoScansionate)
+    /// <param name="cartelleNonLette">
+    /// Sottocartelle (percorsi relativi) che la scansione non ha potuto leggere: le loro foto restano.
+    /// </param>
+    public SyncResult SyncScan(IReadOnlyList<ScannedPhoto> fotoScansionate, IReadOnlyCollection<string>? cartelleNonLette = null)
     {
-        using var scope = _lock.EnterScope();
+        using var scope = Entra();
         int nuove = 0, aggiornate = 0, invariate = 0;
 
         using var transaction = _connection.BeginTransaction();
+
+        RinominaSoloMaiuscole(fotoScansionate, transaction);
 
         foreach (var foto in fotoScansionate)
         {
@@ -510,7 +576,8 @@ public sealed partial class LibrarySidecarDatabase : IDisposable
             using var reader = tutteLeFoto.ExecuteReader();
             while (reader.Read())
             {
-                if (!percorsiScansionati.Contains(reader.GetString(1)))
+                var percorso = reader.GetString(1);
+                if (!percorsiScansionati.Contains(percorso) && !DentroCartellaNonLetta(percorso, cartelleNonLette))
                     mancanti.Add(reader.GetInt64(0));
             }
         }
@@ -536,7 +603,7 @@ public sealed partial class LibrarySidecarDatabase : IDisposable
     public Func<PhotoIdentity, ScannedPhoto?> CreaRisolutoreMetadatiNoti()
     {
         var noti = new Dictionary<string, ScannedPhoto>(StringComparer.OrdinalIgnoreCase);
-        using (_lock.EnterScope())
+        using (Entra())
         {
             using var cmd = _connection.CreateCommand();
             cmd.CommandText = "SELECT path_relativo, size, last_write_utc, capture_date, latitude, longitude, altitude, direction FROM photos;";
@@ -570,7 +637,7 @@ public sealed partial class LibrarySidecarDatabase : IDisposable
     /// </summary>
     public IReadOnlyList<PhotoRecord> GetAllPhotos()
     {
-        using var scope = _lock.EnterScope();
+        using var scope = Entra();
         using var cmd = _connection.CreateCommand();
         cmd.CommandText = """
             SELECT p.id, p.path_relativo, p.size, p.last_write_utc, p.capture_date,
@@ -612,7 +679,7 @@ public sealed partial class LibrarySidecarDatabase : IDisposable
     /// </summary>
     public void UpdateStato(long photoId, string stato)
     {
-        using var scope = _lock.EnterScope();
+        using var scope = Entra();
         using var cmd = _connection.CreateCommand();
         cmd.CommandText = """
             UPDATE selection_state SET stato = $stato, last_modified = $now WHERE photo_id = $id;
@@ -625,7 +692,7 @@ public sealed partial class LibrarySidecarDatabase : IDisposable
 
     public void UpdateRating(long photoId, int rating)
     {
-        using var scope = _lock.EnterScope();
+        using var scope = Entra();
         using var cmd = _connection.CreateCommand();
         cmd.CommandText = """
             UPDATE selection_state SET rating = $rating, last_modified = $now WHERE photo_id = $id;
@@ -638,7 +705,7 @@ public sealed partial class LibrarySidecarDatabase : IDisposable
 
     public IReadOnlyList<PhotoRecord> GetByStato(string stato)
     {
-        using var scope = _lock.EnterScope();
+        using var scope = Entra();
         using var cmd = _connection.CreateCommand();
         cmd.CommandText = """
             SELECT p.id, p.path_relativo, p.size, p.last_write_utc, p.capture_date,
@@ -682,7 +749,7 @@ public sealed partial class LibrarySidecarDatabase : IDisposable
     /// </summary>
     public void RemovePhoto(long photoId)
     {
-        using var scope = _lock.EnterScope();
+        using var scope = Entra();
         using var cmd = _connection.CreateCommand();
         cmd.CommandText = "DELETE FROM photos WHERE id = $id;";
         cmd.Parameters.AddWithValue("$id", photoId);
@@ -692,7 +759,7 @@ public sealed partial class LibrarySidecarDatabase : IDisposable
     /// <summary>Ricetta di editing salvata per la foto, o null se non è mai stata modificata.</summary>
     public string? GetRecipeJson(long photoId)
     {
-        using var scope = _lock.EnterScope();
+        using var scope = Entra();
         using var cmd = _connection.CreateCommand();
         cmd.CommandText = "SELECT recipe_json FROM edits WHERE photo_id = $id;";
         cmd.Parameters.AddWithValue("$id", photoId);
@@ -702,7 +769,7 @@ public sealed partial class LibrarySidecarDatabase : IDisposable
     /// <summary>Tutte le ricette della cartella in una query: per i simboli delle modifiche sulle miniature.</summary>
     public IReadOnlyDictionary<long, string> GetAllRecipeJson()
     {
-        using var scope = _lock.EnterScope();
+        using var scope = Entra();
         using var cmd = _connection.CreateCommand();
         cmd.CommandText = "SELECT photo_id, recipe_json FROM edits;";
         using var reader = cmd.ExecuteReader();
@@ -713,7 +780,7 @@ public sealed partial class LibrarySidecarDatabase : IDisposable
 
     public void SaveRecipe(long photoId, string recipeJson, int schemaVersion)
     {
-        using var scope = _lock.EnterScope();
+        using var scope = Entra();
         using var cmd = _connection.CreateCommand();
         cmd.CommandText = """
             INSERT INTO edits (photo_id, recipe_json, schema_version) VALUES ($id, $json, $version)
@@ -728,7 +795,7 @@ public sealed partial class LibrarySidecarDatabase : IDisposable
     /// <summary>"Riscansiona GPS": aggiorna le posizioni lette dai file, mai quelle corrette a mano.</summary>
     public void UpdateGpsBatch(IEnumerable<(long Id, GeoCoordinate? Gps)> updates)
     {
-        using var scope = _lock.EnterScope();
+        using var scope = Entra();
         using var transaction = _connection.BeginTransaction();
         using var cmd = _connection.CreateCommand();
         cmd.Transaction = transaction;
@@ -762,7 +829,7 @@ public sealed partial class LibrarySidecarDatabase : IDisposable
     /// </summary>
     public void SetPosizioneManuale(long photoId, double? latitude, double? longitude)
     {
-        using var scope = _lock.EnterScope();
+        using var scope = Entra();
         using var cmd = _connection.CreateCommand();
         cmd.CommandText = """
             UPDATE photos SET latitude = $lat, longitude = $lon, altitude = NULL, direction = NULL, gps_manuale = 1
@@ -777,7 +844,7 @@ public sealed partial class LibrarySidecarDatabase : IDisposable
     /// <summary>Torna alla posizione letta dal file (quella passata dal chiamante, già riletta dall'EXIF).</summary>
     public void RipristinaPosizioneOriginale(long photoId, GeoCoordinate? gpsDelFile)
     {
-        using var scope = _lock.EnterScope();
+        using var scope = Entra();
         using var cmd = _connection.CreateCommand();
         cmd.CommandText = """
             UPDATE photos SET latitude = $lat, longitude = $lon, altitude = $alt, direction = $dir, gps_manuale = 0
@@ -797,7 +864,7 @@ public sealed partial class LibrarySidecarDatabase : IDisposable
     /// <summary>Salva i volti con impronta di una foto (sostituendo quelli del solo rilevamento).</summary>
     public void SalvaVoltiPersone(long photoId, IReadOnlyList<VoltoDaSalvare> volti)
     {
-        using var scope = _lock.EnterScope();
+        using var scope = Entra();
         using var transaction = _connection.BeginTransaction();
 
         using (var cancella = _connection.CreateCommand())
@@ -836,7 +903,7 @@ public sealed partial class LibrarySidecarDatabase : IDisposable
     /// <summary>Tutti i volti con impronta della cartella (per raggruppare e riconoscere).</summary>
     public IReadOnlyList<VoltoSalvato> GetVoltiPersone()
     {
-        using var scope = _lock.EnterScope();
+        using var scope = Entra();
         using var cmd = _connection.CreateCommand();
         cmd.CommandText = """
             SELECT rowid, photo_id, x0, y0, x1, y1, impronta, miniatura, persona_id, stato_persona
@@ -860,7 +927,7 @@ public sealed partial class LibrarySidecarDatabase : IDisposable
     /// <summary>Volti con impronta di una sola foto (sezione Volti nei dettagli del viewer).</summary>
     public IReadOnlyList<VoltoSalvato> GetVoltiPersone(long photoId)
     {
-        using var scope = _lock.EnterScope();
+        using var scope = Entra();
         using var cmd = _connection.CreateCommand();
         cmd.CommandText = """
             SELECT rowid, photo_id, x0, y0, x1, y1, impronta, miniatura, persona_id, stato_persona
@@ -888,7 +955,7 @@ public sealed partial class LibrarySidecarDatabase : IDisposable
     /// </summary>
     public void AzzeraAnalisiVolti()
     {
-        using var scope = _lock.EnterScope();
+        using var scope = Entra();
         using var cmd = _connection.CreateCommand();
         cmd.CommandText = "DELETE FROM volti; UPDATE photos SET volti_cercati = 0;";
         cmd.ExecuteNonQuery();
@@ -897,7 +964,7 @@ public sealed partial class LibrarySidecarDatabase : IDisposable
     /// <summary>Dà (o toglie) un nome a dei volti: proposto, confermato o rifiutato.</summary>
     public void AssegnaPersona(IEnumerable<long> idVolti, long? personaId, int stato)
     {
-        using var scope = _lock.EnterScope();
+        using var scope = Entra();
         using var transaction = _connection.BeginTransaction();
         using var cmd = _connection.CreateCommand();
         cmd.Transaction = transaction;
@@ -916,12 +983,38 @@ public sealed partial class LibrarySidecarDatabase : IDisposable
     }
 
     /// <summary>
+    /// Proposta automatica: tocca solo i volti ancora senza nome e senza decisione. Un nome dato (o un
+    /// "ignora") mentre la proposta veniva calcolata non viene mai sovrascritto.
+    /// </summary>
+    public void ProponiPersona(IEnumerable<long> idVolti, long personaId)
+    {
+        using var scope = Entra();
+        using var transaction = _connection.BeginTransaction();
+        using var cmd = _connection.CreateCommand();
+        cmd.Transaction = transaction;
+        cmd.CommandText = """
+            UPDATE volti SET persona_id = $persona, stato_persona = $proposto
+            WHERE rowid = $id AND persona_id IS NULL AND stato_persona = $nessuno;
+            """;
+        cmd.Parameters.AddWithValue("$persona", personaId);
+        cmd.Parameters.AddWithValue("$proposto", StatoPersona.Proposto);
+        cmd.Parameters.AddWithValue("$nessuno", StatoPersona.Nessuno);
+        var pId = cmd.Parameters.Add("$id", SqliteType.Integer);
+        foreach (var id in idVolti)
+        {
+            pId.Value = id;
+            cmd.ExecuteNonQuery();
+        }
+        transaction.Commit();
+    }
+
+    /// <summary>
     /// Persona unita a un'altra (<paramref name="nuova"/>) o eliminata (null: i volti tornano senza nome)
     /// nell'archivio globale: allinea i volti di questa cartella.
     /// </summary>
     public void SostituisciPersona(long vecchia, long? nuova)
     {
-        using var scope = _lock.EnterScope();
+        using var scope = Entra();
         using var cmd = _connection.CreateCommand();
         cmd.CommandText = """
             UPDATE volti SET persona_id = $nuova,
@@ -937,7 +1030,7 @@ public sealed partial class LibrarySidecarDatabase : IDisposable
     /// <summary>Volti trovati nella foto (normalizzati, foto non raddrizzata); null se non è ancora stata analizzata.</summary>
     public IReadOnlyList<(double X0, double Y0, double X1, double Y1)>? GetVolti(long photoId)
     {
-        using var scope = _lock.EnterScope();
+        using var scope = Entra();
         using var cercati = _connection.CreateCommand();
         cercati.CommandText = "SELECT volti_cercati FROM photos WHERE id = $id;";
         cercati.Parameters.AddWithValue("$id", photoId);
@@ -955,7 +1048,7 @@ public sealed partial class LibrarySidecarDatabase : IDisposable
     /// <summary>Salva il risultato dell'analisi (anche "nessun volto"): la foto non verrà riesaminata.</summary>
     public void SalvaVolti(long photoId, IReadOnlyList<(double X0, double Y0, double X1, double Y1)> volti)
     {
-        using var scope = _lock.EnterScope();
+        using var scope = Entra();
         using var transaction = _connection.BeginTransaction();
 
         using (var cancella = _connection.CreateCommand())
@@ -989,7 +1082,7 @@ public sealed partial class LibrarySidecarDatabase : IDisposable
     /// </summary>
     public IReadOnlyDictionary<long, QualitaSalvata> GetQualita(int versione)
     {
-        using var scope = _lock.EnterScope();
+        using var scope = Entra();
         using var cmd = _connection.CreateCommand();
         cmd.CommandText = """
             SELECT photo_id, nitidezza, nitidezza_volti, bruciati, chiusi, luminosita
@@ -1009,7 +1102,7 @@ public sealed partial class LibrarySidecarDatabase : IDisposable
 
     public void SalvaQualita(long photoId, int versione, QualitaSalvata q)
     {
-        using var scope = _lock.EnterScope();
+        using var scope = Entra();
         using var cmd = _connection.CreateCommand();
         cmd.CommandText = """
             INSERT INTO qualita (photo_id, versione, nitidezza, nitidezza_volti, bruciati, chiusi, luminosita)
@@ -1031,7 +1124,7 @@ public sealed partial class LibrarySidecarDatabase : IDisposable
     /// <summary>Impronte per i doppioni, solo quelle calcolate con <paramref name="versione"/>.</summary>
     public IReadOnlyDictionary<long, (ulong Impronta, double Rapporto)> GetImpronte(int versione)
     {
-        using var scope = _lock.EnterScope();
+        using var scope = Entra();
         using var cmd = _connection.CreateCommand();
         cmd.CommandText = "SELECT photo_id, impronta, rapporto FROM impronte WHERE versione = $versione;";
         cmd.Parameters.AddWithValue("$versione", versione);
@@ -1046,7 +1139,7 @@ public sealed partial class LibrarySidecarDatabase : IDisposable
 
     public void SalvaImpronta(long photoId, int versione, ulong impronta, double rapporto)
     {
-        using var scope = _lock.EnterScope();
+        using var scope = Entra();
         using var cmd = _connection.CreateCommand();
         cmd.CommandText = """
             INSERT INTO impronte (photo_id, versione, impronta, rapporto) VALUES ($id, $versione, $impronta, $rapporto)
@@ -1064,7 +1157,7 @@ public sealed partial class LibrarySidecarDatabase : IDisposable
     /// <summary>Nome del luogo già risolto per questa cella (vedi NomeLuogo.Chiave), o null.</summary>
     public string? GetNomeLuogo(string chiave)
     {
-        using var scope = _lock.EnterScope();
+        using var scope = Entra();
         using var cmd = _connection.CreateCommand();
         cmd.CommandText = "SELECT nome FROM luoghi WHERE chiave = $chiave;";
         cmd.Parameters.AddWithValue("$chiave", chiave);
@@ -1073,7 +1166,7 @@ public sealed partial class LibrarySidecarDatabase : IDisposable
 
     public void SetNomeLuogo(string chiave, string nome)
     {
-        using var scope = _lock.EnterScope();
+        using var scope = Entra();
         using var cmd = _connection.CreateCommand();
         cmd.CommandText = """
             INSERT INTO luoghi (chiave, nome) VALUES ($chiave, $nome)
@@ -1087,6 +1180,7 @@ public sealed partial class LibrarySidecarDatabase : IDisposable
     public void Dispose()
     {
         using var scope = _lock.EnterScope();
+        _chiuso = true;
         _connection.Dispose();
     }
 }

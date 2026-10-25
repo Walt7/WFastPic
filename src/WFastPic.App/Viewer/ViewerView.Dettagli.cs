@@ -80,6 +80,13 @@ public sealed partial class ViewerView
     // ---------------------------------------------------------------- voto e volti
 
     private PhotoGridItem? _fotoDettagli;
+
+    // A viewer chiuso: l'ultima foto non deve restare agganciata (e viva) dopo un cambio cartella.
+    private void StaccaFotoDettagli()
+    {
+        if (_fotoDettagli is not null) _fotoDettagli.PropertyChanged -= FotoDettagli_PropertyChanged;
+        _fotoDettagli = null;
+    }
     private int _richiestaVolti;
 
     private void FotoDettagli_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
@@ -138,7 +145,7 @@ public sealed partial class ViewerView
     {
         var larghezzaMostrata = ViewerImage.ActualWidth;
         var altezzaMostrata = ViewerImage.ActualHeight;
-        if (_geometriaAttiva || larghezzaMostrata <= 0 || altezzaMostrata <= 0 || volto.X1 <= volto.X0) { NascondiPosizioneVolto(); return; }
+        if (_geometriaAttiva || _mostraOriginale || larghezzaMostrata <= 0 || altezzaMostrata <= 0 || volto.X1 <= volto.X0) { NascondiPosizioneVolto(); return; }
 
         var r = _ricettaCorrente;
         var (ox0, oy0, ox1, oy1) = Core.Processing.Orientamento.TrasformaRettangolo(volto.X0, volto.Y0, volto.X1, volto.Y1, r);
@@ -216,7 +223,14 @@ public sealed partial class ViewerView
         ToolTipService.SetToolTip(pulsante, volto.Proposto ? T("Proposta: clic per confermare o correggere") : T("Chi è?"));
         pulsante.Click += async (_, _) =>
         {
-            await Host.DaiNomeAlVoltoAsync(volto); // i nomi si aggiornano con il pannello Persone (AggiornaVoltiFotoCorrente)
+            try
+            {
+                await Host.DaiNomeAlVoltoAsync(volto); // i nomi si aggiornano con il pannello Persone (AggiornaVoltiFotoCorrente)
+            }
+            catch (Exception)
+            {
+                // async void: un errore (cartella cambiata, archivio chiuso) non deve chiudere l'app.
+            }
             ViewerOverlay.Focus(FocusState.Programmatic);
         };
         return pulsante;

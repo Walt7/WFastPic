@@ -40,6 +40,7 @@ public sealed partial class ViewerView
         var foto = _fotoRicetta;
         var db = Host.Database;
         var manager = Host.SelectionManager;
+        var salvaVolti = !Host.RiconoscimentoPersoneAttivo;
 
         ViewerSuggerimentiAnello.IsActive = true;
         try
@@ -66,7 +67,9 @@ public sealed partial class ViewerView
                 {
                     // Sull'originale: i volti salvati nel sidecar sono sempre in coordinate del file.
                     volti = await RilevatoreVolti.RilevaAsync(originale, wo, ho);
-                    if (foto is not null) manager?.SalvaVolti(foto.Id, volti);
+                    // Con il riconoscimento persone i volti li salva la sua analisi (con impronte e nomi): un
+                    // salvataggio qui, accodato dopo il suo, li cancellerebbe.
+                    if (foto is not null && salvaVolti) manager?.SalvaVolti(foto.Id, volti);
                 }
 
                 var zone = volti

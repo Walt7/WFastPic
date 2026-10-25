@@ -121,7 +121,8 @@ public partial class MainWindow
             var pixelAltrove = new Dictionary<long, long>();
             if (altreCartelle is not null && !token.IsCancellationRequested)
             {
-                var tutteAltrove = LeggiAltreCartelle(altreCartelle, token);
+                var percorsiQui = locali.Values.Select(l => Path.GetFullPath(l.PercorsoCompleto)).ToHashSet(StringComparer.OrdinalIgnoreCase);
+                var tutteAltrove = LeggiAltreCartelle(altreCartelle, percorsiQui, token);
 
                 // Identici: si leggono solo i file con la dimensione di una foto di qui (anche nelle altre cartelle).
                 var dimensioniQui = locali.Values.Select(l => l.Foto.Size).ToHashSet();
@@ -210,16 +211,25 @@ public partial class MainWindow
     /// Le foto delle altre cartelle note, dai loro sidecar in sola lettura (mai creati, mai scritti). Una
     /// cartella su un disco scollegato o con un sidecar illeggibile non dà niente.
     /// </summary>
-    private static Dictionary<long, CopiaAltrove> LeggiAltreCartelle(IReadOnlyList<string> cartelle, CancellationToken token)
+    /// <summary>
+    /// Foto delle altre cartelle note. Una cartella madre e le sue sottocartelle catalogano gli stessi file:
+    /// un file di qui (o già letto da un'altra cartella) è lo stesso file, non una copia, e resta fuori,
+    /// altrimenti risulterebbe doppione di sé stesso e "Scarta le copie" scarterebbe l'unico originale.
+    /// </summary>
+    private static Dictionary<long, CopiaAltrove> LeggiAltreCartelle(
+        IReadOnlyList<string> cartelle, HashSet<string> percorsiQui, CancellationToken token)
     {
         var copie = new Dictionary<long, CopiaAltrove>();
+        var visti = new HashSet<string>(percorsiQui, StringComparer.OrdinalIgnoreCase);
         long prossimoId = -1;
         foreach (var cartella in cartelle)
         {
             if (token.IsCancellationRequested) break;
             foreach (var foto in LibrarySidecarDatabase.LeggiPerDoppioni(cartella, ImprontaPercettiva.Versione))
             {
-                copie[prossimoId] = new CopiaAltrove(prossimoId, cartella, foto);
+                var copia = new CopiaAltrove(prossimoId, cartella, foto);
+                if (!visti.Add(Path.GetFullPath(copia.PercorsoCompleto))) continue;
+                copie[prossimoId] = copia;
                 prossimoId--;
             }
         }
@@ -305,11 +315,14 @@ public partial class MainWindow
         AggiornaScartaDoppioni();
     }
 
-    /// <summary>Le copie di qui che non sono la migliore e non sono ancora scartate.</summary>
+    /// <summary>
+    /// Le copie di qui che non sono la migliore e non sono ancora scartate. Quelle selezionate restano:
+    /// se le hai scelte tu (anche due copie), non è un suggerimento automatico a toglierle.
+    /// </summary>
     private List<PhotoGridItem> CopieDaScartare() =>
         _gruppiDoppioni.Values
             .SelectMany(g => g)
-            .Where(f => !f.MiglioreDoppione && f.Stato != StatoSelezione.Reject)
+            .Where(f => !f.MiglioreDoppione && f.Stato is not (StatoSelezione.Reject or StatoSelezione.Selected))
             .ToList();
 
     private void AggiornaScartaDoppioni()
@@ -362,6 +375,9 @@ public partial class MainWindow
             return; // un altro dialogo è già aperto
         }
 
+        // Ricalcolate adesso: mentre il dialogo era aperto l'analisi può aver cambiato la copia da tenere.
+        daScartare = CopieDaScartare();
+        if (daScartare.Count == 0) return;
         SetStati(daScartare.Select(f => (f, StatoSelezione.Reject)).ToList());
     }
 }

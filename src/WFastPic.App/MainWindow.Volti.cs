@@ -47,22 +47,27 @@ public partial class MainWindow
     private async void AvviaRicercaVolti()
     {
         if (_ricercaVoltiAvviata) return;
+        var manager = _selectionManager;
+        if (manager is null) return; // senza cartella aperta il flag resterebbe alzato e non ripartirebbe più
         _ricercaVoltiAvviata = true;
 
         var cts = new CancellationTokenSource();
         _ctsVolti = cts;
         var token = cts.Token;
-        var manager = _selectionManager;
-        if (manager is null) return;
 
         // Per primi i doppioni: bastano le miniature appena pronte e finiscono in pochi secondi.
         try
         {
             await AnalizzaDoppioniAsync(manager, token);
         }
-        catch (OperationCanceledException)
+        catch (Exception ex) when (ex is OperationCanceledException or ObjectDisposedException || token.IsCancellationRequested)
         {
             return;
+        }
+        catch (Exception ex)
+        {
+            // Un errore dei doppioni (sidecar di un'altra cartella illeggibile…) non ferma volti e voto.
+            StatusText.Text = T("Ricerca dei doppioni interrotta: {0}", ex.Message);
         }
 
         if (_riconoscimentoPersone is null) await ChiediRiconoscimentoPersoneAsync();
@@ -84,9 +89,14 @@ public partial class MainWindow
             // Dopo i volti (servono per la nitidezza dei visi): misure per il voto automatico.
             if (!token.IsCancellationRequested) await AnalizzaQualitaAsync(manager, token);
         }
-        catch (OperationCanceledException)
+        catch (Exception ex) when (ex is OperationCanceledException or ObjectDisposedException || token.IsCancellationRequested)
         {
             // Cartella cambiata o app chiusa: la ricerca riparte alla prossima apertura.
+        }
+        catch (Exception ex)
+        {
+            // async void: un'eccezione qui chiuderebbe l'app. L'analisi riparte alla prossima apertura.
+            StatusText.Text = T("Analisi di volti e qualità interrotta: {0}", ex.Message);
         }
     }
 

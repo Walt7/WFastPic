@@ -1,3 +1,4 @@
+using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using WFastPic.Core.Library;
 using static WFastPic.Core.Localizzazione.Testi;
@@ -13,21 +14,37 @@ public partial class MainWindow
 {
     private string? _selezioneAttiva;
     private HashSet<long>? _idSelezioneAttiva;
+    private DateTime _selezioniLette = DateTime.MinValue;
 
     private bool CorrispondeAllaSelezione(PhotoGridItem foto) => _idSelezioneAttiva is not { } ids || ids.Contains(foto.Id);
 
-    /// <summary>Id delle foto di questa cartella che fanno parte della selezione salvata.</summary>
-    private HashSet<long> FotoDellaSelezione(SelezioneSalvata selezione)
+    /// <summary>Percorso completo → id per le foto di questa cartella: calcolato una volta, non per ogni selezione.</summary>
+    private Dictionary<string, long> IdPerPercorso()
     {
-        var percorsi = selezione.Percorsi.ToHashSet(StringComparer.OrdinalIgnoreCase);
-        return _tutte.Where(i => percorsi.Contains(Path.GetFullPath(i.PercorsoCompleto))).Select(i => i.Id).ToHashSet();
+        var mappa = new Dictionary<string, long>(_tutte.Count, StringComparer.OrdinalIgnoreCase);
+        foreach (var foto in _tutte) mappa.TryAdd(Path.GetFullPath(foto.PercorsoCompleto), foto.Id);
+        return mappa;
+    }
+
+    /// <summary>Id delle foto di questa cartella che fanno parte della selezione salvata.</summary>
+    private static HashSet<long> FotoDellaSelezione(SelezioneSalvata selezione, Dictionary<string, long> idPerPercorso) =>
+        selezione.Percorsi.Select(p => idPerPercorso.TryGetValue(p, out var id) ? id : (long?)null)
+            .OfType<long>().ToHashSet();
+
+    /// <summary>Tornando sulla finestra: selezioni salvate nel frattempo (dal server MCP) entrano nel menu.</summary>
+    private void Finestra_Activated(object sender, WindowActivatedEventArgs args)
+    {
+        if (args.WindowActivationState == WindowActivationState.Deactivated || _tutte.Count == 0) return;
+        if (Selezioni.UltimaModifica() != _selezioniLette) RicaricaVociSelezioni();
     }
 
     /// <summary>Ricostruisce le voci in coda alla lista dei filtri (a cartella caricata e dopo ogni salvataggio).</summary>
     private void RicaricaVociSelezioni()
     {
+        _selezioniLette = Selezioni.UltimaModifica();
+        var idPerPercorso = IdPerPercorso();
         var qui = Selezioni.Elenco()
-            .Select(s => (Selezione: s, Foto: FotoDellaSelezione(s)))
+            .Select(s => (Selezione: s, Foto: FotoDellaSelezione(s, idPerPercorso)))
             .Where(s => s.Foto.Count > 0)
             .ToList();
 
@@ -73,7 +90,7 @@ public partial class MainWindow
         var selezione = Selezioni.Trova(nome);
         if (selezione is null) return;
         _selezioneAttiva = selezione.Nome;
-        _idSelezioneAttiva = FotoDellaSelezione(selezione);
+        _idSelezioneAttiva = FotoDellaSelezione(selezione, IdPerPercorso());
         _filtroIndice = 0;
         ApplicaFiltro();
     }

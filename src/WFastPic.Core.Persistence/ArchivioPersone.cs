@@ -33,6 +33,20 @@ public sealed class ArchivioPersone : IDisposable
 {
     private readonly SqliteConnection _connection;
     private readonly Lock _lock = new();
+    private bool _chiuso;
+
+    // Ogni accesso passa di qui: dopo Dispose (cartella cambiata, app chiusa) un lavoro in background
+    // riceve ObjectDisposedException, che i chiamanti gestiscono, e non un errore SQLite qualsiasi.
+    private Lock.Scope Entra()
+    {
+        var scope = _lock.EnterScope();
+        if (_chiuso)
+        {
+            scope.Dispose();
+            throw new ObjectDisposedException(nameof(ArchivioPersone));
+        }
+        return scope;
+    }
 
     public static string PercorsoPredefinito => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "WFastPic", "persone.db");
@@ -92,7 +106,7 @@ public sealed class ArchivioPersone : IDisposable
 
     public IReadOnlyList<PersonaArchivio> Elenco()
     {
-        using var scope = _lock.EnterScope();
+        using var scope = Entra();
         var campioni = new Dictionary<long, List<byte[]>>();
         using (var cmd = _connection.CreateCommand())
         {
@@ -127,7 +141,7 @@ public sealed class ArchivioPersone : IDisposable
     public long TrovaOCrea(string nome, byte[]? avatar)
     {
         nome = nome.Trim();
-        using var scope = _lock.EnterScope();
+        using var scope = Entra();
         using (var cerca = _connection.CreateCommand())
         {
             cerca.CommandText = "SELECT id FROM persone WHERE nome = $nome COLLATE NOCASE;";
@@ -145,7 +159,7 @@ public sealed class ArchivioPersone : IDisposable
     /// <summary>Sostituisce i campioni di impronta della persona (già filtrati e limitati dal chiamante).</summary>
     public void ImpostaCampioni(long personaId, IReadOnlyList<byte[]> campioni)
     {
-        using var scope = _lock.EnterScope();
+        using var scope = Entra();
         using var transaction = _connection.BeginTransaction();
         using (var cancella = _connection.CreateCommand())
         {
@@ -171,7 +185,7 @@ public sealed class ArchivioPersone : IDisposable
 
     public void Rinomina(long personaId, string nuovoNome)
     {
-        using var scope = _lock.EnterScope();
+        using var scope = Entra();
         using var cmd = _connection.CreateCommand();
         cmd.CommandText = "UPDATE persone SET nome = $nome WHERE id = $id;";
         cmd.Parameters.AddWithValue("$nome", nuovoNome.Trim());
@@ -182,7 +196,7 @@ public sealed class ArchivioPersone : IDisposable
     /// <summary>Come la chiami tu ("Alby", "la nonna"): solo un'etichetta, il nome resta quello di riferimento. Vuoto = nessuno.</summary>
     public void ImpostaSoprannome(long personaId, string soprannome)
     {
-        using var scope = _lock.EnterScope();
+        using var scope = Entra();
         using var cmd = _connection.CreateCommand();
         cmd.CommandText = "UPDATE persone SET soprannome = $s WHERE id = $id;";
         cmd.Parameters.AddWithValue("$s", soprannome.Trim());
@@ -192,7 +206,7 @@ public sealed class ArchivioPersone : IDisposable
 
     public void ImpostaAvatar(long personaId, byte[] avatar)
     {
-        using var scope = _lock.EnterScope();
+        using var scope = Entra();
         using var cmd = _connection.CreateCommand();
         cmd.CommandText = "UPDATE persone SET avatar = $avatar WHERE id = $id;";
         cmd.Parameters.AddWithValue("$avatar", avatar);
@@ -202,7 +216,7 @@ public sealed class ArchivioPersone : IDisposable
 
     public void ImpostaPreferita(long personaId, bool preferita)
     {
-        using var scope = _lock.EnterScope();
+        using var scope = Entra();
         using var cmd = _connection.CreateCommand();
         cmd.CommandText = "UPDATE persone SET preferita = $preferita WHERE id = $id;";
         cmd.Parameters.AddWithValue("$preferita", preferita ? 1 : 0);
@@ -216,7 +230,7 @@ public sealed class ArchivioPersone : IDisposable
     /// </summary>
     public void ImpostaCerchia(long personaId, int cerchia)
     {
-        using var scope = _lock.EnterScope();
+        using var scope = Entra();
         using var cmd = _connection.CreateCommand();
         cmd.CommandText = """
             UPDATE persone SET cerchia = $nessuna WHERE $cerchia = $io AND cerchia = $io AND id <> $id;
@@ -236,7 +250,7 @@ public sealed class ArchivioPersone : IDisposable
     public void Unisci(long daId, long aId)
     {
         if (daId == aId) return;
-        using var scope = _lock.EnterScope();
+        using var scope = Entra();
         if (RisolviSenzaLock(aId) == daId) throw new InvalidOperationException("Unione circolare.");
         using var cmd = _connection.CreateCommand();
         cmd.CommandText = "UPDATE persone SET unita_a = $a WHERE id = $da;";
@@ -247,7 +261,7 @@ public sealed class ArchivioPersone : IDisposable
 
     public void AnnullaUnione(long personaId)
     {
-        using var scope = _lock.EnterScope();
+        using var scope = Entra();
         using var cmd = _connection.CreateCommand();
         cmd.CommandText = "UPDATE persone SET unita_a = NULL WHERE id = $id;";
         cmd.Parameters.AddWithValue("$id", personaId);
@@ -257,7 +271,7 @@ public sealed class ArchivioPersone : IDisposable
     /// <summary>Persone unite → persona in cui sono confluite (catene già risolte).</summary>
     public IReadOnlyDictionary<long, long> Unioni()
     {
-        using var scope = _lock.EnterScope();
+        using var scope = Entra();
         var diretti = new Dictionary<long, long>();
         using (var cmd = _connection.CreateCommand())
         {
@@ -275,7 +289,7 @@ public sealed class ArchivioPersone : IDisposable
     /// </summary>
     public void Elimina(long personaId)
     {
-        using var scope = _lock.EnterScope();
+        using var scope = Entra();
         var diretti = new Dictionary<long, long>();
         using (var leggi = _connection.CreateCommand())
         {
@@ -316,7 +330,7 @@ public sealed class ArchivioPersone : IDisposable
     /// <summary>Esiste una persona con questo nome (anche unita ad altre)?</summary>
     public bool EsisteNome(string nome)
     {
-        using var scope = _lock.EnterScope();
+        using var scope = Entra();
         using var cmd = _connection.CreateCommand();
         cmd.CommandText = "SELECT 1 FROM persone WHERE nome = $nome COLLATE NOCASE;";
         cmd.Parameters.AddWithValue("$nome", nome.Trim());
@@ -326,6 +340,7 @@ public sealed class ArchivioPersone : IDisposable
     public void Dispose()
     {
         using var scope = _lock.EnterScope();
+        _chiuso = true;
         _connection.Dispose();
     }
 }

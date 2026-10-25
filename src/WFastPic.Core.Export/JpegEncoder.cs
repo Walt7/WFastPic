@@ -96,7 +96,9 @@ public static class JpegEncoder
         if (posizione.DirezioneGradi is double direzione)
         {
             proprieta["/app1/ifd/gps/{ushort=16}"] = new BitmapTypedValue("T", PropertyType.String);
-            proprieta["/app1/ifd/gps/{ushort=17}"] = new BitmapTypedValue(Razionale((uint)Math.Round(direzione * 100), 100), PropertyType.UInt64);
+            // Dominio EXIF [0, 360): 359,996° arrotondato a 360,00 torna 0.
+            var centesimi = ((long)Math.Round(direzione * 100) % 36000 + 36000) % 36000;
+            proprieta["/app1/ifd/gps/{ushort=17}"] = new BitmapTypedValue(Razionale((uint)centesimi, 100), PropertyType.UInt64);
         }
 
         return proprieta;
@@ -117,20 +119,21 @@ public static class JpegEncoder
         };
     }
 
-    private static ulong[] GradiMinutiSecondi(double valore)
+    public static ulong[] GradiMinutiSecondi(double valore)
     {
         const uint denominatoreSecondi = 10000;
 
-        var assoluto = Math.Abs(valore);
-        var gradi = Math.Floor(assoluto);
-        var minutiDecimali = (assoluto - gradi) * 60;
-        var minuti = Math.Floor(minutiDecimali);
-        var secondi = (minutiDecimali - minuti) * 60;
+        // Tutto in decimillesimi di secondo interi, poi divisioni intere: arrotondare solo i secondi
+        // darebbe 41°12'60" quando i minuti sono quasi interi.
+        var totale = (long)Math.Round(Math.Abs(valore) * 3600 * denominatoreSecondi);
+        var gradi = totale / (3600L * denominatoreSecondi);
+        var minuti = totale / (60L * denominatoreSecondi) % 60;
+        var secondi = totale % (60L * denominatoreSecondi);
         return
         [
             Razionale((uint)gradi, 1),
             Razionale((uint)minuti, 1),
-            Razionale((uint)Math.Round(secondi * denominatoreSecondi), denominatoreSecondi),
+            Razionale((uint)secondi, denominatoreSecondi),
         ];
     }
 

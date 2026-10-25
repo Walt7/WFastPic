@@ -124,8 +124,12 @@ public sealed class ThumbnailCacheLoader
     }
 
     /// <summary>Usato anche dalla mappa, che mostra le miniature già in cache dentro i segnaposto.</summary>
+    // "-o" per i JPEG: la miniatura ora segue l'orientamento EXIF, quelle fatte prima (storte) si rifanno.
     internal static string NomeFileCache(PhotoGridItem item) =>
-        $"{item.Id}-{item.FileSize}-{item.LastWriteUtc.Ticks}.jpg";
+        $"{item.Id}-{item.FileSize}-{item.LastWriteUtc.Ticks}{(EJpeg(item.PathRelativo) ? "-o" : "")}.jpg";
+
+    private static bool EJpeg(string percorso) =>
+        Path.GetExtension(percorso).ToLowerInvariant() is ".jpg" or ".jpeg";
 
     private async Task<byte[]?> CaricaOGeneraAsync(PhotoGridItem item, CancellationToken token)
     {

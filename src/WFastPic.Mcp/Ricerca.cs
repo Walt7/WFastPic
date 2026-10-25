@@ -137,36 +137,91 @@ public static class Ricerca
 
     // ---------------------------------------------------------------- cartelle
 
-    /// <summary>Cartelle con sidecar: quelle note all'app più, se serve, quella chiesta e le sue sottocartelle.</summary>
+    /// <summary>
+    /// Sidecar da leggere per una ricerca: quelli delle cartelle note all'app più, se il filtro è un percorso,
+    /// quella cartella, le sue sottocartelle e le cartelle madre con sidecar (una cartella madre cataloga anche
+    /// le sottocartelle). Il filtro sulla cartella si applica poi foto per foto (<see cref="FotoNellaCartella"/>).
+    /// </summary>
     public static List<string> CartelleConSidecar(string? filtro)
     {
         var note = CartelleRecenti().Where(Directory.Exists).ToList();
+        string? radice = null;
         if (!string.IsNullOrWhiteSpace(filtro) && Path.IsPathRooted(filtro) && Directory.Exists(filtro))
         {
+            radice = Path.TrimEndingDirectorySeparator(Path.GetFullPath(filtro));
             // Una cartella mai aperta nell'app ma con sidecar (es. su un disco esterno): si trova comunque.
-            note.Add(Path.GetFullPath(filtro));
-            note.AddRange(SottocartelleConSidecar(filtro));
+            note.Add(radice);
+            note.AddRange(SottocartelleConSidecar(radice));
+            for (var su = Path.GetDirectoryName(radice); !string.IsNullOrEmpty(su); su = Path.GetDirectoryName(su))
+                note.Add(su);
         }
 
         var distinte = note
-            .Select(p => Path.TrimEndingDirectorySeparator(p))
+            .Select(p => Path.TrimEndingDirectorySeparator(Path.GetFullPath(p)))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .Where(HaSidecar);
 
-        if (string.IsNullOrWhiteSpace(filtro)) return distinte.OrderBy(p => p.Length).ToList();
-        return distinte.Where(p => Corrisponde(p, filtro)).OrderBy(p => p.Length).ToList();
+        // Con un percorso: solo i sidecar che possono contenere foto lì sotto (dentro o sopra quella cartella).
+        if (radice is not null)
+            distinte = distinte.Where(p => Sotto(p, radice) || Sotto(radice, p));
+        return distinte.OrderBy(p => p.Length).ToList();
     }
 
-    // Percorso completo = la cartella e tutto quel che c'è sotto; altrimenti il testo cerca nel nome del percorso.
-    private static bool Corrisponde(string cartella, string filtro)
+    private static bool Sotto(string percorso, string cartella) =>
+        string.Equals(percorso, cartella, StringComparison.OrdinalIgnoreCase)
+        || percorso.StartsWith(cartella + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
+
+    // Percorso completo = la cartella e tutto quel che c'è sotto; altrimenti il testo cerca nel percorso della foto.
+    public static bool FotoNellaCartella(string percorsoFoto, string? filtro)
     {
+        if (string.IsNullOrWhiteSpace(filtro)) return true;
+        var cartellaFoto = Path.GetDirectoryName(percorsoFoto) ?? "";
         if (Path.IsPathRooted(filtro))
+            return Sotto(cartellaFoto, Path.TrimEndingDirectorySeparator(Path.GetFullPath(filtro)));
+        return cartellaFoto.Contains(filtro.Trim(), StringComparison.CurrentCultureIgnoreCase);
+    }
+
+    /// <summary>
+    /// Quali di questi file sono foto catalogate (presenti nel sidecar della loro cartella o di una cartella
+    /// madre): prepara_pacchetto copia solo quelle, mai file qualsiasi del disco.
+    /// </summary>
+    public static HashSet<string> Catalogate(IEnumerable<string> percorsi)
+    {
+        var trovate = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var connessioni = new Dictionary<string, SqliteConnection?>(StringComparer.OrdinalIgnoreCase);
+        try
         {
-            var f = Path.TrimEndingDirectorySeparator(Path.GetFullPath(filtro));
-            return string.Equals(cartella, f, StringComparison.OrdinalIgnoreCase)
-                   || cartella.StartsWith(f + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
+            foreach (var percorso in percorsi.Select(Path.GetFullPath).Distinct(StringComparer.OrdinalIgnoreCase))
+            {
+                for (var su = Path.GetDirectoryName(percorso); !string.IsNullOrEmpty(su); su = Path.GetDirectoryName(su))
+                {
+                    if (!connessioni.TryGetValue(su, out var c))
+                    {
+                        c = null;
+                        if (HaSidecar(su))
+                        {
+                            try { c = ApriLettura(Path.Combine(su, Sidecar, FileDb)); }
+                            catch (SqliteException) { }
+                        }
+                        connessioni[su] = c;
+                    }
+                    if (c is null) continue;
+                    try
+                    {
+                        using var cmd = c.CreateCommand();
+                        cmd.CommandText = "SELECT 1 FROM photos WHERE path_relativo = $p COLLATE NOCASE LIMIT 1;";
+                        cmd.Parameters.AddWithValue("$p", Path.GetRelativePath(su, percorso));
+                        if (cmd.ExecuteScalar() is not null) { trovate.Add(percorso); break; }
+                    }
+                    catch (SqliteException) { }
+                }
+            }
         }
-        return cartella.Contains(filtro, StringComparison.CurrentCultureIgnoreCase);
+        finally
+        {
+            foreach (var c in connessioni.Values) c?.Dispose();
+        }
+        return trovate;
     }
 
     private static IEnumerable<string> SottocartelleConSidecar(string radice)
@@ -288,6 +343,13 @@ public static class Ricerca
         using var reader = query.ExecuteReader();
         while (reader.Read())
         {
+            // Prima di ogni filtro: la stessa foto in un sidecar più in basso (sottocartella già importata) ha
+            // dati vecchi e non deve rientrare solo perché qui un filtro l'ha esclusa.
+            var percorso = Path.GetFullPath(Path.Combine(cartella, reader.GetString(1)));
+            if (!viste.Add(percorso)) continue; // già vista nel sidecar della cartella madre
+            if (!FotoNellaCartella(percorso, filtri.Cartella)) continue;
+            if (filtri.Percorsi is not null && !filtri.Percorsi.Contains(percorso)) continue;
+
             var stato = reader.GetString(5);
             var voto = reader.GetInt32(6);
             if (stato == "Reject" && !filtri.IncludiScarti) continue;
@@ -313,9 +375,6 @@ public static class Ricerca
             persone.TryGetValue(idFoto, out var inFoto);
             if (richieste.Any(ids => inFoto is null || !ids.Overlaps(inFoto))) continue;
 
-            var percorso = Path.GetFullPath(Path.Combine(cartella, reader.GetString(1)));
-            if (filtri.Percorsi is not null && !filtri.Percorsi.Contains(percorso)) continue;
-            if (!viste.Add(percorso)) continue; // già trovata nel sidecar della cartella madre
 
             risultato.Add(new FotoTrovata(percorso, cartella, data, stato, voto, lat, lon, luogo,
                 (inFoto ?? []).Select(id => nomi.TryGetValue(id, out var n) ? n.Split('\n')[0] : "?").OrderBy(n => n).ToList()));

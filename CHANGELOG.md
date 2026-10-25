@@ -25,6 +25,32 @@ I dettagli tecnici (cause dei bug, file toccati) sono in [`doc/correzioni-e-novi
 - **Server MCP** (`src/WFastPic.Mcp`): un assistente può cercare per cartella, persone, date e luogo, salvare
   selezioni con nome e preparare cartelle o zip di copie da condividere. Solo lettura sulle foto.
 
+### Correzioni
+- **Doppioni con le cartelle madre**: una foto non risulta più doppione di sé stessa quando sono note sia una
+  cartella sia una sua sottocartella (prima «Scarta le copie» poteva proporre l'unico originale). Le copie che hai
+  selezionato non vengono scartate, e l'elenco si ricalcola dopo la conferma.
+- **Sottocartelle illeggibili** (permessi, rete): le loro foto non spariscono più dalla libreria con selezioni e
+  modifiche; anche file spariti durante la lettura, collegamenti a cartelle superiori e cartelle rinominate
+  cambiando solo maiuscole e minuscole non danno più problemi.
+- **Cestino**: su chiavette, schede SD e dischi di rete (che non hanno il Cestino) l'app non elimina più per
+  sempre: chiede di usare «Sposta in Scarti/». Le foto in sola lettura si possono spostare.
+- **Export**: non sostituisce mai file che possono essere originali (sottocartelle delle foto, altre cartelle
+  catalogate); una cartella di export nuova viene segnata e non rientra in libreria come doppioni; nomi stabili
+  riesportando; coordinate GPS sempre valide.
+- **Mappa**: cambiando cartella durante «Riscansiona GPS» le posizioni non finiscono sulle foto sbagliate.
+- **Persone**: una proposta automatica non sovrascrive un nome appena dato; torna «Elimina la persona…» nel menu;
+  il conteggio delle foto non somma due volte cartella madre e sottocartelle.
+- **Viewer**: Space in ritaglio con un filtro attivo applica il ritaglio invece di perderlo; dopo Esc dal ritaglio
+  si vede l'ultima modifica; annulla più preciso con gli slider; niente miniatura sbagliata scorrendo veloce; meno
+  memoria a viewer chiuso.
+- **Miniature dei JPEG ruotati** (telefoni Android, fotocamere) dritte in griglia.
+- **Server MCP**: la cartella madre vale sempre sulle sottocartelle; cercando una sottocartella di una cartella
+  madre le foto si trovano; i pacchetti copiano solo foto catalogate, non finiscono dentro le cartelle di foto e
+  non restano a metà; nomi dei video sempre distinti.
+- **Selezioni salvate**: un file rovinato non viene più sovrascritto (resta una copia `.bak`), e app e server MCP
+  non si perdono i salvataggi a vicenda.
+- Errori in background dopo un cambio cartella non mostrano più la finestra d'errore.
+
 ### Altro
 - L'opzione di esportazione si chiama ora «Sovrascrivi i file già esportati con lo stesso nome».
 

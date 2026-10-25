@@ -68,6 +68,7 @@ public partial class MainWindow : Window
         Title = $"WFastPic {VersioneApp}";
         AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "icon.ico"));
         InizializzaBarraTitolo();
+        Activated += Finestra_Activated;
         var impostazioni = ImpostazioniStore.Carica();
         _cellSize = Math.Clamp(impostazioni.DimensioneCellaGriglia, CellSizeMin, CellSizeMax);
         _impostazioniExport = impostazioni.Export ?? new ImpostazioniExport();
@@ -205,6 +206,8 @@ public partial class MainWindow : Window
     {
         var richiesta = ++_richiestaCaricamentoCartella;
         FermaRicercaVolti();
+        // I segnaposto della mappa sono foto (id) della cartella che si lascia.
+        if (MapOverlay.Visibility == Visibility.Visible) ChiudiMappa();
         _filtroPersona = null;
         FiltroPersonaButton.Visibility = Visibility.Collapsed;
         if (_thumbnailLoader is not null)

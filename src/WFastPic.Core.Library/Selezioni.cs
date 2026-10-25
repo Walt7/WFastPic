@@ -25,14 +25,16 @@ public static class Selezioni
 
     private static string File_ => Path.Combine(CartellaDati, "selezioni.json");
 
+    /// <summary>Ultima modifica del file (anche dal server MCP): chi le mostra può accorgersi che sono cambiate.</summary>
+    public static DateTime UltimaModifica()
+    {
+        try { return File.Exists(File_) ? File.GetLastWriteTimeUtc(File_) : DateTime.MinValue; }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return DateTime.MinValue; }
+    }
+
     public static List<SelezioneSalvata> Elenco()
     {
-        try
-        {
-            return File.Exists(File_)
-                ? JsonSerializer.Deserialize<List<SelezioneSalvata>>(File.ReadAllText(File_)) ?? []
-                : [];
-        }
+        try { return Leggi(); }
         catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException) { return []; }
     }
 
@@ -43,33 +45,67 @@ public static class Selezioni
     {
         nome = nome.Trim();
         if (nome.Length == 0) throw new InvalidOperationException("Serve un nome per la selezione.");
-        var elenco = Elenco();
-        var esistente = elenco.FindIndex(s => string.Equals(s.Nome, nome, StringComparison.CurrentCultureIgnoreCase));
-        if (esistente >= 0 && !sovrascrivi)
-            throw new InvalidOperationException($"Esiste già una selezione «{elenco[esistente].Nome}»: scegli un altro nome o usa sovrascrivi.");
-
         var nuova = new SelezioneSalvata(nome, DateTime.Now,
             percorsi.Select(Path.GetFullPath).Distinct(StringComparer.OrdinalIgnoreCase).ToList());
         if (nuova.Percorsi.Count == 0) throw new InvalidOperationException("Nessuna foto da salvare.");
 
-        if (esistente >= 0) elenco[esistente] = nuova; else elenco.Add(nuova);
-        Scrivi(elenco);
-        return nuova;
+        return Modifica(elenco =>
+        {
+            var esistente = elenco.FindIndex(s => string.Equals(s.Nome, nome, StringComparison.CurrentCultureIgnoreCase));
+            if (esistente >= 0 && !sovrascrivi)
+                throw new InvalidOperationException($"Esiste già una selezione «{elenco[esistente].Nome}»: scegli un altro nome o usa sovrascrivi.");
+            if (esistente >= 0) elenco[esistente] = nuova; else elenco.Add(nuova);
+            return (nuova, true);
+        });
     }
 
-    public static bool Elimina(string nome)
+    public static bool Elimina(string nome) =>
+        Modifica(elenco =>
+        {
+            var tolte = elenco.RemoveAll(s => string.Equals(s.Nome, nome.Trim(), StringComparison.CurrentCultureIgnoreCase));
+            return (tolte > 0, tolte > 0);
+        });
+
+    private static List<SelezioneSalvata> Leggi() =>
+        File.Exists(File_)
+            ? JsonSerializer.Deserialize<List<SelezioneSalvata>>(File.ReadAllText(File_)) ?? []
+            : [];
+
+    /// <summary>
+    /// Legge, cambia e riscrive sotto un mutex condiviso da app e server MCP, così due salvataggi insieme
+    /// non si perdono a vicenda. Un file illeggibile non viene mai sovrascritto: resta da parte come .bak.
+    /// </summary>
+    private static T Modifica<T>(Func<List<SelezioneSalvata>, (T Esito, bool Scrivi)> cambia)
     {
-        var elenco = Elenco();
-        var tolte = elenco.RemoveAll(s => string.Equals(s.Nome, nome.Trim(), StringComparison.CurrentCultureIgnoreCase));
-        if (tolte > 0) Scrivi(elenco);
-        return tolte > 0;
+        using var mutex = new Mutex(false, @"Local\WFastPic.Selezioni");
+        try { mutex.WaitOne(TimeSpan.FromSeconds(10)); }
+        catch (AbandonedMutexException) { /* l'altro processo è morto a metà: il file resta valido (scrittura atomica) */ }
+        try
+        {
+            List<SelezioneSalvata> elenco;
+            try { elenco = Leggi(); }
+            catch (JsonException)
+            {
+                var copia = File_ + ".bak";
+                File.Copy(File_, copia, overwrite: true);
+                throw new InvalidOperationException($"Il file delle selezioni è rovinato (copia in {copia}): non lo sovrascrivo.");
+            }
+
+            var (esito, scrivi) = cambia(elenco);
+            if (scrivi) Scrivi(elenco);
+            return esito;
+        }
+        finally
+        {
+            try { mutex.ReleaseMutex(); } catch (ApplicationException) { /* WaitOne scaduto: non era nostro */ }
+        }
     }
 
     // Scrittura atomica: un'interruzione a metà non deve lasciare un file a metà.
     private static void Scrivi(List<SelezioneSalvata> elenco)
     {
         Directory.CreateDirectory(CartellaDati);
-        var temp = File_ + ".tmp";
+        var temp = $"{File_}.{Guid.NewGuid():N}.tmp";
         File.WriteAllText(temp, JsonSerializer.Serialize(elenco, Opzioni));
         File.Move(temp, File_, overwrite: true);
     }

@@ -1,6 +1,7 @@
 using Microsoft.VisualBasic.FileIO;
 using WFastPic.Core.Library;
 using WFastPic.Core.Persistence;
+using static WFastPic.Core.Localizzazione.Testi;
 
 namespace WFastPic.Core.Selection;
 
@@ -31,11 +32,13 @@ public sealed class RejectManager
 
         // Dal Cestino non si può annullare a metà: prima si verifica che entrambi i file siano liberi,
         // così un video bloccato non lascia la foto cestinata e il video orfano in cartella.
+        VerificaCestinoDisponibile(percorso);
         VerificaNonBloccato(percorso);
         VerificaNonBloccato(video);
 
-        if (File.Exists(percorso)) Cestina(percorso);
+        // Prima il video: se fallisce la foto è ancora al suo posto, con la sua riga e il video accanto.
         if (video is not null) Cestina(video);
+        if (File.Exists(percorso)) Cestina(percorso);
 
         _db.RemovePhoto(foto.Id);
     }
@@ -76,6 +79,10 @@ public sealed class RejectManager
         return destinazioneFoto;
     }
 
+    /// <summary>
+    /// Toglie lo scarto scrivendo subito sul sidecar. Non passa dalla coda di SelectionManager: chi lo usa
+    /// mentre quella coda lavora deve prima chiamare <c>SvuotaAsync</c>, o la coda potrebbe riscartarla.
+    /// </summary>
     public void Lascia(PhotoRecord foto) => _db.UpdateStato(foto.Id, StatoSelezione.None);
 
     /// <summary>
@@ -108,7 +115,26 @@ public sealed class RejectManager
     {
         if (percorso is null || !File.Exists(percorso)) return;
         // Lancia IOException se un altro programma ha il file aperto (es. video in riproduzione).
-        using var _ = File.Open(percorso, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+        // Basta la lettura esclusiva: con ReadWrite un file in sola lettura (da DVD) sembrerebbe bloccato.
+        using var _ = File.Open(percorso, FileMode.Open, FileAccess.Read, FileShare.None);
+    }
+
+    /// <summary>
+    /// Chiavette, schede SD e dischi di rete non hanno il Cestino: lì la shell cancellerebbe il file per
+    /// sempre e senza chiedere. Solo i dischi fissi (anche i dischi esterni USB) lo hanno.
+    /// </summary>
+    public static bool HaCestino(string percorso)
+    {
+        var radice = Path.GetPathRoot(Path.GetFullPath(percorso));
+        if (string.IsNullOrEmpty(radice) || radice.StartsWith(@"\\", StringComparison.Ordinal)) return false;
+        try { return new DriveInfo(radice).DriveType == DriveType.Fixed; }
+        catch (ArgumentException) { return false; }
+    }
+
+    private static void VerificaCestinoDisponibile(string percorso)
+    {
+        if (!HaCestino(percorso))
+            throw new IOException(T("Questo disco non ha il Cestino: la foto verrebbe eliminata per sempre. Usa «Sposta in Scarti/»."));
     }
 
     private static void Cestina(string percorso) =>

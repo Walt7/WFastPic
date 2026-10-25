@@ -22,6 +22,9 @@ internal interface IViewerHost
 
     ThumbnailCacheLoader? ThumbnailLoader { get; }
 
+    /// <summary>Riconoscimento persone attivo: i volti nel sidecar li scrive la sua analisi, non il viewer.</summary>
+    bool RiconoscimentoPersoneAttivo { get; }
+
     /// <summary>Per schermo intero (AppWindow) e perdita del focus della finestra.</summary>
     Window Finestra { get; }
 

@@ -160,7 +160,23 @@ public sealed partial class ViewerView : UserControl
         ElementSoundPlayer.Play(ElementSoundKind.Show);
     }
 
+    /// <summary>
+    /// Mostra la foto nel viewer. Non lancia mai: è chiamata da tasti e clic senza await (un errore del
+    /// sidecar o della ricetta si perderebbe e il viewer resterebbe su "caricamento…").
+    /// </summary>
     private async Task CaricaFotoNelViewerAsync(PhotoGridItem foto)
+    {
+        try
+        {
+            await CaricaFotoNelViewerInternoAsync(foto);
+        }
+        catch (Exception)
+        {
+            if (_fotoViewerCorrente == foto && _viewerAperto) MostraFotoIllegibile(foto);
+        }
+    }
+
+    private async Task CaricaFotoNelViewerInternoAsync(PhotoGridItem foto)
     {
         var richiesta = ++_richiestaCaricamentoViewer;
         if (_geometriaAttiva) EsciDaGeometria();
@@ -185,7 +201,9 @@ public sealed partial class ViewerView : UserControl
         ViewerStatusText.Text = $"{TestoPosizioneViewer(foto)} · {T("caricamento…")}";
 
         // Preview già pronta (precaricata): niente segnaposto, si eviterebbe solo un lampo sfocato.
+        // Va però tolto quello di una foto precedente non ancora arrivata (A → B non pronta → C pronta).
         if (!_previewCache.ContainsKey(foto.PercorsoCompleto)) MostraSegnaposto(foto);
+        else NascondiSegnaposto();
 
         // Il precaricamento parte subito, non a foto finita: tenendo premuta → le prossime si
         // decodificano mentre questa arriva.
@@ -296,7 +314,8 @@ public sealed partial class ViewerView : UserControl
         try
         {
             var risultato = await PreviewDecoder.DecodePreviewBgraAsync(percorso);
-            MemorizzaInCache(percorso, risultato);
+            // A viewer chiuso un decode finito tardi non riempie la cache (svuotata in Chiudi).
+            if (_viewerAperto) MemorizzaInCache(percorso, risultato);
             return risultato;
         }
         finally
@@ -559,6 +578,9 @@ public sealed partial class ViewerView : UserControl
         _undo.Add(precedente);
         if (_undo.Count > UndoMax) _undo.RemoveAt(0);
         _redo.Clear();
+        // Ogni passo chiude il gesto di slider in corso: il trascinamento dopo "Ho fortuna" è un passo suo.
+        _gestoInCorso = false;
+        _gestoTimer?.Stop();
     }
 
     // Un trascinamento di slider genera molti ValueChanged: un solo passo di undo per gesto.
@@ -725,6 +747,7 @@ public sealed partial class ViewerView : UserControl
     {
         if (!EditingPronto || _geometriaAttiva || _redo.Count == 0) return;
         _undo.Add(_ricettaCorrente);
+        if (_undo.Count > UndoMax) _undo.RemoveAt(0);
         _ricettaCorrente = _redo[^1];
         _redo.RemoveAt(_redo.Count - 1);
         _gestoInCorso = false;
@@ -894,6 +917,10 @@ public sealed partial class ViewerView : UserControl
         NascondiSegnaposto();
         _rafficaMostrataPer = null;
         _codaPrecarica.Clear();
+        // Fino a 10 preview da 2048 px (~125 MB): in griglia non servono, e la cartella può cambiare.
+        _previewCache.Clear();
+        _previewCacheOrdine.Clear();
+        StaccaFotoDettagli();
         ViewerRafficaOrizzontale.ItemsSource = null;
         ViewerRafficaVerticale.ItemsSource = null;
         ElementSoundPlayer.Play(ElementSoundKind.GoBack);
@@ -1004,6 +1031,7 @@ public sealed partial class ViewerView : UserControl
                 if (!_mostraOriginale && _viewerPixelOriginali is not null)
                 {
                     _mostraOriginale = true;
+                    NascondiPosizioneVolto(); // il cerchio segue la foto modificata, non l'originale
                     AggiornaBitmap();
                 }
                 e.Handled = true;
@@ -1046,8 +1074,8 @@ public sealed partial class ViewerView : UserControl
                 break;
 
             case VirtualKey.Space:
-                // Seleziona/deseleziona resta disponibile anche in ritaglio: non cambia foto, quindi non
-                // interferisce con la geometria in corso (a differenza di navigazione e scarto).
+                // Seleziona/deseleziona resta disponibile anche in ritaglio: di solito non cambia foto; se
+                // con un filtro la foto ne esce, SetStatoNelViewer applica prima il ritaglio.
                 if (_fotoViewerCorrente is not null)
                 {
                     SetStatoNelViewer(_fotoViewerCorrente,
@@ -1090,6 +1118,9 @@ public sealed partial class ViewerView : UserControl
 
         if (_fotoViewerCorrente == foto && !Host.Visibili.Contains(foto))
         {
+            // Space in ritaglio con un filtro attivo: la foto esce dal filtro e il viewer passa a un'altra.
+            // Il ritaglio in corso si applica prima, invece di sparire senza avviso.
+            if (_geometriaAttiva) ApplicaGeometria();
             if (alternativa is not null && Host.Visibili.Contains(alternativa))
                 _ = CaricaFotoNelViewerAsync(alternativa);
             else if (Host.Visibili.Count > 0)

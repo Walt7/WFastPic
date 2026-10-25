@@ -33,6 +33,7 @@ public partial class MainWindow : IViewerHost
     LibrarySidecarDatabase? IViewerHost.Database => _db;
     SelectionManager? IViewerHost.SelectionManager => _selectionManager;
     ThumbnailCacheLoader? IViewerHost.ThumbnailLoader => _thumbnailLoader;
+    bool IViewerHost.RiconoscimentoPersoneAttivo => _riconoscimentoPersone == true;
     Window IViewerHost.Finestra => this;
 
     void IViewerHost.SetStato(PhotoGridItem foto, string nuovoStato) => SetStato(foto, nuovoStato);

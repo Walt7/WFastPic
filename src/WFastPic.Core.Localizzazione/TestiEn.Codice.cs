@@ -231,6 +231,10 @@ internal static partial class TestiEn
         d["Tieni «{0}»"] = "Keep «{0}»";
         d["«{0}» unita a «{1}»"] = "«{0}» merged into «{1}»";
         d["Eliminare «{0}»?"] = "Delete «{0}»?";
+        d["Elimina la persona…"] = "Delete person…";
+        d["Ricerca dei doppioni interrotta: {0}"] = "Duplicate search stopped: {0}";
+        d["Analisi di volti e qualità interrotta: {0}"] = "Face and quality analysis stopped: {0}";
+        d["Questo disco non ha il Cestino: la foto verrebbe eliminata per sempre. Usa «Sposta in Scarti/»."] = "This drive has no Recycle Bin: the photo would be deleted forever. Use «Move to Scarti/».";
         d["Il nome viene tolto da tutte le foto, in tutte le cartelle: i volti tornano senza nome. Le foto non vengono toccate."] =
             "The name is removed from all photos, in all folders: the faces become unnamed again. The photos are not touched.";
         d["Elimina"] = "Delete";

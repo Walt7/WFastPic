@@ -30,15 +30,53 @@ public static class ThumbnailExtractor
             return await DecodeScaledFallbackAsync(decoder);
         }
 
+        // La miniatura EXIF di un JPEG è salvata come i pixel della foto, cioè non girata: l'orientamento
+        // del file va applicato a mano (telefoni Android, fotocamere). Le HEIC la danno già girata.
+        var transform = EstensioniJpeg.Contains(Path.GetExtension(percorsoFoto), StringComparer.OrdinalIgnoreCase)
+            ? TrasformazioneOrientamento(await LeggiOrientamentoAsync(decoder))
+            : new BitmapTransform();
+
         using (embeddedThumb)
         {
             var thumbDecoder = await BitmapDecoder.CreateAsync(embeddedThumb);
             using var bitmap = await thumbDecoder.GetSoftwareBitmapAsync(
-                BitmapPixelFormat.Bgra8, BitmapAlphaMode.Premultiplied);
+                BitmapPixelFormat.Bgra8, BitmapAlphaMode.Premultiplied,
+                transform, ExifOrientationMode.IgnoreExifOrientation, ColorManagementMode.DoNotColorManage);
 
             return await EncodeJpegAsync(bitmap);
         }
     }
+
+    private static readonly string[] EstensioniJpeg = [".jpg", ".jpeg"];
+
+    private static async Task<ushort> LeggiOrientamentoAsync(BitmapDecoder decoder)
+    {
+        try
+        {
+            var valori = await decoder.BitmapProperties.GetPropertiesAsync(["System.Photo.Orientation"]);
+            return valori.TryGetValue("System.Photo.Orientation", out var v) && v.Value is ushort o ? o : (ushort)1;
+        }
+        catch (Exception)
+        {
+            return 1; // proprietà assente o non leggibile: miniatura com'è
+        }
+    }
+
+    /// <summary>
+    /// Orientamento EXIF (1-8) come trasformazione WIC, che specchia prima e gira dopo:
+    /// 5 = trasposta (specchio + 270°), 7 = trasversa (specchio + 90°).
+    /// </summary>
+    public static BitmapTransform TrasformazioneOrientamento(ushort orientamento) => orientamento switch
+    {
+        2 => new BitmapTransform { Flip = BitmapFlip.Horizontal },
+        3 => new BitmapTransform { Rotation = BitmapRotation.Clockwise180Degrees },
+        4 => new BitmapTransform { Flip = BitmapFlip.Vertical },
+        5 => new BitmapTransform { Flip = BitmapFlip.Horizontal, Rotation = BitmapRotation.Clockwise270Degrees },
+        6 => new BitmapTransform { Rotation = BitmapRotation.Clockwise90Degrees },
+        7 => new BitmapTransform { Flip = BitmapFlip.Horizontal, Rotation = BitmapRotation.Clockwise90Degrees },
+        8 => new BitmapTransform { Rotation = BitmapRotation.Clockwise270Degrees },
+        _ => new BitmapTransform(),
+    };
 
     private static async Task<byte[]> DecodeScaledFallbackAsync(BitmapDecoder decoder)
     {

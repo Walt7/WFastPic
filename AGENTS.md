@@ -30,7 +30,8 @@ Aggiunte fuori piano, su richiesta esplicita durante lo sviluppo:
   basso; le celle visibili hanno priorità. Riaprire una cartella già vista salta la lettura EXIF
   delle foto invariate. Ordine griglia/viewer = data di scatto (foto senza data in fondo).
 - "Gestisci scarti": l'elenco viene dallo stato in memoria (non dal DB, la coda di scrittura è
-  asincrona); eliminazione solo verso il Cestino di Windows con conferma in due click, mai
+  asincrona); eliminazione solo verso il Cestino di Windows con conferma in due click, solo su dischi
+  fissi (`RejectManager.HaCestino`: chiavette, SD e rete non hanno Cestino e la shell cancellerebbe), mai
   cancellazione irreversibile; "Sposta in Scarti/" rinomina "nome (1).ext" in caso di collisione.
   Il video abbinato (.mov/.mp4) segue sempre la foto, con lo stesso nome base; se uno dei due file
   è bloccato non si sposta nessuno dei due.
@@ -185,6 +186,13 @@ Aggiunte fuori piano, su richiesta esplicita durante lo sviluppo:
   nascoste, di sistema, `Scarti`, `Export`). La prima apertura riversa nel sidecar della madre quello dei
   sidecar figli (`ImportaDaSidecarFigli`, sola lettura sui figli, una volta per figlio: tabella
   `sidecar_importati`; mai sovrascrive ciò che qui è già stato toccato). Menu cartella: "Ricarica".
+  Con le cartelle annidate lo stesso file sta in più sidecar: doppioni, conteggi delle persone e server MCP lo
+  contano una volta sola (vale il sidecar più in alto). Sottocartelle non lette (permessi, rete) arrivano a
+  `SyncScan` come `cartelleNonLette` e le loro righe restano; un figlio si segna importato solo se le sue foto
+  c'erano. La scansione salta anche junction/link simbolici e le cartelle di export segnate
+  (`FolderScanner.FileSegnoExport`, scritto dall'export solo in cartelle senza foto); l'export non sostituisce mai
+  dove una scansione vedrebbe originali (`NomiFileExport.ContieneOriginali`). Dopo `Dispose` sidecar e
+  `ArchivioPersone` lanciano `ObjectDisposedException` (`Entra()`), che i lavori in background gestiscono.
 - Persone: elenco a gruppi (Io, Famiglia, Amici, Conoscenti, Altre persone, Sconosciuti = senza nome,
   `RaggruppaPersone`); soprannome per persona (`persone.soprannome`, solo etichetta, cercabile dal server MCP; si
   scrive nel dialogo "Chi è?"/"Rinomina" o dalla voce "Soprannome…"). L'immagine di una persona o di un gruppo è il
@@ -254,7 +262,7 @@ src/
 ├─ WFastPic.Core.Persistence/   (sidecar SQLite)
 └─ WFastPic.Core.Export/        (bake ricetta + watermark + tag EXIF + encode JPEG — Windows-targeted)
 tests/
-└─ WFastPic.Core.Tests/         (xUnit, 233 test — Library/Selection/Processing/Metadata/Export)
+└─ WFastPic.Core.Tests/         (xUnit, 245 test — Library/Selection/Processing/Metadata/Export)
 tools/
 ├─ HeicSmokeTest/                (Fase 0, smoke test decoding)
 ├─ ScanSmokeTest/
@@ -322,7 +330,7 @@ Nota: `Z`/`F` zoom, `M` riproduci video, `Ctrl+C/V` copia ricetta — presenti n
   `IViewerHost`; la finestra lo usa con `Viewer.Apri/Chiudi/IsAperto/SalvaRicettaCorrente` e l'evento
   `Chiuso`. Una nuova dipendenza va aggiunta all'interfaccia, non aggirata.
 
-- Test prima o insieme al codice per la logica in `Core.*` (xUnit) — 233 test attuali coprono
+- Test prima o insieme al codice per la logica in `Core.*` (xUnit) — 245 test attuali coprono
   scan/identità, raffiche, selezione, ricetta/crop/rotate/tono/geometria raddrizzamento, ordinamento
   cronologico, riapertura veloce, scarti, concorrenza sidecar, stima avanzamento, zoom/trascinamento viewer.
 - `LibrarySidecarDatabase` è condiviso tra thread UI e coda di scrittura: ogni metodo pubblico nuovo

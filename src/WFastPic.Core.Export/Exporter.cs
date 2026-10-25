@@ -1,5 +1,6 @@
 using Windows.Graphics.Imaging;
 using WFastPic.Core.Decoding;
+using WFastPic.Core.Library;
 using WFastPic.Core.Metadata;
 using WFastPic.Core.Persistence;
 using WFastPic.Core.Processing;
@@ -46,8 +47,19 @@ public static class Exporter
         if (foto.Count == 0) return [];
 
         Directory.CreateDirectory(opzioni.CartellaOutput);
+        // Cartella nuova: segnata come export, così una scansione ricorsiva non riprende le copie come foto.
+        try { FolderScanner.SegnaCartellaExport(opzioni.CartellaOutput); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
 
+        // Nomi decisi prima, nell'ordine dell'elenco: riesportando, ogni foto ritrova lo stesso file
+        // (in parallelo l'ordine di fine cambierebbe a ogni giro).
         var usati = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var conOriginali = NomiFileExport.ContieneOriginali(opzioni.CartellaOutput, db.CartellaFoto);
+        var percorsiOutput = foto
+            .Select(r => NomiFileExport.PercorsoOutput(
+                opzioni.CartellaOutput, db.CartellaFoto, Path.GetFileNameWithoutExtension(r.PathRelativo),
+                opzioni.SostituisciEsistenti, usati, File.Exists, conOriginali))
+            .ToList();
         var latoLungo = opzioni.LatoLungoMassimo is int lato
             ? Math.Clamp(lato, ExportOptions.LatoLungoMinimo, ExportOptions.LatoLungoMassimoConsentito)
             : int.MaxValue;
@@ -96,14 +108,7 @@ public static class Exporter
                         return r;
                     }).ConfigureAwait(false);
 
-                    var nomeBase = Path.GetFileNameWithoutExtension(record.PathRelativo);
-                    string percorsoOutput;
-                    // Nomi unici (foto con lo stesso nome in sottocartelle diverse): la scelta è una per volta.
-                    lock (usati)
-                    {
-                        percorsoOutput = NomiFileExport.PercorsoOutput(
-                            opzioni.CartellaOutput, db.CartellaFoto, nomeBase, opzioni.SostituisciEsistenti, usati, File.Exists);
-                    }
+                    var percorsoOutput = percorsiOutput[i];
 
                     var (dataScatto, posizione) = MetadatiDaScrivere(record, percorsoOriginale, opzioni);
 

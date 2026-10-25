@@ -95,10 +95,17 @@ public partial class MainWindow
     // Clic su una persona che compare solo altrove: a cartella caricata la griglia si filtra su di lei.
     private (string Cartella, long PersonaId)? _personaDaFiltrare;
 
-    private ArchivioPersone Archivio => _archivioPersone ??= ArchivioPersone.Apri(ArchivioPersone.PercorsoPredefinito);
+    private bool _archivioPersoneChiuso;
+
+    // Dopo la chiusura dell'app un lavoro in background ancora in giro non deve riaprire persone.db
+    // (resterebbe aperto): riceve ObjectDisposedException, come per il sidecar.
+    private ArchivioPersone Archivio => _archivioPersoneChiuso
+        ? throw new ObjectDisposedException(nameof(ArchivioPersone))
+        : _archivioPersone ??= ArchivioPersone.Apri(ArchivioPersone.PercorsoPredefinito);
 
     private void ChiudiArchivioPersone()
     {
+        _archivioPersoneChiuso = true;
         _archivioPersone?.Dispose();
         _archivioPersone = null;
     }
@@ -143,10 +150,17 @@ public partial class MainWindow
         var altre = _personeAltreCartelle is { } cache && StessoPercorso(cache.Corrente, corrente) ? cache.Elenco : null;
         if (altre is null)
         {
-            var percorsi = _cartelleRecenti.Where(p => !StessoPercorso(p, corrente)).ToList();
+            // Cartelle madre e sottocartelle catalogano gli stessi file: le sottocartelle di quella aperta (o di
+            // un'altra dell'elenco) sono già contate, e una cartella madre non conta la parte che è qui.
+            var percorsi = _cartelleRecenti
+                .Where(p => !StessoPercorso(p, corrente) && !DentroDi(p, corrente))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            percorsi = percorsi.Where(p => !percorsi.Any(a => !StessoPercorso(a, p) && DentroDi(p, a))).ToList();
             altre = await Task.Run(() => percorsi
                 .Where(Directory.Exists)
-                .Select(p => (Cartella: p, Conteggi: LibrarySidecarDatabase.LeggiFotoPerPersona(p)))
+                .Select(p => (Cartella: p, Conteggi: LibrarySidecarDatabase.LeggiFotoPerPersona(p,
+                    DentroDi(corrente, p) ? [Path.GetRelativePath(p, corrente)] : null)))
                 .Where(c => c.Conteggi.Count > 0)
                 .ToList());
             if (richiesta != _richiestaPersone) return;
@@ -492,9 +506,20 @@ public partial class MainWindow
             Voce(menu.Items, T("È la stessa persona di…"), "\uE71B", () => MostraSelettoreUnione(persona, altre, posizione));
         }
 
+        if (!persona.SenzaNome)
+        {
+            menu.Items.Add(new MenuFlyoutSeparator());
+            Voce(menu.Items, T("Elimina la persona…"), "", () => _ = EliminaPersonaAsync(persona));
+        }
+
         menu.ShowAt(e.OriginalSource as FrameworkElement, e.GetPosition(e.OriginalSource as UIElement));
         e.Handled = true;
     }
+
+    /// <summary>Vero se <paramref name="percorso"/> è una sottocartella (a qualsiasi livello) di <paramref name="cartella"/>.</summary>
+    private static bool DentroDi(string percorso, string cartella) =>
+        Path.GetFullPath(percorso).StartsWith(
+            Path.TrimEndingDirectorySeparator(Path.GetFullPath(cartella)) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>"Sono io", "Famiglia", "★ Amico"… sotto il nome nel pannello; null se non è stato detto nulla.</summary>
     private static string? EtichettaCerchia(int cerchia, bool preferita)
@@ -617,7 +642,8 @@ public partial class MainWindow
         };
 
         var contenuto = new StackPanel { Spacing = 12 };
-        // Più volti: si sfogliano con le frecce per essere sicuri di chi è; quello mostrato diventa l'immagine di chi si nomina.
+        // Più volti: si sfogliano con le frecce per essere sicuri di chi è. Quello scelto sfogliando diventa l'immagine
+        // della persona nuova o di quella che stai rinominando; una persona già nota a cui unisci il gruppo tiene la sua.
         byte[]? avatarScelto = null;
         var miniature = persona.MiniatureVolti;
         if (miniature.Count > 1)
@@ -689,12 +715,10 @@ public partial class MainWindow
         {
             if (nome == nomeAttuale)
             {
-                // Solo il soprannome è cambiato.
-                if (soprannome != persona.Soprannome)
-                {
-                    Archivio.ImpostaSoprannome(id, soprannome);
-                    AggiornaPannelloPersone();
-                }
+                // Stesso nome: possono essere cambiati soprannome e immagine.
+                if (soprannome != persona.Soprannome) Archivio.ImpostaSoprannome(id, soprannome);
+                if (avatarScelto is not null) Archivio.ImpostaAvatar(id, avatarScelto);
+                if (soprannome != persona.Soprannome || avatarScelto is not null) AggiornaPannelloPersone();
                 return;
             }
 
@@ -708,7 +732,12 @@ public partial class MainWindow
                 return;
             }
 
-            try { Archivio.Rinomina(id, nome); Archivio.ImpostaSoprannome(id, soprannome); }
+            try
+            {
+                Archivio.Rinomina(id, nome);
+                Archivio.ImpostaSoprannome(id, soprannome);
+                if (avatarScelto is not null) Archivio.ImpostaAvatar(id, avatarScelto);
+            }
             catch (Microsoft.Data.Sqlite.SqliteException) { StatusText.Text = T("Esiste già una persona chiamata «{0}».", nome); return; }
             if (_filtroPersona is { } f && f.Nome == nomeAttuale) FiltroPersonaText.Text = nome;
             AggiornaPannelloPersone();
@@ -939,12 +968,13 @@ public partial class MainWindow
         if (persona.PersonaId is not long) return;
 
         var caselle = new List<(long Id, CheckBox Casella)>();
+        var daCaricare = new List<(Image Immagine, byte[] Jpeg)>();
         var griglia = new GridView { SelectionMode = ListViewSelectionMode.None, IsItemClickEnabled = true, MaxHeight = 380, Width = 520 };
         foreach (var (idVolto, miniatura) in persona.VoltiProposti)
         {
             var casella = new CheckBox { IsChecked = true, MinWidth = 0, Content = "", HorizontalAlignment = HorizontalAlignment.Center };
             var immagine = new Image { Width = 80, Height = 80, Stretch = Stretch.UniformToFill };
-            if (miniatura is not null) immagine.Source = await CreaImmagineAsync(miniatura);
+            if (miniatura is not null) daCaricare.Add((immagine, miniatura));
             var cella = new StackPanel { Spacing = 2, Tag = casella };
             cella.Children.Add(new Border { Width = 80, Height = 80, CornerRadius = new CornerRadius(6), Child = immagine });
             cella.Children.Add(casella);
@@ -963,7 +993,7 @@ public partial class MainWindow
 
         var tutti = new HyperlinkButton { Content = T("Spunta tutti"), Padding = new Thickness(0) };
         tutti.Click += (_, _) => { foreach (var (_, c) in caselle) c.IsChecked = true; };
-        var nessuno = new HyperlinkButton { Content = T("Togli tutte"), Padding = new Thickness(0) };
+        var nessuno = new HyperlinkButton { Content = T("Togli tutti"), Padding = new Thickness(0) };
         nessuno.Click += (_, _) => { foreach (var (_, c) in caselle) c.IsChecked = false; };
 
         var contenuto = new StackPanel { Spacing = 8 };
@@ -984,7 +1014,29 @@ public partial class MainWindow
             CloseButtonText = T("Annulla"),
             DefaultButton = ContentDialogButton.Primary,
         };
-        if (await dialogo.ShowAsync() != ContentDialogResult.Primary) return;
+
+        // Il dialogo si apre subito, le miniature arrivano mentre è aperto (con centinaia di proposte,
+        // caricarle tutte prima lo farebbe aspettare secondi senza segni di vita).
+        var chiuso = false;
+        dialogo.Closed += (_, _) => chiuso = true;
+        dialogo.Opened += async (_, _) =>
+        {
+            foreach (var (immagine, jpeg) in daCaricare)
+            {
+                if (chiuso) return;
+                try { immagine.Source = await CreaImmagineAsync(jpeg); }
+                catch (Exception) { /* miniatura rovinata: resta la cella vuota */ }
+            }
+        };
+
+        try
+        {
+            if (await dialogo.ShowAsync() != ContentDialogResult.Primary) return;
+        }
+        catch (Exception)
+        {
+            return; // un altro dialogo è già aperto
+        }
 
         var scelti = caselle.Where(c => c.Casella.IsChecked == true).Select(c => c.Id).ToList();
         if (scelti.Count > 0) await ConfermaProposteAsync(persona, scelti);
@@ -1032,7 +1084,7 @@ public partial class MainWindow
                      .Where(x => x.Persona is not null)
                      .GroupBy(x => x.Persona!.Id))
         {
-            db.AssegnaPersona(proposta.Select(x => x.Id).ToList(), proposta.Key, StatoPersona.Proposto);
+            db.ProponiPersona(proposta.Select(x => x.Id).ToList(), proposta.Key);
         }
     }
 
@@ -1050,10 +1102,16 @@ public partial class MainWindow
                 T("Rianalizza")))
             return;
 
+        // Dopo ogni attesa: se intanto si è aperta un'altra cartella non si tocca niente (i flag delle sue
+        // foto e la sua ricerca dei volti sono suoi).
+        if (db != _db) return;
         FermaRicercaVolti();
         NascondiAnnullaPersone(); // i volti salvati per l'annulla non esistono più
         if (_selectionManager is not null) await _selectionManager.SvuotaAsync();
-        await Task.Run(db.AzzeraAnalisiVolti);
+        if (db != _db) return;
+        try { await Task.Run(db.AzzeraAnalisiVolti); }
+        catch (ObjectDisposedException) { return; }
+        if (db != _db) return;
         foreach (var foto in _tutte)
         {
             foto.NumeroVolti = null;

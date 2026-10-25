@@ -20,13 +20,20 @@ public static class FolderScanner
     /// lettura EXIF viene saltata, così riaprire una cartella già vista costa solo i file-stat.
     /// </param>
     /// <param name="progresso">Riceve (elaborate, totale) dopo ogni file.</param>
+    /// <param name="cartelleNonLette">
+    /// Riceve i percorsi relativi delle sottocartelle che non si sono potute leggere (permessi, rete):
+    /// le loro foto non sono sparite, quindi il sidecar non deve dimenticarle (<c>SyncScan</c>).
+    /// </param>
     public static IReadOnlyList<ScannedPhoto> Scan(
         string cartella,
         Func<PhotoIdentity, ScannedPhoto?>? giaNote = null,
-        IProgress<(int Elaborate, int Totale)>? progresso = null)
+        IProgress<(int Elaborate, int Totale)>? progresso = null,
+        ICollection<string>? cartelleNonLette = null)
     {
         // Elenco completo prima di leggere i metadati: serve il totale per una barra di avanzamento vera.
-        var percorsi = ElencaFoto(cartella, radice: true).ToList();
+        var nonLette = new List<string>();
+        var percorsi = ElencaFoto(cartella, radice: true, nonLette).ToList();
+        foreach (var nonLetta in nonLette) cartelleNonLette?.Add(Path.GetRelativePath(cartella, nonLetta));
 
         var risultato = new List<ScannedPhoto>(percorsi.Count);
         progresso?.Report((0, percorsi.Count));
@@ -34,9 +41,15 @@ public static class FolderScanner
         foreach (var path in percorsi)
         {
             var info = new FileInfo(path);
+            long dimensione;
+            try { dimensione = info.Length; }
+            catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException)
+            {
+                continue; // spostato o cancellato mentre si leggeva la cartella (OneDrive, Esplora file)
+            }
             var identity = new PhotoIdentity(
                 PathRelativo: Path.GetRelativePath(cartella, path),
-                Size: info.Length,
+                Size: dimensione,
                 LastWriteUtc: info.LastWriteTimeUtc);
 
             var nota = giaNote?.Invoke(identity);
@@ -56,40 +69,74 @@ public static class FolderScanner
         return risultato;
     }
 
-    /// <summary>Sottocartelle che la scansione non visita: nascoste, di sistema, Scarti ed Export.</summary>
+    /// <summary>File che segna una cartella di export: la scansione non la visita (i JPEG lì dentro sono copie).</summary>
+    public const string FileSegnoExport = ".wfastpic-export";
+
+    /// <summary>
+    /// Segna come cartella di export una cartella senza foto proprie (nuova o già segnata). Una cartella con
+    /// foto non si segna mai: sparirebbero dalla scansione e il sidecar le dimenticherebbe.
+    /// </summary>
+    public static void SegnaCartellaExport(string cartella)
+    {
+        // "Export" (la cartella predefinita) e "Scarti" la scansione li salta già per nome.
+        if (CartelleEscluse.Contains(Path.GetFileName(Path.TrimEndingDirectorySeparator(cartella)), StringComparer.OrdinalIgnoreCase)) return;
+        var segno = Path.Combine(cartella, FileSegnoExport);
+        if (File.Exists(segno)) return;
+        var conFoto = Directory.EnumerateFiles(cartella)
+            .Any(p => EstensioniSupportate.Contains(Path.GetExtension(p), StringComparer.OrdinalIgnoreCase));
+        if (conFoto) return;
+        File.WriteAllText(segno, "Cartella di export di WFastPic: le foto qui dentro sono copie e non vengono catalogate.\r\n");
+        File.SetAttributes(segno, File.GetAttributes(segno) | FileAttributes.Hidden);
+    }
+
+    /// <summary>
+    /// Vero se la scansione di <paramref name="radice"/> arriverebbe a <paramref name="cartella"/> (che deve
+    /// esserci dentro, o coincidere): nessuna cartella del percorso è nascosta, Scarti, Export, di export.
+    /// </summary>
+    public static bool ScansioneVedrebbe(string radice, string cartella)
+    {
+        var relativo = Path.GetRelativePath(radice, cartella);
+        if (relativo == ".") return true;
+        if (relativo.StartsWith("..", StringComparison.Ordinal) || Path.IsPathRooted(relativo)) return false;
+        var corrente = Path.GetFullPath(radice);
+        foreach (var parte in relativo.Split(Path.DirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries))
+        {
+            corrente = Path.Combine(corrente, parte);
+            var info = new DirectoryInfo(corrente);
+            if (info.Exists && DaSaltare(info)) return false;
+            if (!info.Exists && (CartelleEscluse.Contains(parte, StringComparer.OrdinalIgnoreCase) || parte.StartsWith('.'))) return false;
+        }
+        return true;
+    }
+
+    /// <summary>
+    /// Sottocartelle che la scansione non visita: nascoste, di sistema, Scarti, Export e le cartelle di
+    /// export segnate (<see cref="FileSegnoExport"/>), e i collegamenti
+    /// (junction, link simbolici), che possono puntare a una cartella sopra e far girare la scansione
+    /// all'infinito. I segnaposto di OneDrive non sono collegamenti (<c>LinkTarget</c> nullo) e si visitano.
+    /// </summary>
     public static bool DaSaltare(DirectoryInfo cartella) =>
         ArchivioCartelle.DaNascondere(cartella.Name, cartella.Attributes)
-        || CartelleEscluse.Contains(cartella.Name, StringComparer.OrdinalIgnoreCase);
+        || CartelleEscluse.Contains(cartella.Name, StringComparer.OrdinalIgnoreCase)
+        || File.Exists(Path.Combine(cartella.FullName, FileSegnoExport))
+        || (cartella.Attributes.HasFlag(FileAttributes.ReparsePoint) && ECollegamento(cartella));
 
-    private static IEnumerable<string> ElencaFoto(string cartella, bool radice)
+    private static bool ECollegamento(DirectoryInfo cartella)
     {
-        foreach (var file in FotoDiretteDi(cartella, radice)) yield return file;
-
-        foreach (var figlio in Sottocartelle(cartella, radice))
-        {
-            foreach (var file in ElencaFoto(figlio, radice: false)) yield return file;
-        }
+        try { return cartella.LinkTarget is not null; }
+        catch (IOException) { return true; } // collegamento illeggibile: meglio saltarlo
     }
 
-    private static List<string> FotoDiretteDi(string cartella, bool radice)
+    private static IEnumerable<string> ElencaFoto(string cartella, bool radice, List<string> nonLette)
     {
+        // Una sottocartella illeggibile conta per intero come non letta, anche se metà era già elencata.
+        List<string> foto, figli;
         try
         {
-            return Directory.EnumerateFiles(cartella)
+            foto = Directory.EnumerateFiles(cartella)
                 .Where(p => EstensioniSupportate.Contains(Path.GetExtension(p), StringComparer.OrdinalIgnoreCase))
                 .ToList();
-        }
-        catch (Exception ex) when (!radice && ex is UnauthorizedAccessException or IOException)
-        {
-            return [];
-        }
-    }
-
-    private static List<string> Sottocartelle(string cartella, bool radice)
-    {
-        try
-        {
-            return new DirectoryInfo(cartella).EnumerateDirectories()
+            figli = new DirectoryInfo(cartella).EnumerateDirectories()
                 .Where(d => !DaSaltare(d))
                 .Select(d => d.FullName)
                 .OrderBy(p => p, StringComparer.OrdinalIgnoreCase)
@@ -97,7 +144,14 @@ public static class FolderScanner
         }
         catch (Exception ex) when (!radice && ex is UnauthorizedAccessException or IOException)
         {
-            return []; // sottocartella protetta o rimossa durante la scansione
+            nonLette.Add(cartella); // sottocartella protetta, disco di rete che non risponde, rimossa adesso
+            yield break;
+        }
+
+        foreach (var file in foto) yield return file;
+        foreach (var figlio in figli)
+        {
+            foreach (var file in ElencaFoto(figlio, radice: false, nonLette)) yield return file;
         }
     }
 }

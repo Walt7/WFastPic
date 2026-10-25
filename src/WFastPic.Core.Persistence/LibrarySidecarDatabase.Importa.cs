@@ -39,7 +39,7 @@ public sealed partial class LibrarySidecarDatabase
         if (figli.Count == 0) return 0;
 
         HashSet<string> fatti;
-        using (var scope = _lock.EnterScope())
+        using (var scope = Entra())
         {
             fatti = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             using var cmd = _connection.CreateCommand();
@@ -55,9 +55,16 @@ public sealed partial class LibrarySidecarDatabase
             var foto = LeggiSidecarFiglio(Path.Combine(CartellaFoto, relativo));
             if (foto is null) continue; // illeggibile adesso: ci si riprova alla prossima apertura
 
-            using var scope = _lock.EnterScope();
+            using var scope = Entra();
             using var transaction = _connection.BeginTransaction();
-            Riversa(foto, relativo, transaction);
+            var trovate = Riversa(foto, relativo, transaction);
+            if (trovate == 0 && foto.Count > 0)
+            {
+                // Nessuna foto del figlio è (ancora) qui: sottocartella non letta da questa scansione o
+                // file cambiati. Non si segna, altrimenti il suo lavoro non entrerebbe mai più.
+                transaction.Rollback();
+                continue;
+            }
             using (var segna = _connection.CreateCommand())
             {
                 segna.Transaction = transaction;
@@ -205,8 +212,10 @@ public sealed partial class LibrarySidecarDatabase
         catch (SqliteException) { /* tabella o colonna di un'altra versione */ }
     }
 
-    private void Riversa(List<FotoFiglio> foto, string relativoFiglio, SqliteTransaction transaction)
+    /// <summary>Riversa il lavoro del sidecar figlio; restituisce quante sue foto sono state trovate qui.</summary>
+    private int Riversa(List<FotoFiglio> foto, string relativoFiglio, SqliteTransaction transaction)
     {
+        var trovate = 0;
         // Foto di qui per percorso: stessa identità (dimensione e data) = stesso file.
         var qui = new Dictionary<string, (long Id, long Size, string LastWrite, bool GpsManuale)>(StringComparer.OrdinalIgnoreCase);
         using (var cmd = _connection.CreateCommand())
@@ -221,6 +230,7 @@ public sealed partial class LibrarySidecarDatabase
         {
             if (!qui.TryGetValue(Path.Combine(relativoFiglio, f.Path), out var q) || q.Size != f.Size || q.LastWrite != f.LastWrite) continue;
             var id = q.Id;
+            trovate++;
 
             // Selezione e voto: solo se qui non sono stati toccati.
             if (f.Stato != "None" || f.Rating != 0)
@@ -280,6 +290,7 @@ public sealed partial class LibrarySidecarDatabase
                     ("$id", id), ("$v", im.Versione), ("$i", im.Impronta), ("$r", im.Rapporto));
             }
         }
+        return trovate;
     }
 
     private void Esegui(SqliteTransaction transaction, string sql, params (string Nome, object Valore)[] parametri)
