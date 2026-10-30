@@ -1,8 +1,6 @@
 using System.Diagnostics;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using Windows.Graphics.Imaging;
-using Windows.Storage.Streams;
 using WFastPic.Core.Decoding;
 using WFastPic.Core.Library;
 using WFastPic.Core.Persistence;
@@ -23,7 +21,6 @@ namespace WFastPic.App;
 /// </summary>
 public partial class MainWindow
 {
-    private const int LatoAnalisiPersone = 1600;
     private static readonly HttpClient HttpModelli = CreaClientModelli();
 
     private CancellationTokenSource? _ctsVolti;
@@ -185,7 +182,7 @@ public partial class MainWindow
         {
             // Tutto già analizzato: i volti ancora senza nome vengono comunque confrontati con le persone note.
             if (dbAnalisi is null) return Task.CompletedTask;
-            return Task.Run(() => RiproponiPersone(dbAnalisi, persone)).ContinueWith(
+            return Task.Run(() => GestionePersone.Riproponi(dbAnalisi, persone)).ContinueWith(
                 _ => DispatcherQueue.TryEnqueue(AggiornaPannelloPersone), TaskScheduler.Default);
         }
 
@@ -205,20 +202,9 @@ public partial class MainWindow
                     {
                         // Nomi dati mentre l'analisi è in corso valgono subito anche per le foto che restano.
                         if (i % 5 == 0) persone = PersoneNote();
-                        var (bgra, w, h) = await PreviewDecoder.DecodePreviewBgraAsync(foto.PercorsoCompleto, LatoAnalisiPersone);
+                        var (bgra, w, h) = await PreviewDecoder.DecodePreviewBgraAsync(foto.PercorsoCompleto, AnalizzatorePersone.LatoAnalisi);
                         var volti = analizzatore.Analizza(bgra, w, h);
-
-                        var daSalvare = new List<VoltoDaSalvare>();
-                        foreach (var v in volti)
-                        {
-                            var proposta = RiconoscimentoPersone.Riconosci(v.Impronta, persone);
-                            daSalvare.Add(new VoltoDaSalvare(
-                                v.X0, v.Y0, v.X1, v.Y1, v.Punteggio,
-                                Impronte.InByte(v.Impronta),
-                                await CodificaJpegAsync(v.MiniaturaBgra, AllineamentoVolto.Lato, AllineamentoVolto.Lato),
-                                proposta?.Persona.Id,
-                                proposta is null ? StatoPersona.Nessuno : StatoPersona.Proposto));
-                        }
+                        var daSalvare = await GestionePersone.DaSalvareAsync(volti, persone, (b, lw, lh) => JpegBgra.CodificaAsync(b, lw, lh));
 
                         if (token.IsCancellationRequested) break;
                         manager.SalvaVoltiPersone(foto.Id, daSalvare);
@@ -249,7 +235,7 @@ public partial class MainWindow
             // Ultimo giro: volti analizzati prima che un nome fosse dato o prima dell'ultimo aggiornamento.
             if (!token.IsCancellationRequested && dbAnalisi is not null)
             {
-                try { await Task.Run(() => RiproponiPersone(dbAnalisi, PersoneNote())); }
+                try { await Task.Run(() => GestionePersone.Riproponi(dbAnalisi, PersoneNote())); }
                 catch (Exception) when (!token.IsCancellationRequested) { }
             }
 
@@ -260,21 +246,6 @@ public partial class MainWindow
                 AggiornaPannelloPersone();
             });
         }, token);
-    }
-
-    private static async Task<byte[]> CodificaJpegAsync(byte[] bgra, int larghezza, int altezza)
-    {
-        using var stream = new InMemoryRandomAccessStream();
-        var encoder = await BitmapEncoder.CreateAsync(BitmapEncoder.JpegEncoderId, stream);
-        encoder.SetPixelData(BitmapPixelFormat.Bgra8, BitmapAlphaMode.Ignore, (uint)larghezza, (uint)altezza, 96, 96, bgra);
-        await encoder.FlushAsync();
-
-        var dati = new byte[stream.Size];
-        stream.Seek(0);
-        using var reader = new DataReader(stream);
-        await reader.LoadAsync((uint)stream.Size);
-        reader.ReadBytes(dati);
-        return dati;
     }
 
     // ---------------------------------------------------------------- solo rilevamento (Windows)

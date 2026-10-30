@@ -31,6 +31,13 @@ The app interface is in Italian: names of buttons and menus below are given as t
   happened. An error in a People menu action now shows in the status bar.
 - **MCP server** (`src/WFastPic.Mcp`): an assistant can search by folder, people, dates and place, save named
   selections and prepare folders or zips of copies to share. Read-only on your photos.
+- **Naming faces from the assistant** (MCP server): face analysis of a folder or of the whole archive without opening
+  the app (in the background, in batches, resumable, also from a terminal with `WFastPic.Mcp.exe analizza <folder>`),
+  groups of unnamed faces most frequent first with period and folders, faces shown as small images, a name for a group
+  or for single faces (also merging them into a known person), confirming suggestions, faces to ignore, undo, and who
+  was there on a given day. After each name, recognition suggests that person in every catalogued folder. The server
+  now writes to the `.wfastpic` catalogues and to `persone.db`; original photos stay untouched. It must be registered
+  with the new path (`bin\Debug\net10.0-windows10.0.22621.0\WFastPic.Mcp.dll`).
 
 ### Fixes
 - **Duplicates with parent folders**: a photo is no longer a duplicate of itself when both a folder and one of its

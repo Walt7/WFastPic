@@ -30,6 +30,13 @@ I dettagli tecnici (cause dei bug, file toccati) sono in [`doc/correzioni-e-novi
   capire dopo cosa è successo. Un errore in un'azione del menu Persone ora compare nella barra di stato.
 - **Server MCP** (`src/WFastPic.Mcp`): un assistente può cercare per cartella, persone, date e luogo, salvare
   selezioni con nome e preparare cartelle o zip di copie da condividere. Solo lettura sulle foto.
+- **Nomi ai volti dall'assistente** (server MCP): analisi dei volti di una cartella o di tutto l'archivio senza aprire
+  l'app (in background, a lotti, riprendibile, anche dal terminale con `WFastPic.Mcp.exe analizza <cartella>`), gruppi
+  di volti senza nome dal più frequente con periodo e cartelle, volti mostrati come piccole immagini, nome a un gruppo o
+  a singoli volti (anche unendoli a una persona nota), conferma delle proposte, volti da ignorare, annulla, e chi c'era
+  in un giorno. Dopo ogni nome il riconoscimento propone la persona in tutte le cartelle catalogate. Il server ora
+  scrive nei cataloghi `.wfastpic` e in `persone.db`; le foto originali restano intatte. Va registrato con il nuovo
+  percorso (`bin\Debug\net10.0-windows10.0.22621.0\WFastPic.Mcp.dll`).
 
 ### Correzioni
 - **Doppioni con le cartelle madre**: una foto non risulta più doppione di sé stessa quando sono note sia una

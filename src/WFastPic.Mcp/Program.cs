@@ -6,6 +6,10 @@ using WFastPic.Mcp;
 Console.InputEncoding = new System.Text.UTF8Encoding(false);
 Console.OutputEncoding = new System.Text.UTF8Encoding(false);
 
+// Dal terminale: «WFastPic.Mcp analizza <cartella> [quante foto]» analizza i volti senza server (archivi lunghi).
+if (args.Length >= 2 && args[0] == "analizza")
+    return await RigaDiComando.AnalizzaAsync(args[1], args.Length >= 3 && int.TryParse(args[2], out var quante) ? quante : null);
+
 var uscita = Console.Out;
 string? riga;
 while ((riga = Console.In.ReadLine()) is not null)
@@ -37,7 +41,9 @@ while ((riga = Console.In.ReadLine()) is not null)
                 ["protocolVersion"] = VersioneProtocollo(richiesta["params"]?["protocolVersion"]),
                 ["capabilities"] = new JsonObject { ["tools"] = new JsonObject() },
                 ["serverInfo"] = new JsonObject { ["name"] = "wfastpic", ["version"] = "1.0.0" },
-                ["instructions"] = "Cerca nelle foto catalogate con WFastPic (cartelle, persone, date, luoghi) e prepara cartelle o zip di copie da condividere. Sola lettura sulle foto: prepara_pacchetto copia soltanto.",
+                ["instructions"] = "Cerca nelle foto catalogate con WFastPic (cartelle, persone, date, luoghi), prepara cartelle o zip di copie da condividere " +
+                    "e aiuta a dare un nome ai volti (analizza_cartella, volti_da_nominare, mostra_volto, assegna_nome, conferma_volti, persone_nel_giorno). " +
+                    "Le foto originali non vengono mai modificate. Non identificare le persone dalla faccia: i nomi li dice o li conferma l'utente.",
             },
             "ping" => new JsonObject(),
             "tools/list" => new JsonObject { ["tools"] = Strumenti.Elenco() },
@@ -60,6 +66,7 @@ while ((riga = Console.In.ReadLine()) is not null)
         Scrivi(new JsonObject { ["jsonrpc"] = "2.0", ["id"] = id, ["error"] = new JsonObject { ["code"] = -32603, ["message"] = ex.Message } });
     }
 }
+return 0;
 
 void Scrivi(JsonObject messaggio)
 {
@@ -72,8 +79,7 @@ static JsonObject ChiamaStrumento(JsonObject? parametri)
     var nome = parametri?["name"]?.GetValue<string>() ?? "";
     try
     {
-        var testo = Strumenti.Chiama(nome, parametri?["arguments"]?.AsObject());
-        return new JsonObject { ["content"] = new JsonArray(new JsonObject { ["type"] = "text", ["text"] = testo }) };
+        return new JsonObject { ["content"] = Strumenti.ChiamaContenuto(nome, parametri?["arguments"]?.AsObject()) };
     }
     catch (Exception ex)
     {

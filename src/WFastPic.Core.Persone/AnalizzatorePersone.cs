@@ -16,6 +16,9 @@ public sealed class AnalizzatorePersone : IDisposable
     /// <summary>Volti più piccoli di così (in pixel della foto analizzata) danno impronte inaffidabili.</summary>
     public const float LatoMinimoVolto = 36;
 
+    /// <summary>Lato lungo della preview su cui cercare i volti (app e server MCP, stessi risultati).</summary>
+    public const int LatoAnalisi = 1600;
+
     private readonly RilevatoreYuNet _rilevatore;
     private readonly EstrattoreImpronte _estrattore;
 

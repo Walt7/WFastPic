@@ -4,7 +4,7 @@
 
 WFastPic works on your PC. It has no accounts, ads, usage statistics or telemetry: nobody knows who uses
 it or how. **Photos, faces, people's names and file names never leave your PC**: people recognition and
-automatic rating also run entirely locally.
+automatic rating also run entirely locally. The only exception is your choice: an AI assistant connected to the MCP server (see below).
 
 ## What stays on your PC
 
@@ -27,6 +27,15 @@ Only these requests, each tied to a feature you are using:
 | People models (38 MB) | `huggingface.co` | nothing of yours | once, if you turn on people recognition | do not turn it on |
 | New version notice | `api.github.com` | nothing of yours | at every start | About → untick "Tell me when a new version is available" |
 | "Report the problem" | `github.com` | the error report, already cleaned of paths, file names, user name and PC name | only if you press the button **and** send the report on GitHub yourself | do not press it |
+
+### With an AI assistant (MCP server, optional)
+
+The MCP server (`src/WFastPic.Mcp`) sends nothing by itself: it answers the assistant that uses it. But what it
+returns reaches the assistant: photo paths and dates, people's names and, with `mostra_volto`, **small face images**
+(256 px). If the assistant is an online service (e.g. Claude), this data leaves your PC for its provider, under its
+policies. The server never sends whole photos. If you do not register the server, none of this happens. The server
+only writes to the `.wfastpic` catalogues and to `%LocalAppData%\WFastPic` (people, selections, log,
+`annullamenti-volti.json`, `analisi-volti.json`), never to your photos.
 
 As with any internet request, these services see your PC's IP address. Their policies:
 [OpenStreetMap Foundation](https://osmfoundation.org/wiki/Privacy_Policy),

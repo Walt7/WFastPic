@@ -1,10 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <!-- Server MCP (stdio) per cercare nelle foto già catalogate e preparare pacchetti da condividere.
-       Legge i sidecar e persone.db in sola lettura: nessuna dipendenza da WinUI, funziona anche con l'app chiusa. -->
+  <!-- Server MCP (stdio) per cercare nelle foto catalogate, dare un nome ai volti e preparare pacchetti da condividere.
+       Le foto originali non vengono mai scritte; scrive solo sidecar, persone.db e i file dati in LocalAppData.
+       Windows-targeted per leggere le foto con WIC (analisi dei volti), ma nessuna dipendenza da WinUI:
+       funziona anche con l'app chiusa. -->
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFramework>net10.0-windows10.0.22621.0</TargetFramework>
     <RootNamespace>WFastPic.Mcp</RootNamespace>
     <AssemblyName>WFastPic.Mcp</AssemblyName>
     <Nullable>enable</Nullable>
@@ -14,6 +16,9 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.12" />
     <ProjectReference Include="..\WFastPic.Core.Library\WFastPic.Core.Library.csproj" />
+    <ProjectReference Include="..\WFastPic.Core.Persistence\WFastPic.Core.Persistence.csproj" />
+    <ProjectReference Include="..\WFastPic.Core.Persone\WFastPic.Core.Persone.csproj" />
+    <ProjectReference Include="..\WFastPic.Core.Decoding\WFastPic.Core.Decoding.csproj" />
   </ItemGroup>
 
 </Project>

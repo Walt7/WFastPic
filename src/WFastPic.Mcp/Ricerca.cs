@@ -53,9 +53,22 @@ public static class Ricerca
         catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException) { return []; }
     }
 
+    /// <summary>
+    /// Aggiunge una cartella a "le mie cartelle" (in fondo, così l'app non cambia l'ultima aperta): dopo
+    /// analizza_cartella la ritrovano anche le ricerche senza percorso.
+    /// </summary>
+    public static void RegistraCartella(string cartella)
+    {
+        var elenco = CartelleRecenti();
+        if (elenco.Any(c => string.Equals(Path.TrimEndingDirectorySeparator(c), cartella, StringComparison.OrdinalIgnoreCase))) return;
+        elenco.Add(cartella);
+        Directory.CreateDirectory(DatiApp);
+        File.WriteAllText(Path.Combine(DatiApp, "recent-folders.json"), JsonSerializer.Serialize(elenco));
+    }
+
     public static bool HaSidecar(string cartella) => File.Exists(Path.Combine(cartella, Sidecar, FileDb));
 
-    private static SqliteConnection ApriLettura(string file)
+    internal static SqliteConnection ApriLettura(string file)
     {
         var connessione = new SqliteConnection(new SqliteConnectionStringBuilder
         {
@@ -120,7 +133,7 @@ public static class Ricerca
     };
 
     /// <summary>Persona unita → persona in cui è confluita, e nomi (nome + soprannome) di tutte.</summary>
-    private static (Dictionary<long, long> Unioni, Dictionary<long, string> Nomi) LeggiUnioniENomi()
+    public static (Dictionary<long, long> Unioni, Dictionary<long, string> Nomi) LeggiUnioniENomi()
     {
         var unioni = new Dictionary<long, long>();
         var nomi = new Dictionary<long, string>();
@@ -150,7 +163,7 @@ public static class Ricerca
         return (unioni, nomi);
     }
 
-    private static HashSet<string> Colonne(SqliteConnection c, string tabella)
+    internal static HashSet<string> Colonne(SqliteConnection c, string tabella)
     {
         var colonne = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         using var cmd = c.CreateCommand();

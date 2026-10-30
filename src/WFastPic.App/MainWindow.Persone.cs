@@ -110,10 +110,7 @@ public partial class MainWindow
         _archivioPersone = null;
     }
 
-    private List<PersonaNota> PersoneNote() =>
-        Archivio.Elenco()
-            .Select(p => new PersonaNota(p.Id, p.Nome, p.Campioni.Select(Impronte.DaByte).ToList()))
-            .ToList();
+    private List<PersonaNota> PersoneNote() => GestionePersone.PersoneNote(Archivio);
 
     private void RiconoscimentoPersoneSwitch_Toggled(object sender, RoutedEventArgs e)
     {
@@ -1074,12 +1071,7 @@ public partial class MainWindow
         await AssegnaEAggiornaAsync(idProposte.ToList(), id, StatoPersona.Confermato);
     }
 
-    private void AggiungiCampioni(long personaId, IEnumerable<float[]> nuovi)
-    {
-        var esistenti = Archivio.Elenco().FirstOrDefault(p => p.Id == personaId)?.Campioni.Select(Impronte.DaByte).ToList() ?? [];
-        var campioni = RiconoscimentoPersone.AggiornaCampioni(esistenti, nuovi);
-        Archivio.ImpostaCampioni(personaId, campioni.Select(Impronte.InByte).ToList());
-    }
+    private void AggiungiCampioni(long personaId, IEnumerable<float[]> nuovi) => GestionePersone.AggiungiCampioni(Archivio, personaId, nuovi);
 
     /// <summary>Applica la scelta, ripropone le persone sui volti ancora senza nome e aggiorna il pannello.</summary>
     private async Task AssegnaEAggiornaAsync(IReadOnlyList<long> volti, long? personaId, int stato)
@@ -1093,23 +1085,10 @@ public partial class MainWindow
         await Task.Run(() =>
         {
             db.AssegnaPersona(volti, personaId, stato);
-            RiproponiPersone(db, persone); // con un nome nuovo (o più campioni) altri volti possono ora essere riconosciuti
+            GestionePersone.Riproponi(db, persone); // con un nome nuovo (o più campioni) altri volti possono ora essere riconosciuti
         });
 
         AggiornaPannelloPersone();
-    }
-
-    /// <summary>Propone la persona nota più somigliante ai volti ancora senza nome (da confermare a mano).</summary>
-    private static void RiproponiPersone(LibrarySidecarDatabase db, IReadOnlyList<PersonaNota> persone)
-    {
-        foreach (var proposta in db.GetVoltiPersone()
-                     .Where(v => v.PersonaId is null && v.Stato == StatoPersona.Nessuno && v.Impronta is not null)
-                     .Select(v => (v.Id, Persona: RiconoscimentoPersone.Riconosci(Impronte.DaByte(v.Impronta!), persone)?.Persona))
-                     .Where(x => x.Persona is not null)
-                     .GroupBy(x => x.Persona!.Id))
-        {
-            db.ProponiPersona(proposta.Select(x => x.Id).ToList(), proposta.Key);
-        }
     }
 
     // ---------------------------------------------------------------- rianalisi

@@ -4,7 +4,7 @@
 
 WFastPic lavora sul tuo PC. Non ha account, pubblicità, statistiche d'uso né telemetria: nessuno sa
 chi lo usa né come. **Le foto, i volti, i nomi delle persone e i nomi dei file non escono mai dal PC**:
-anche il riconoscimento delle persone e il voto automatico girano interamente in locale.
+anche il riconoscimento delle persone e il voto automatico girano interamente in locale. L'unica eccezione la scegli tu: un assistente AI collegato al server MCP (vedi sotto).
 
 ## Cosa resta sul PC
 
@@ -27,6 +27,15 @@ Solo queste richieste, tutte legate a una funzione che stai usando:
 | Modelli per le persone (38 MB) | `huggingface.co` | niente di tuo | una volta sola, se attivi il riconoscimento delle persone | non attivarlo |
 | Avviso di versione nuova | `api.github.com` | niente di tuo | a ogni avvio | Informazioni → togli "Avvisami quando c'è una versione nuova" |
 | "Segnala il problema" | `github.com` | il report dell'errore, già ripulito da percorsi, nomi di file, nome utente e nome del PC | solo se premi il pulsante **e** invii tu la segnalazione su GitHub | non premerlo |
+
+### Con un assistente AI (server MCP, opzionale)
+
+Il server MCP (`src/WFastPic.Mcp`) non invia niente da solo: risponde all'assistente che lo usa. Ma quello che
+restituisce arriva all'assistente: percorsi e date delle foto, nomi delle persone e, con `mostra_volto`, **piccole
+immagini dei volti** (256 px). Se l'assistente è un servizio online (es. Claude), questi dati escono dal PC verso il
+suo fornitore, secondo le sue regole. Le foto intere non vengono mai inviate dal server. Se non registri il server,
+niente di questo succede. Il server scrive soltanto nei cataloghi `.wfastpic` e in `%LocalAppData%\WFastPic` (persone,
+selezioni, registro, `annullamenti-volti.json`, `analisi-volti.json`), mai nelle foto.
 
 Come per qualunque richiesta su internet, questi servizi vedono l'indirizzo IP del PC. Le loro regole:
 [OpenStreetMap Foundation](https://osmfoundation.org/wiki/Privacy_Policy),

@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.31.0" />
+    <ProjectReference Include="..\WFastPic.Core.Persistence\WFastPic.Core.Persistence.csproj" />
   </ItemGroup>
 
 </Project>

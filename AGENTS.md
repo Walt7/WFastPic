@@ -220,13 +220,25 @@ Aggiunte fuori piano, su richiesta esplicita durante lo sviluppo:
   (`Packages\Claude_*\LocalCache\Local\WFastPic`), non i dati veri dell'app; per leggere quelli veri serve un processo
   fuori dal pacchetto (il terminale dell'utente).
 - Server MCP `src/WFastPic.Mcp` (stdio, JSON-RPC a mano, nessuna dipendenza da WinUI, funziona con l'app
-  chiusa): legge sidecar e `persone.db` **in sola lettura** (mai crea sidecar). Strumenti: `elenco_cartelle`,
+  chiusa): le ricerche leggono sidecar e `persone.db` **in sola lettura** (mai creano sidecar; gli strumenti sui volti sotto invece scrivono). Strumenti: `elenco_cartelle`,
   `elenco_persone`, `cerca_foto` (cartella con sottocartelle, persone per nome/soprannome tutte insieme, date,
   luogo, selezionate, voto, selezione salvata), `salva_selezione`/`elenco_selezioni`/`elimina_selezione`
   (`selezioni.json` in LocalAppData\WFastPic: unico file che scrive oltre ai pacchetti), `prepara_pacchetto`
   (cartella o zip con COPIE degli originali + video abbinato; mai dentro una cartella di foto, mai sovrascrive,
   accetta solo estensioni foto; non invia nulla). `WFASTPIC_DATA` sposta la cartella dati (test). Registrazione:
-  `claude mcp add wfastpic -- dotnet <percorso>\src\WFastPic.Mcp\bin\Debug\net10.0\WFastPic.Mcp.dll`.
+  `claude mcp add wfastpic -- dotnet <percorso>\src\WFastPic.Mcp\bin\Debug\net10.0-windows10.0.22621.0\WFastPic.Mcp.dll`
+  (Windows-targeted per decodificare con WIC, sempre senza WinUI).
+- Server MCP, volti (`Volti.cs`, `NomiVolti.cs`, `AnalisiCartella.cs`, `ImmaginiVolti.cs`): qui il server **scrive**.
+  `analizza_cartella` = scansione + catalogo come l'app (nel sidecar della madre più in alto che esiste, altrimenti ne
+  crea uno nella cartella; `Ricerca.RegistraCartella` la aggiunge in fondo a recent-folders.json), poi YuNet+SFace una
+  foto alla volta (salta `PersoneAnalizzate`), in background con stato in `analisi-volti.json`; anche da terminale
+  (`WFastPic.Mcp.exe analizza <cartella> [n]`). Volti con riferimento stabile «chiave-id» (chiave = 8 hex dello
+  SHA-256 del percorso del sidecar, id = rowid); gruppi senza nome con id = "g" + rif minimo, ricordati in memoria
+  (`VoltiDelGruppo`). `assegna_nome`/`conferma_volti`/`ignora_volti` fotografano gli stati (`GetStatiVolti`) di tutti i
+  sidecar noti, scrivono, ripropongono **solo la persona toccata** (`GestionePersone.Riproponi(db, [persona])`) e
+  salvano il diff in `annullamenti-volti.json` (ultime 50) per `annulla_volti`; registro `mcp.volti*`. Logica comune
+  con l'app in `Core.Persone/GestionePersone` (campioni, proposte, volti da salvare) e `Core.Decoding/JpegBgra`.
+  L'assistente non identifica le persone dalla faccia: `mostra_volto` serve all'utente per dire chi è.
 - Dettagli del viewer: sezione Voto (il tuo / automatico con i motivi) e sezione Volti come Picasa
   (miniature con nome, "?" se proposto, cerchia; clic = "Chi è?" su quel volto, via `IViewerHost`).
 
@@ -272,7 +284,7 @@ src/
 ├─ WFastPic.Core.Persistence/   (sidecar SQLite)
 └─ WFastPic.Core.Export/        (bake ricetta + watermark + tag EXIF + encode JPEG — Windows-targeted)
 tests/
-└─ WFastPic.Core.Tests/         (xUnit, 245 test — Library/Selection/Processing/Metadata/Export)
+└─ WFastPic.Core.Tests/         (xUnit, 253 test — Library/Selection/Processing/Metadata/Export)
 tools/
 ├─ HeicSmokeTest/                (Fase 0, smoke test decoding)
 ├─ ScanSmokeTest/
@@ -340,7 +352,7 @@ Nota: `Z`/`F` zoom, `M` riproduci video, `Ctrl+C/V` copia ricetta — presenti n
   `IViewerHost`; la finestra lo usa con `Viewer.Apri/Chiudi/IsAperto/SalvaRicettaCorrente` e l'evento
   `Chiuso`. Una nuova dipendenza va aggiunta all'interfaccia, non aggirata.
 
-- Test prima o insieme al codice per la logica in `Core.*` (xUnit) — 245 test attuali coprono
+- Test prima o insieme al codice per la logica in `Core.*` (xUnit) — 253 test attuali coprono
   scan/identità, raffiche, selezione, ricetta/crop/rotate/tono/geometria raddrizzamento, ordinamento
   cronologico, riapertura veloce, scarti, concorrenza sidecar, stima avanzamento, zoom/trascinamento viewer.
 - `LibrarySidecarDatabase` è condiviso tra thread UI e coda di scrittura: ogni metodo pubblico nuovo

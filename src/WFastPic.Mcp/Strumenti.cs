@@ -1,5 +1,6 @@
 using System.Globalization;
 using WFastPic.Core.Library;
+using WFastPic.Core.Persistence;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
@@ -9,6 +10,7 @@ namespace WFastPic.Mcp;
 public static class Strumenti
 {
     private const int LimiteElenco = 100, LimiteMassimoElenco = 1000, LimitePacchetto = 5000;
+    private const int LimiteGruppi = 20, VoltiMostrati = 6, MassimoVoltiMostrati = 12;
 
     private static readonly JsonSerializerOptions Json = new() { WriteIndented = true, Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
 
@@ -88,7 +90,144 @@ public static class Strumenti
                 "Usa gli stessi filtri di cerca_foto oppure un elenco esplicito di percorsi. Non invia nulla, non sposta né cancella foto. " +
                 "Prima controlla con cerca_foto quali foto verranno incluse.",
                 Schema(pacchetto)),
+
+            Strumento("analizza_cartella",
+                "Cerca e raggruppa i volti delle foto di una cartella (sottocartelle comprese, anche tutto l'archivio) senza aprire l'app. " +
+                "Gira in background e torna subito: l'avanzamento si legge con stato_analisi. Cataloga la cartella come l'app (.wfastpic) " +
+                "se non lo è già, salta le foto già analizzate (si può fermare e riprendere) e ripropone le persone note sui volti trovati. " +
+                "Scrive solo nei cataloghi .wfastpic: le foto non vengono toccate. Per archivi molto grandi è meglio lanciarla dal terminale " +
+                "(WFastPic.Mcp.exe analizza <cartella>), così non si ferma chiudendo Claude.",
+                Schema(new JsonObject
+                {
+                    ["cartella"] = Prop("string", "Percorso completo della cartella, es. E:\\Fotocamera\\2017."),
+                    ["massimo_foto"] = Prop("integer", "Analizza al massimo queste foto in questo giro (lotto); le altre al prossimo. Vuoto = tutte."),
+                })),
+            Strumento("stato_analisi",
+                "A che punto è l'analisi dei volti (anche quella lanciata dal terminale): fase, foto fatte su quante, volti trovati, tempo rimanente.",
+                Schema(new JsonObject { ["ferma"] = Prop("boolean", "true = ferma l'analisi in corso in questo server (riprende dalla stessa foto alla prossima).") })),
+            Strumento("volti_da_nominare",
+                "Gruppi di volti ancora senza nome, che si somigliano, dal più frequente: id del gruppo, quante foto, periodo, cartelle principali, " +
+                "volti di esempio e, se c'è, la persona nota più somigliante (solo un indizio da verificare). Elenca anche le proposte automatiche " +
+                "da confermare per ogni persona. Non riconoscere tu le persone dalla faccia: proponi nomi dal contesto (date, cartelle, chi c'era) " +
+                "e fai confermare all'utente guardando i volti con mostra_volto.",
+                Schema(new JsonObject
+                {
+                    ["cartella"] = Prop("string", "Solo le foto sotto questa cartella (percorso completo o parte del nome). Vuoto = tutto l'archivio catalogato."),
+                    ["limite"] = Prop("integer", $"Quanti gruppi mostrare (default {LimiteGruppi}, massimo 200); il totale è sempre indicato."),
+                    ["minimo_volti"] = Prop("integer", "Solo gruppi con almeno questi volti (default 2; 1 = anche volti isolati)."),
+                })),
+            Strumento("mostra_volto",
+                $"Mostra all'utente alcuni volti come piccole immagini ({ImmaginiVolti.Lato} px), ritagliati dalla foto con un po' di contesto: " +
+                "quelli indicati, alcuni di un gruppo, o le proposte di una persona. Servono all'utente per dire chi è: non usarle per identificare tu le persone.",
+                Schema(new JsonObject
+                {
+                    ["volti"] = ListaStringhe("Riferimenti dei volti (es. «a1b2c3d4-123»)."),
+                    ["gruppo"] = Prop("string", "Id di un gruppo da volti_da_nominare (es. «ga1b2c3d4-123»)."),
+                    ["persona"] = Prop("string", "Nome di una persona: mostra i suoi volti proposti da confermare (o confermati, con proposte=false)."),
+                    ["proposte"] = Prop("boolean", "Con persona: true = volti proposti (default), false = volti già confermati."),
+                    ["massimo"] = Prop("integer", $"Quanti volti (default {VoltiMostrati}, massimo {MassimoVoltiMostrati})."),
+                    ["dalla_foto"] = Prop("boolean", "true = ritaglio dalla foto con contesto (default); false = miniatura salvata, più veloce."),
+                })),
+            Strumento("assegna_nome",
+                "Dà un nome, confermato dall'utente, a un gruppo di volti o a singoli volti. Con il nome di una persona già nota i volti vanno a lei " +
+                "(è anche il modo di unire un gruppo a una persona esistente). Poi il riconoscimento propone lo stesso nome sui volti somiglianti di " +
+                "tutte le cartelle (da confermare con conferma_volti). Scrive nei cataloghi .wfastpic e in persone.db, mai nelle foto; si annulla con annulla_volti.",
+                Schema(new JsonObject
+                {
+                    ["nome"] = Prop("string", "Nome della persona (es. «Alberto Rossi»), detto o confermato dall'utente."),
+                    ["gruppo"] = Prop("string", "Id del gruppo da volti_da_nominare."),
+                    ["volti"] = ListaStringhe("Riferimenti di singoli volti (in alternativa o in aggiunta al gruppo)."),
+                    ["escludi"] = ListaStringhe("Volti del gruppo che NON sono questa persona: restano senza nome."),
+                    ["soprannome"] = Prop("string", "Come la chiama l'utente («Alby», «la nonna»): solo un'etichetta, cercabile."),
+                    ["chi_e"] = Prop("string", "io, famiglia, amico, conoscente (pesa nel voto automatico delle foto). «io» è una persona sola."),
+                })),
+            Strumento("conferma_volti",
+                "Conferma i volti che il riconoscimento ha proposto per una persona (dopo averli mostrati all'utente con mostra_volto): quelli indicati, " +
+                "oppure tutti con tutte=true. I volti confermati diventano campioni e migliorano le proposte successive. Si annulla con annulla_volti.",
+                Schema(new JsonObject
+                {
+                    ["persona"] = Prop("string", "Nome (o soprannome) della persona."),
+                    ["volti"] = ListaStringhe("Riferimenti dei volti proposti da confermare."),
+                    ["tutte"] = Prop("boolean", "true = conferma tutte le proposte di questa persona."),
+                })),
+            Strumento("ignora_volti",
+                "Come «Ignora questi volti» nell'app: passanti, volti su un poster, errori del rilevatore. Spariscono dai gruppi da nominare e dalle " +
+                "proposte (non dalle foto). Si annulla con annulla_volti.",
+                Schema(new JsonObject
+                {
+                    ["gruppo"] = Prop("string", "Id del gruppo da volti_da_nominare."),
+                    ["volti"] = ListaStringhe("Riferimenti di singoli volti."),
+                    ["escludi"] = ListaStringhe("Volti del gruppo da non ignorare."),
+                })),
+            Strumento("annulla_volti",
+                "Annulla un'operazione sui volti fatta con assegna_nome, conferma_volti o ignora_volti: i volti tornano com'erano (se nel frattempo " +
+                "non sono stati cambiati di nuovo), una persona appena creata viene tolta. Senza numero annulla l'ultima; elenco con elenco=true.",
+                Schema(new JsonObject
+                {
+                    ["operazione"] = Prop("integer", "Numero dell'operazione (lo restituiscono assegna_nome, conferma_volti, ignora_volti)."),
+                    ["elenco"] = Prop("boolean", "true = elenca le ultime operazioni invece di annullare."),
+                })),
+            Strumento("persone_nel_giorno",
+                "Chi compare nelle foto di un giorno o di un intervallo: per ogni giorno le persone con nome e le loro foto, e quanti volti sono ancora " +
+                "senza nome (con esempi da mostrare). Serve per il diario: sapere chi c'era quando. Sola lettura.",
+                Schema(new JsonObject
+                {
+                    ["giorno"] = Prop("string", "Un giorno, AAAA-MM-GG."),
+                    ["dal"] = Prop("string", "Inizio dell'intervallo, AAAA-MM-GG (in alternativa a giorno)."),
+                    ["al"] = Prop("string", "Fine dell'intervallo inclusa, AAAA-MM-GG."),
+                    ["cartella"] = Prop("string", "Solo le foto sotto questa cartella (percorso completo o parte del nome)."),
+                    ["anche_proposte"] = Prop("boolean", "Conta anche i volti proposti e non ancora confermati (indicati come tali). Default false."),
+                    ["foto_per_persona"] = Prop("integer", "Quanti percorsi di foto elencare per persona (default 5, 0 = nessuno)."),
+                })),
         };
+    }
+
+    private static JsonObject ListaStringhe(string descrizione) => new()
+    {
+        ["type"] = "array", ["items"] = new JsonObject { ["type"] = "string" }, ["description"] = descrizione,
+    };
+
+    /// <summary>Il contenuto MCP della risposta: di norma un testo JSON; mostra_volto aggiunge le immagini dei volti.</summary>
+    public static JsonArray ChiamaContenuto(string nome, JsonObject? args)
+    {
+        if (nome != "mostra_volto") return new JsonArray(new JsonObject { ["type"] = "text", ["text"] = Chiama(nome, args) });
+
+        args ??= new JsonObject();
+        var massimo = Math.Clamp(Int(args, "massimo") ?? VoltiMostrati, 1, MassimoVoltiMostrati);
+        var rifs = new List<string>(Lista(args, "volti"));
+        if (Testo(args, "gruppo") is { } gruppo)
+        {
+            var delGruppo = Volti.VoltiDelGruppo(gruppo).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            rifs.AddRange(Volti.Esempi(Volti.Leggi().Where(v => delGruppo.Contains(v.Rif)), massimo));
+        }
+        if (Testo(args, "persona") is { } persona)
+        {
+            var proposte = Bool(args, "proposte") ?? true;
+            var stato = proposte ? StatoPersona.Proposto : StatoPersona.Confermato;
+            var suoi = Volti.Leggi()
+                .Where(v => v.Stato == stato && string.Equals(v.Persona, persona.Trim(), StringComparison.CurrentCultureIgnoreCase))
+                .ToList();
+            if (suoi.Count == 0)
+                throw new InvalidOperationException($"Nessun volto {(proposte ? "proposto" : "confermato")} per «{persona}» (scrivi il nome completo, come in elenco_persone).");
+            rifs.AddRange(Volti.Esempi(suoi, massimo));
+        }
+        rifs = rifs.Select(r => r.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).Take(massimo).ToList();
+        if (rifs.Count == 0) throw new InvalidOperationException("Indica volti, gruppo o persona.");
+
+        var immagini = ImmaginiVolti.PreparaAsync(rifs, Bool(args, "dalla_foto") ?? true).GetAwaiter().GetResult();
+        var contenuto = new JsonArray(new JsonObject
+        {
+            ["type"] = "text",
+            ["text"] = Serializza(new
+            {
+                nota = "Volti nell'ordine delle immagini. Chiedi all'utente chi è: il nome lo dice o lo conferma lui.",
+                volti = immagini.Select((i, n) => new { n = n + 1, volto = i.Rif, foto = i.Foto, ritaglio = i.DallaFoto ? "dalla foto" : "miniatura salvata" }),
+                non_trovati = rifs.Count > immagini.Count ? rifs.Except(immagini.Select(i => i.Rif), StringComparer.OrdinalIgnoreCase) : null,
+            }),
+        });
+        foreach (var i in immagini)
+            contenuto.Add(new JsonObject { ["type"] = "image", ["data"] = Convert.ToBase64String(i.Jpeg), ["mimeType"] = "image/jpeg" });
+        return contenuto;
     }
 
     private static JsonObject Strumento(string nome, string descrizione, JsonObject schema) =>
@@ -162,9 +301,121 @@ public static class Strumenti
                 });
             }
 
+            case "analizza_cartella":
+            {
+                var stato = AnalisiCartella.Avvia(Testo(args, "cartella") ?? "", Int(args, "massimo_foto"));
+                return Serializza(new
+                {
+                    avviata = stato.Cartella, catalogo = stato.Catalogo,
+                    nota = "L'analisi gira in background: controlla con stato_analisi. Le foto già analizzate vengono saltate.",
+                });
+            }
+
+            case "stato_analisi":
+            {
+                var fermata = Bool(args, "ferma") == true && AnalisiCartella.Ferma();
+                if (AnalisiCartella.Stato() is not { } s) return Serializza(new { nota = "Nessuna analisi avviata." });
+                var abbandonata = !s.Finita && s.Processo != Environment.ProcessId && DateTime.Now - s.Aggiornato > TimeSpan.FromMinutes(5);
+                return Serializza(new
+                {
+                    cartella = s.Cartella, catalogo = s.Catalogo, fase = s.Fase, fatte = s.Fatte, totale = s.Totale,
+                    volti_trovati = s.Volti, non_lette = s.Errori, avanzamento = s.Avanzamento, finita = s.Finita, errore = s.Errore,
+                    iniziata = s.Inizio.ToString("yyyy-MM-dd HH:mm"), aggiornata = s.Aggiornato.ToString("yyyy-MM-dd HH:mm:ss"),
+                    altro_processo = s.Processo != Environment.ProcessId ? true : (bool?)null,
+                    nota = fermata ? "Fermata: riprende dalla stessa foto con analizza_cartella."
+                        : abbandonata ? "Nessun aggiornamento da più di 5 minuti: il processo che la faceva si è probabilmente chiuso. Rilancia analizza_cartella per riprendere."
+                        : null,
+                });
+            }
+
+            case "volti_da_nominare":
+            {
+                var cartella = Testo(args, "cartella");
+                var gruppi = Volti.GruppiSenzaNome(cartella, Int(args, "minimo_volti") ?? 2);
+                var limite = Math.Clamp(Int(args, "limite") ?? LimiteGruppi, 1, 200);
+                return Serializza(new
+                {
+                    gruppi_totali = gruppi.Count,
+                    volti_nei_gruppi = gruppi.Sum(g => g.Volti.Count),
+                    gruppi = gruppi.Take(limite).Select(g => new
+                    {
+                        gruppo = g.Id, foto = g.Foto, volti = g.Volti.Count,
+                        dal = g.Dal?.ToString("yyyy-MM-dd"), al = g.Al?.ToString("yyyy-MM-dd"),
+                        cartelle = g.Cartelle.Select(c => new { cartella = c.Cartella, foto = c.Foto }),
+                        esempi = g.Esempi,
+                        forse = g.SimileA is { } p ? new { persona = p.Nome, somiglianza = p.Somiglianza } : null,
+                    }),
+                    proposte_da_confermare = Volti.Proposte(cartella).Select(p => new { persona = p.Persona, volti = p.Volti, foto = p.Foto, esempi = p.Esempi }),
+                    nota = "«forse» è solo la persona nota più somigliante, sotto la soglia delle proposte: va verificata guardando i volti.",
+                });
+            }
+
+            case "assegna_nome":
+            {
+                var esito = NomiVolti.AssegnaNome(Testo(args, "nome") ?? "", VoltiScelti(args), Testo(args, "soprannome"), Testo(args, "chi_e"));
+                return Serializza(new
+                {
+                    operazione = esito.Operazione, persona = esito.Persona, volti_nominati = esito.Volti, proposte_nuove = esito.ProposteNuove,
+                    nota = esito.ProposteNuove > 0
+                        ? $"Il riconoscimento propone «{esito.Persona}» su altri {esito.ProposteNuove} volti: guardali con mostra_volto (persona) e conferma con conferma_volti."
+                        : "Nessun altro volto somigliante da proporre per ora.",
+                });
+            }
+
+            case "conferma_volti":
+            {
+                var esito = NomiVolti.Conferma(Testo(args, "persona") ?? "", Lista(args, "volti"), Bool(args, "tutte") ?? false);
+                return Serializza(new { operazione = esito.Operazione, persona = esito.Persona, volti_confermati = esito.Volti, proposte_nuove = esito.ProposteNuove });
+            }
+
+            case "ignora_volti":
+            {
+                var esito = NomiVolti.Ignora(VoltiScelti(args));
+                return Serializza(new { operazione = esito.Operazione, volti_ignorati = esito.Volti });
+            }
+
+            case "annulla_volti":
+                if (Bool(args, "elenco") == true)
+                    return Serializza(NomiVolti.Operazioni().AsEnumerable().Reverse().Select(o => new
+                    {
+                        operazione = o.Numero, quando = o.Quando.ToString("yyyy-MM-dd HH:mm"), descrizione = o.Descrizione,
+                        volti = o.Volti.Count, annullata = o.Annullata,
+                    }));
+                return NomiVolti.Annulla(Int(args, "operazione"));
+
+            case "persone_nel_giorno":
+            {
+                var giorno = Data(args, "giorno");
+                var dal = giorno ?? Data(args, "dal") ?? throw new InvalidOperationException("Indica giorno oppure dal (e al).");
+                var al = giorno ?? Data(args, "al") ?? dal;
+                if (al < dal) throw new InvalidOperationException("«al» viene prima di «dal».");
+                var perPersona = Math.Max(0, Int(args, "foto_per_persona") ?? 5);
+                return Serializza(Volti.PersoneNeiGiorni(dal, al, Testo(args, "cartella"), Bool(args, "anche_proposte") ?? false).Select(g => new
+                {
+                    giorno = g.Giorno.ToString("yyyy-MM-dd"), foto_con_volti = g.FotoConVolti,
+                    persone = g.Persone.Select(p => new
+                    {
+                        nome = p.Nome, foto = p.Foto.Count, solo_proposta = p.SoloProposta ? true : (bool?)null,
+                        percorsi = perPersona > 0 ? p.Foto.Take(perPersona) : null,
+                    }),
+                    volti_senza_nome = g.VoltiSenzaNome,
+                    esempi_senza_nome = g.EsempiSenzaNome.Count > 0 ? g.EsempiSenzaNome : null,
+                }));
+            }
+
             default:
                 throw new InvalidOperationException($"Strumento sconosciuto: {nome}");
         }
+    }
+
+    /// <summary>I volti del gruppo (meno quelli da escludere) più quelli indicati uno per uno.</summary>
+    private static List<string> VoltiScelti(JsonObject args)
+    {
+        var escludi = Lista(args, "escludi").Select(r => r.Trim()).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var rifs = new List<string>();
+        if (Testo(args, "gruppo") is { } gruppo) rifs.AddRange(Volti.VoltiDelGruppo(gruppo));
+        rifs.AddRange(Lista(args, "volti").Select(r => r.Trim()));
+        return rifs.Where(r => !escludi.Contains(r)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
     }
 
     /// <summary>I percorsi indicati, oppure le foto che corrispondono ai filtri (almeno uno: mai «tutte le foto»).</summary>

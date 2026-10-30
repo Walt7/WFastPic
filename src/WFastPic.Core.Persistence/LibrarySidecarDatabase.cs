@@ -949,6 +949,32 @@ public sealed partial class LibrarySidecarDatabase : IDisposable
         return volti;
     }
 
+    /// <summary>Solo id, persona e stato dei volti con impronta (niente blob): per ricordare lo stato prima di una modifica.</summary>
+    public IReadOnlyList<(long Id, long? PersonaId, int Stato)> GetStatiVolti()
+    {
+        using var scope = Entra();
+        using var cmd = _connection.CreateCommand();
+        cmd.CommandText = "SELECT rowid, persona_id, stato_persona FROM volti WHERE impronta IS NOT NULL;";
+        using var reader = cmd.ExecuteReader();
+        var stati = new List<(long, long?, int)>();
+        while (reader.Read())
+            stati.Add((reader.GetInt64(0), reader.IsDBNull(1) ? null : reader.GetInt64(1), reader.GetInt32(2)));
+        return stati;
+    }
+
+    /// <summary>Impronte dei volti ancora senza nome e senza decisione (niente miniature): per proporre le persone note.</summary>
+    public IReadOnlyList<(long Id, byte[] Impronta)> GetImpronteSenzaNome()
+    {
+        using var scope = Entra();
+        using var cmd = _connection.CreateCommand();
+        cmd.CommandText = "SELECT rowid, impronta FROM volti WHERE impronta IS NOT NULL AND persona_id IS NULL AND stato_persona = $nessuno;";
+        cmd.Parameters.AddWithValue("$nessuno", StatoPersona.Nessuno);
+        using var reader = cmd.ExecuteReader();
+        var impronte = new List<(long, byte[])>();
+        while (reader.Read()) impronte.Add((reader.GetInt64(0), (byte[])reader[1]));
+        return impronte;
+    }
+
     /// <summary>
     /// "Rianalizza le persone": dimentica volti e nomi della cartella, la prossima ricerca li ricalcola.
     /// Le persone (archivio globale) restano: i loro volti verranno riproposti in automatico.
