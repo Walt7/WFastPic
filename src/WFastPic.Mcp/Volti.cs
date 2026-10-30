@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using Microsoft.Data.Sqlite;
 using WFastPic.Core.Persistence;
 using WFastPic.Core.Persone;
@@ -63,10 +64,46 @@ public static class Volti
         lock (Lucchetto)
         {
             if (!CartellePerChiave.ContainsKey(parti[0]))
-                foreach (var cartella in Ricerca.CartelleConSidecar(null)) CartellePerChiave[Chiave(cartella)] = cartella;
+                foreach (var cartella in CartelleNote()) CartellePerChiave[Chiave(cartella)] = cartella;
             return CartellePerChiave.TryGetValue(parti[0], out var trovata)
                 ? (trovata, id)
                 : throw new ArgumentException($"Volto «{rif}» non trovato: la sua cartella non è tra quelle catalogate.");
+        }
+    }
+
+    private static string FileCartelle => Path.Combine(Ricerca.DatiApp, "cartelle-volti.json");
+
+    /// <summary>
+    /// Le cartelle con catalogo note al server: quelle dell'app più quelle già lette per i volti (anche trovate con un
+    /// filtro sulla cartella), ricordate su file perché i riferimenti dei volti restino validi dopo un riavvio.
+    /// </summary>
+    public static List<string> CartelleNote()
+    {
+        var note = new List<string>(Ricerca.CartelleConSidecar(null));
+        try
+        {
+            if (File.Exists(FileCartelle))
+                note.AddRange((JsonSerializer.Deserialize<List<string>>(File.ReadAllText(FileCartelle)) ?? []).Where(Ricerca.HaSidecar));
+        }
+        catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException) { }
+        return note.Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(c => c.Length).ToList();
+    }
+
+    private static void Ricorda(IEnumerable<string> sidecar)
+    {
+        lock (Lucchetto)
+        {
+            var nuove = sidecar.Where(c => !CartellePerChiave.ContainsKey(Chiave(c))).ToList();
+            foreach (var c in sidecar) CartellePerChiave[Chiave(c)] = c;
+            if (nuove.Count == 0) return;
+            try
+            {
+                var salvate = File.Exists(FileCartelle) ? JsonSerializer.Deserialize<List<string>>(File.ReadAllText(FileCartelle)) ?? [] : [];
+                if (nuove.All(n => salvate.Contains(n, StringComparer.OrdinalIgnoreCase))) return;
+                Directory.CreateDirectory(Ricerca.DatiApp);
+                File.WriteAllText(FileCartelle, JsonSerializer.Serialize(salvate.Concat(nuove).Distinct(StringComparer.OrdinalIgnoreCase).ToList()));
+            }
+            catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException) { /* resta in memoria */ }
         }
     }
 
@@ -79,9 +116,10 @@ public static class Volti
         var (unioni, nomi) = Ricerca.LeggiUnioniENomi();
         var viste = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var risultato = new List<VoltoLetto>();
-        foreach (var sidecar in Ricerca.CartelleConSidecar(cartella))
+        var sidecars = string.IsNullOrWhiteSpace(cartella) ? CartelleNote() : Ricerca.CartelleConSidecar(cartella);
+        Ricorda(sidecars);
+        foreach (var sidecar in sidecars)
         {
-            lock (Lucchetto) CartellePerChiave[Chiave(sidecar)] = sidecar;
             try { LeggiSidecar(sidecar, cartella, unioni, nomi, viste, risultato); }
             catch (Exception ex) when (ex is SqliteException or IOException or FormatException) { /* sidecar bloccato o di un'altra versione */ }
         }
@@ -285,7 +323,7 @@ public static class Volti
     private static string Firma(string? cartella)
     {
         var parti = new StringBuilder(cartella ?? "*");
-        foreach (var sidecar in Ricerca.CartelleConSidecar(cartella))
+        foreach (var sidecar in string.IsNullOrWhiteSpace(cartella) ? CartelleNote() : Ricerca.CartelleConSidecar(cartella))
         {
             var db = Path.Combine(sidecar, LibrarySidecarDatabase.CartellaSidecar, LibrarySidecarDatabase.NomeFileDatabase);
             foreach (var file in new[] { db, db + "-wal" })

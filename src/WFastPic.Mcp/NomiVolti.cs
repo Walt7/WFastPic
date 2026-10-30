@@ -239,7 +239,7 @@ public static class NomiVolti
             {
                 // Tutte le cartelle prima di scrivere: anche le proposte nuove vanno ricordate per l'annulla.
                 if (personaId is not null)
-                    foreach (var cartella in Ricerca.CartelleConSidecar(null)) Sidecar(cartella);
+                    foreach (var cartella in Volti.CartelleNote()) Sidecar(cartella);
 
                 assegna(Sidecar);
                 aggiornaPersona?.Invoke();

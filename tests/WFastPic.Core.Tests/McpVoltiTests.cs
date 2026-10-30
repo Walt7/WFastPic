@@ -194,6 +194,19 @@ public class McpVoltiTests : IDisposable
     }
 
     [Fact]
+    public void Cartella_trovata_col_filtro_resta_nota_dopo_un_riavvio()
+    {
+        // Catalogo con sidecar ma non tra le cartelle dell'app: si trova solo indicandone il percorso.
+        Catalogo(_montagna, ("B1.jpg", 0), ("B2.jpg", 0));
+        Assert.DoesNotContain(_montagna, Volti.CartelleNote());
+
+        var gruppo = Volti.GruppiSenzaNome(_montagna).Single();
+        Assert.Contains(_montagna, Volti.CartelleNote()); // ricordata su file, non solo in memoria
+        Assert.Equal(_montagna, Volti.Risolvi(gruppo.Volti[0].Rif).Sidecar);
+        Assert.Equal(2, Volti.Leggi().Count); // e ora fa parte di «tutto l'archivio»
+    }
+
+    [Fact]
     public void Riquadro_con_contesto_resta_quadrato_e_dentro_la_foto()
     {
         Assert.Equal((120, 70, 160), JpegBgra.RiquadroConContesto(400, 300, 0.45, 0.45, 0.55, 0.55, margine: 1.5));
