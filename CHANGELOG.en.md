@@ -38,6 +38,10 @@ The app interface is in Italian: names of buttons and menus below are given as t
   was there on a given day. After each name, recognition suggests that person in every catalogued folder. The server
   now writes to the `.wfastpic` catalogues and to `persone.db`; original photos stay untouched. It must be registered
   with the new path (`bin\Debug\net10.0-windows10.0.22621.0\WFastPic.Mcp.dll`).
+- **Names from Picasa**: «Import names from Picasa» in the People section (and the `importa_picasa` MCP tool) takes the
+  faces you named in Picasa (`Picasa.ini` files) and gives those names to the faces WFastPic found in the same photos, as
+  confirmed; recognition then suggests those people in the rest of your photos. Faces already confirmed as someone else
+  do not change, names that are an email address are skipped, and it can be undone right after.
 
 ### Fixes
 - **Duplicates with parent folders**: a photo is no longer a duplicate of itself when both a folder and one of its

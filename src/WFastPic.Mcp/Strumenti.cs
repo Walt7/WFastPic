@@ -127,6 +127,7 @@ public static class Strumenti
                     ["proposte"] = Prop("boolean", "Con persona: true = volti proposti (default), false = volti già confermati."),
                     ["massimo"] = Prop("integer", $"Quanti volti (default {VoltiMostrati}, massimo {MassimoVoltiMostrati})."),
                     ["dalla_foto"] = Prop("boolean", "true = ritaglio dalla foto con contesto (default); false = miniatura salvata, più veloce."),
+                    ["foglio"] = Prop("boolean", "Con più volti: true = un'immagine sola con il numero su ogni volto (default), false = un'immagine per volto."),
                 })),
             Strumento("assegna_nome",
                 "Dà un nome, confermato dall'utente, a un gruppo di volti o a singoli volti. Con il nome di una persona già nota i volti vanno a lei " +
@@ -166,6 +167,24 @@ public static class Strumenti
                 {
                     ["operazione"] = Prop("integer", "Numero dell'operazione (lo restituiscono assegna_nome, conferma_volti, ignora_volti)."),
                     ["elenco"] = Prop("boolean", "true = elenca le ultime operazioni invece di annullare."),
+                })),
+            Strumento("importa_picasa",
+                "Prende i nomi dei volti che Picasa aveva marcato (file Picasa.ini nelle cartelle) e li dà ai volti trovati da WFastPic nelle " +
+                "stesse foto, come confermati: diventano campioni e il riconoscimento propone quelle persone nel resto dell'archivio. " +
+                "Prima chiamala senza esegui: è un'anteprima con i nomi, quelli che sono email e quelli forse uguali («walter» / «Walter " +
+                "Rodeghiero»), da far decidere all'utente; poi con esegui=true e, se serve, nomi per rinominare, unire o saltare. " +
+                "Vale solo per le foto già analizzate (analizza_cartella). Non tocca i Picasa.ini né le foto; si annulla con annulla_volti.",
+                Schema(new JsonObject
+                {
+                    ["cartella"] = Prop("string", "Percorso completo della cartella (sottocartelle comprese), es. E:\\Fotocamera\\2012."),
+                    ["esegui"] = Prop("boolean", "false = anteprima (default), true = scrive i nomi."),
+                    ["nomi"] = new JsonObject
+                    {
+                        ["type"] = "object", ["additionalProperties"] = new JsonObject { ["type"] = "string" },
+                        ["description"] = "Nome in Picasa → nome da usare in WFastPic (anche di una persona già nota, per unirli); \"\" = non importarlo. " +
+                                          "Es. {\"walter\": \"Walter Rodeghiero\", \"Rodeghiero Pierluigi\": \"Gigi\", \"x@gmail.com\": \"\"}.",
+                    },
+                    ["limite"] = Prop("integer", "Quanti nomi elencare nell'anteprima (default 60)."),
                 })),
             Strumento("persone_nel_giorno",
                 "Chi compare nelle foto di un giorno o di un intervallo: per ogni giorno le persone con nome e le loro foto, e quanti volti sono ancora " +
@@ -225,8 +244,12 @@ public static class Strumenti
                 non_trovati = rifs.Count > immagini.Count ? rifs.Except(immagini.Select(i => i.Rif), StringComparer.OrdinalIgnoreCase) : null,
             }),
         });
-        foreach (var i in immagini)
-            contenuto.Add(new JsonObject { ["type"] = "image", ["data"] = Convert.ToBase64String(i.Jpeg), ["mimeType"] = "image/jpeg" });
+        // Più volti: un foglio unico con i numeri sopra, così l'utente risponde «2 = Anna» senza contare le immagini.
+        var immaginiDaInviare = immagini.Count > 1 && (Bool(args, "foglio") ?? true)
+            ? [ImmaginiVolti.FoglioAsync(immagini).GetAwaiter().GetResult()]
+            : immagini.Select(i => i.Jpeg).ToList();
+        foreach (var jpeg in immaginiDaInviare)
+            contenuto.Add(new JsonObject { ["type"] = "image", ["data"] = Convert.ToBase64String(jpeg), ["mimeType"] = "image/jpeg" });
         return contenuto;
     }
 
@@ -382,6 +405,32 @@ public static class Strumenti
                         volti = o.Volti.Count, annullata = o.Annullata,
                     }));
                 return NomiVolti.Annulla(Int(args, "operazione"));
+
+            case "importa_picasa":
+            {
+                var nomi = args["nomi"] is JsonObject o
+                    ? o.Where(kv => kv.Value is JsonValue).ToDictionary(kv => kv.Key, kv => kv.Value!.GetValue<string>())
+                    : [];
+                var (a, esito) = NomiVolti.ImportaPicasa(Testo(args, "cartella") ?? "", nomi, Bool(args, "esegui") ?? false);
+                var limite = Math.Clamp(Int(args, "limite") ?? 60, 1, 1000);
+                return Serializza(new
+                {
+                    file_picasa = a.Piano.FileIni, volti_picasa = a.Piano.VoltiPicasa,
+                    abbinati = a.Piano.Abbinati.Count, da_nominare = a.DaNominare, gia_confermati = a.GiaConfermati,
+                    senza_nome_in_picasa = a.Piano.SenzaNome, non_trovati_da_wfastpic = a.Piano.NonTrovati,
+                    in_foto_non_analizzate = a.Piano.InFotoNonAnalizzate,
+                    cartelle_da_analizzare = a.Piano.CartelleNonAnalizzate.OrderByDescending(c => c.Value).Take(20)
+                        .Select(c => new { cartella = c.Key, volti_picasa = c.Value }),
+                    persone = a.Nomi.Count,
+                    nomi = a.Nomi.Take(limite).Select(n => new { picasa = n.Picasa, diventa = n.DaUsare == n.Picasa ? null : n.DaUsare ?? "(saltato)", volti = n.Volti }),
+                    email_da_decidere = a.Email.Count > 0 ? a.Email : null,
+                    forse_la_stessa_persona = a.ForseUguali.Count > 0 ? a.ForseUguali.Select(f => new[] { f.A, f.B }) : null,
+                    operazione = esito?.Operazione, volti_nominati = esito?.Volti, proposte_nuove = esito?.ProposteNuove,
+                    nota = esito is not null
+                        ? $"Fatto: {esito.Volti} volti cambiati, {esito.ProposteNuove} proposte nuove nel resto dell'archivio. Si annulla con annulla_volti operazione={esito.Operazione}."
+                        : "Anteprima: niente è stato scritto. Fai decidere all'utente email e nomi forse uguali, poi richiama con esegui=true (e nomi).",
+                });
+            }
 
             case "persone_nel_giorno":
             {

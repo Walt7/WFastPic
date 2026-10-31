@@ -30,6 +30,24 @@ public static class JpegBgra
         return dati;
     }
 
+    /// <summary>Pixel BGRA di un JPEG (o altra immagine) in memoria.</summary>
+    public static async Task<(byte[] Bgra, int Larghezza, int Altezza)> DecodificaAsync(byte[] dati)
+    {
+        using var stream = new InMemoryRandomAccessStream();
+        using (var writer = new DataWriter(stream))
+        {
+            writer.WriteBytes(dati);
+            await writer.StoreAsync();
+            writer.DetachStream();
+        }
+        stream.Seek(0);
+        var decoder = await BitmapDecoder.CreateAsync(stream);
+        using var bitmap = await decoder.GetSoftwareBitmapAsync(BitmapPixelFormat.Bgra8, BitmapAlphaMode.Ignore);
+        var bgra = new byte[4 * bitmap.PixelWidth * bitmap.PixelHeight];
+        bitmap.CopyToBuffer(System.Runtime.InteropServices.WindowsRuntime.WindowsRuntimeBufferExtensions.AsBuffer(bgra));
+        return (bgra, bitmap.PixelWidth, bitmap.PixelHeight);
+    }
+
     /// <summary>
     /// Il riquadro (normalizzato 0..1) allargato di <paramref name="margine"/> volte il suo lato per parte e reso
     /// quadrato, dentro l'immagine: un volto con un po' di contesto attorno (capelli, spalle) si riconosce meglio.

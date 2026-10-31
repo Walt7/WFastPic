@@ -194,6 +194,50 @@ public class McpVoltiTests : IDisposable
     }
 
     [Fact]
+    public void Importa_picasa_anteprima_poi_nomi_con_unione_email_saltata_e_annulla()
+    {
+        Prepara();
+        var riquadro = PicasaTests.Rect64(0.31, 0.29, 0.6, 0.61); // i volti finti di Catalogo stanno in 0.3..0.6
+        File.WriteAllText(Path.Combine(_mare, ".picasa.ini"), $"""
+            [A1.jpg]
+            faces=rect64({riquadro}),c1
+            [A2.jpg]
+            faces=rect64({riquadro}),c2
+            [A4.jpg]
+            faces=rect64({riquadro}),c3
+            [Contacts2]
+            c1=Laura Villa;;
+            c2=laura;;
+            c3=amica@example.com;;
+            """);
+        // Un volto già confermato a mano come un'altra persona non cambia.
+        Chiama("assegna_nome", JsonSerializer.Serialize(new { nome = "Giulia", volti = new[] { Rif("A4.jpg") } }));
+        Chiama("annulla_volti", "{\"elenco\":true}");
+
+        var anteprima = Chiama("importa_picasa", JsonSerializer.Serialize(new { cartella = _radice }));
+        Assert.Equal(3, anteprima["volti_picasa"]!.GetValue<int>());
+        Assert.Equal(2, anteprima["da_nominare"]!.GetValue<int>()); // l'email si salta
+        Assert.Equal("amica@example.com", anteprima["email_da_decidere"]![0]!.GetValue<string>());
+        Assert.Equal(["laura", "Laura Villa"], anteprima["forse_la_stessa_persona"]![0]!.AsArray().Select(n => n!.GetValue<string>()).Order());
+        Assert.Single(Ricerca.ElencoPersone()); // solo Giulia: l'anteprima non scrive
+
+        var fatto = Chiama("importa_picasa", JsonSerializer.Serialize(new
+        {
+            cartella = _radice, esegui = true,
+            nomi = new Dictionary<string, string> { ["laura"] = "Laura Villa", ["amica@example.com"] = "Giulia" },
+        }));
+        Assert.Equal(2, fatto["volti_nominati"]!.GetValue<int>()); // A1 e A2; A4 era già Giulia
+        Assert.Equal(["Giulia", "Laura Villa"], Ricerca.ElencoPersone().Select(p => p.Nome));
+        Assert.Equal(2, Ricerca.Cerca(new FiltriFoto(Persone: ["Laura Villa"])).Count);
+        // I volti somiglianti (A3 qui, B1 nell'altra cartella) ora sono proposti.
+        Assert.Equal(4, Ricerca.Cerca(new FiltriFoto(Persone: ["Laura Villa"], AncheProposte: true)).Count);
+
+        Assert.Contains("persona creata è stata tolta", Strumenti.Chiama("annulla_volti", new JsonObject()));
+        Assert.Equal(["Giulia"], Ricerca.ElencoPersone().Select(p => p.Nome));
+        Assert.Empty(Ricerca.Cerca(new FiltriFoto(Persone: ["Laura"], AncheProposte: true)));
+    }
+
+    [Fact]
     public void Cartella_trovata_col_filtro_resta_nota_dopo_un_riavvio()
     {
         // Catalogo con sidecar ma non tra le cartelle dell'app: si trova solo indicandone il percorso.
@@ -204,6 +248,20 @@ public class McpVoltiTests : IDisposable
         Assert.Contains(_montagna, Volti.CartelleNote()); // ricordata su file, non solo in memoria
         Assert.Equal(_montagna, Volti.Risolvi(gruppo.Volti[0].Rif).Sidecar);
         Assert.Equal(2, Volti.Leggi().Count); // e ora fa parte di «tutto l'archivio»
+    }
+
+    [Fact]
+    public async Task Foglio_mette_i_volti_numerati_in_griglia_di_quattro()
+    {
+        var piccola = await JpegBgra.CodificaAsync(new byte[112 * 112 * 4], 112, 112); // miniatura salvata, si ingrandisce
+        var grande = await JpegBgra.CodificaAsync(new byte[256 * 256 * 4], 256, 256);
+        var volti = Enumerable.Range(0, 11).Select(i => new ImmagineVolto($"x-{i}", "f.jpg", i % 2 == 0 ? piccola : grande, i % 2 == 1)).ToList();
+
+        var (bgra, w, h) = await JpegBgra.DecodificaAsync(await ImmaginiVolti.FoglioAsync(volti));
+        Assert.Equal((4 * (ImmaginiVolti.Lato + 4) + 4, 3 * (ImmaginiVolti.Lato + 4) + 4), (w, h));
+        // Il numero «1» è bianco su nero in alto a sinistra del primo volto (cifra 3×5 a punti di 6 px).
+        var pixel = ((4 + 6 + 3) * w + 4 + 6 + 6 + 3) * 4;
+        Assert.True(bgra[pixel] > 200 && bgra[pixel + 1] > 200 && bgra[pixel + 2] > 200);
     }
 
     [Fact]

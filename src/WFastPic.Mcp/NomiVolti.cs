@@ -1,4 +1,5 @@
 using System.Text.Json;
+using WFastPic.Core.Library;
 using WFastPic.Core.Persistence;
 using WFastPic.Core.Persone;
 
@@ -7,13 +8,19 @@ namespace WFastPic.Mcp;
 /// <summary>Un volto cambiato da un'operazione: com'era prima e com'è diventato.</summary>
 public sealed record VoltoCambiato(string Sidecar, long Id, long? PersonaPrima, int StatoPrima, long? PersonaDopo, int StatoDopo);
 
-/// <summary>Quanto serve per tornare indietro: volti cambiati e com'era la persona (campioni, soprannome, cerchia).</summary>
+/// <summary>Com'era una persona prima dell'operazione, o se l'operazione l'ha creata.</summary>
+public sealed record PersonaPrima(long Id, bool Creata, List<string>? Campioni, string? Soprannome, int? Cerchia);
+
+/// <summary>Quanto serve per tornare indietro: volti cambiati e com'erano le persone toccate.</summary>
 public sealed record OperazioneVolti(
-    int Numero, DateTime Quando, string Descrizione, long? PersonaId, bool PersonaCreata,
-    List<string>? CampioniPrima, string? SoprannomePrima, int? CerchiaPrima,
-    List<VoltoCambiato> Volti, bool Annullata = false);
+    int Numero, DateTime Quando, string Descrizione, List<PersonaPrima> Persone, List<VoltoCambiato> Volti, bool Annullata = false);
 
 public sealed record EsitoNomi(int Operazione, string? Persona, int Volti, int ProposteNuove);
+
+/// <summary>Cosa farebbe l'import da Picasa: piano, volti da nominare, nomi (Picasa → da usare), email e nomi forse uguali.</summary>
+public sealed record AnteprimaPicasa(
+    PianoPicasa<VoltoLetto> Piano, int DaNominare, int GiaConfermati,
+    IReadOnlyList<(string Picasa, string? DaUsare, int Volti)> Nomi, IReadOnlyList<string> Email, IReadOnlyList<(string A, string B)> ForseUguali);
 
 /// <summary>
 /// Le scritture dell'assistente sui volti, come le fa l'app dal pannello Persone: dare un nome a un gruppo o a dei
@@ -55,20 +62,17 @@ public static class NomiVolti
 
         using var archivio = ArchivioPersone.Apri(Ricerca.PercorsoPersone);
         var volti = LeggiVolti(rifs);
-        var esisteva = archivio.EsisteNome(nome);
-        var avatar = esisteva ? null : volti.OrderByDescending(v => (v.Miniatura?.Length ?? 0) * Math.Sqrt(Math.Max(1e-6, (v.X1 - v.X0) * (v.Y1 - v.Y0)))).First().Miniatura;
-        var id = archivio.TrovaOCrea(nome, avatar);
-        var prima = archivio.Elenco().First(p => p.Id == id);
-
-        var esito = Esegui(archivio, $"nome «{nome}» a {volti.Count} volti", id, !esisteva, prima, sidecar =>
+        var avatar = archivio.EsisteNome(nome) ? null : volti.OrderByDescending(v => (v.Miniatura?.Length ?? 0) * Math.Sqrt(Math.Max(1e-6, (v.X1 - v.X0) * (v.Y1 - v.Y0)))).First().Miniatura;
+        long id = 0;
+        var esito = Esegui(archivio, $"nome «{nome}» a {volti.Count} volti", riproponi: true, sidecar =>
         {
+            id = archivio.TrovaOCrea(nome, avatar);
             foreach (var g in volti.GroupBy(v => v.Sidecar, StringComparer.OrdinalIgnoreCase))
                 sidecar(g.Key).AssegnaPersona(g.Select(v => v.Id).ToList(), id, StatoPersona.Confermato);
-        }, () =>
-        {
             GestionePersone.AggiungiCampioni(archivio, id, volti.Select(v => v.Impronta));
             if (!string.IsNullOrWhiteSpace(soprannome)) archivio.ImpostaSoprannome(id, soprannome.Trim());
             if (cerchia >= 0) archivio.ImpostaCerchia(id, cerchia);
+            return [id];
         });
         return esito with { Persona = archivio.Elenco().First(p => p.Id == id).Nome };
     }
@@ -92,11 +96,13 @@ public static class NomiVolti
         else throw new ArgumentException("Indica i volti da confermare, oppure tutte=true per confermare tutte le proposte (meglio dopo averle guardate con mostra_volto).");
         if (scelti.Count == 0) throw new InvalidOperationException($"Nessuna proposta da confermare per «{trovata.Nome}».");
 
-        var esito = Esegui(archivio, $"conferma {scelti.Count} volti di «{trovata.Nome}»", trovata.Id, false, trovata, sidecar =>
+        var esito = Esegui(archivio, $"conferma {scelti.Count} volti di «{trovata.Nome}»", riproponi: true, sidecar =>
         {
             foreach (var g in scelti.GroupBy(v => v.Sidecar, StringComparer.OrdinalIgnoreCase))
                 sidecar(g.Key).AssegnaPersona(g.Select(v => v.Id).ToList(), trovata.Id, StatoPersona.Confermato);
-        }, () => GestionePersone.AggiungiCampioni(archivio, trovata.Id, scelti.Select(v => v.Impronta)));
+            GestionePersone.AggiungiCampioni(archivio, trovata.Id, scelti.Select(v => v.Impronta));
+            return [trovata.Id];
+        });
         return esito with { Persona = trovata.Nome };
     }
 
@@ -109,11 +115,55 @@ public static class NomiVolti
         if (rifs.Count == 0) throw new ArgumentException("Nessun volto indicato (gruppo o volti).");
         using var archivio = ArchivioPersone.Apri(Ricerca.PercorsoPersone);
         var volti = LeggiVolti(rifs);
-        return Esegui(archivio, $"ignora {volti.Count} volti", null, false, null, sidecar =>
+        return Esegui(archivio, $"ignora {volti.Count} volti", riproponi: false, sidecar =>
         {
             foreach (var g in volti.GroupBy(v => v.Sidecar, StringComparer.OrdinalIgnoreCase))
                 sidecar(g.Key).AssegnaPersona(g.Select(v => v.Id).ToList(), null, StatoPersona.Rifiutato);
-        }, null);
+            return [];
+        });
+    }
+
+    /// <summary>
+    /// Nomi dei volti marcati in Picasa (file Picasa.ini sotto <paramref name="cartella"/>) abbinati ai volti trovati da
+    /// WFastPic. Senza <paramref name="esegui"/> è solo un'anteprima; con <paramref name="esegui"/> i nomi diventano
+    /// confermati (una sola operazione da annullare) e il riconoscimento propone quelle persone nel resto dell'archivio.
+    /// <paramref name="nomi"/> cambia il nome di Picasa in quello da usare (anche di una persona già nota); «» = non
+    /// importarlo. I nomi che sono un indirizzo email si saltano se non hanno un nome qui.
+    /// </summary>
+    public static (AnteprimaPicasa Anteprima, EsitoNomi? Esito) ImportaPicasa(string cartella, IReadOnlyDictionary<string, string> nomi, bool esegui)
+    {
+        if (string.IsNullOrWhiteSpace(cartella) || !Path.IsPathRooted(cartella) || !Directory.Exists(cartella))
+            throw new ArgumentException("Indica il percorso completo di una cartella esistente (es. E:\\Fotocamera\\2012).");
+        var radice = Path.TrimEndingDirectorySeparator(Path.GetFullPath(cartella));
+
+        var volti = Volti.Leggi(radice);
+        var piano = VoltiPicasa.Pianifica(radice,
+            volti.Select(v => (v, v.Foto, new Riquadro(v.X0, v.Y0, v.X1, v.Y1))).ToList(),
+            VoltiPicasa.LeggiContattiXml(VoltiPicasa.ContattiXmlPredefinito));
+
+        var mappa = nomi.ToDictionary(kv => VoltiPicasa.Chiave(kv.Key), kv => kv.Value.Trim());
+        string? NomeDaUsare(string nome) => mappa.TryGetValue(VoltiPicasa.Chiave(nome), out var scelto)
+            ? (scelto.Length > 0 ? scelto : null)
+            : VoltiPicasa.EEmail(nome) ? null : nome;
+
+        var daScrivere = piano.Abbinati.Select(a => (a.Volto, Nome: NomeDaUsare(a.Nome))).Where(a => a.Nome is not null).ToList();
+        var anteprima = new AnteprimaPicasa(
+            piano, daScrivere.Count,
+            daScrivere.Count(a => a.Volto.Stato == StatoPersona.Confermato),
+            piano.PerNome.Select(n => (n.Nome, NomeDaUsare(n.Nome), n.Volti)).ToList(),
+            piano.PerNome.Select(n => n.Nome).Where(n => VoltiPicasa.EEmail(n) && !mappa.ContainsKey(VoltiPicasa.Chiave(n))).ToList(),
+            VoltiPicasa.ForseUguali(daScrivere.Select(a => a.Nome!).Distinct()));
+        if (!esegui || daScrivere.Count == 0) return (anteprima, null);
+
+        using var archivio = ArchivioPersone.Apri(Ricerca.PercorsoPersone);
+        var esito = Esegui(archivio, $"import da Picasa di {radice}: {daScrivere.Count} volti", riproponi: true, sidecar =>
+        {
+            var toccate = new HashSet<long>();
+            foreach (var g in daScrivere.GroupBy(a => a.Volto.Sidecar, StringComparer.OrdinalIgnoreCase))
+                toccate.UnionWith(GestionePersone.AssegnaNomi(sidecar(g.Key), archivio, g.Select(a => (a.Volto.Id, a.Nome!))).Persone);
+            return toccate;
+        });
+        return (anteprima, esito);
     }
 
     /// <summary>Riporta i volti (e la persona) com'erano prima dell'operazione; senza numero, l'ultima non annullata.</summary>
@@ -144,15 +194,19 @@ public static class NomiVolti
                 }
             }
 
-            if (op.PersonaId is long id)
+            if (op.Persone.Count > 0)
             {
                 using var archivio = ArchivioPersone.Apri(Ricerca.PercorsoPersone);
-                if (op.PersonaCreata) archivio.Elimina(id);
-                else if (archivio.Elenco().Any(p => p.Id == id))
+                var esistenti = archivio.Elenco().Select(p => p.Id).ToHashSet();
+                foreach (var p in op.Persone)
                 {
-                    if (op.CampioniPrima is not null) archivio.ImpostaCampioni(id, op.CampioniPrima.Select(Convert.FromBase64String).ToList());
-                    if (op.SoprannomePrima is not null) archivio.ImpostaSoprannome(id, op.SoprannomePrima);
-                    if (op.CerchiaPrima is int c) archivio.ImpostaCerchia(id, c);
+                    if (p.Creata) archivio.Elimina(p.Id);
+                    else if (esistenti.Contains(p.Id))
+                    {
+                        if (p.Campioni is not null) archivio.ImpostaCampioni(p.Id, p.Campioni.Select(Convert.FromBase64String).ToList());
+                        if (p.Soprannome is not null) archivio.ImpostaSoprannome(p.Id, p.Soprannome);
+                        if (p.Cerchia is int c) archivio.ImpostaCerchia(p.Id, c);
+                    }
                 }
             }
 
@@ -163,7 +217,7 @@ public static class NomiVolti
                 (cambiatiDopo > 0 ? $", {cambiatiDopo} lasciati perché cambiati dopo" : ""));
             return $"Annullata l'operazione {op.Numero} ({op.Descrizione}): {rimessi} volti tornati com'erano" +
                    (cambiatiDopo > 0 ? $"; {cambiatiDopo} lasciati com'erano perché cambiati dopo." : ".") +
-                   (op.PersonaCreata ? " La persona creata è stata tolta." : "");
+                   (op.Persone.Count(p => p.Creata) switch { 0 => "", 1 => " La persona creata è stata tolta.", var quante => $" Le {quante} persone create sono state tolte." });
         }
     }
 
@@ -214,12 +268,12 @@ public static class NomiVolti
     }
 
     /// <summary>
-    /// Scrive (<paramref name="assegna"/> sui sidecar, <paramref name="aggiornaPersona"/> su persone.db), poi
-    /// ripropone la persona su tutte le cartelle catalogate e salva cosa è cambiato per poterlo annullare.
+    /// Scrive (<paramref name="scrivi"/>, che restituisce le persone toccate), poi ripropone quelle persone su tutte le
+    /// cartelle catalogate e salva cosa è cambiato (volti e persone) per poterlo annullare.
     /// </summary>
     private static EsitoNomi Esegui(
-        ArchivioPersone archivio, string descrizione, long? personaId, bool personaCreata, PersonaArchivio? prima,
-        Action<Func<string, LibrarySidecarDatabase>> assegna, Action? aggiornaPersona)
+        ArchivioPersone archivio, string descrizione, bool riproponi,
+        Func<Func<string, LibrarySidecarDatabase>, IReadOnlyCollection<long>> scrivi)
     {
         lock (Lucchetto)
         {
@@ -238,14 +292,15 @@ public static class NomiVolti
             try
             {
                 // Tutte le cartelle prima di scrivere: anche le proposte nuove vanno ricordate per l'annulla.
-                if (personaId is not null)
+                if (riproponi)
                     foreach (var cartella in Volti.CartelleNote()) Sidecar(cartella);
+                var personePrima = archivio.Elenco().ToDictionary(p => p.Id);
 
-                assegna(Sidecar);
-                aggiornaPersona?.Invoke();
+                var toccate = scrivi(Sidecar);
 
-                if (personaId is long id && GestionePersone.PersoneNote(archivio).FirstOrDefault(p => p.Id == id) is { } nota)
-                    foreach (var db in aperti.Values) GestionePersone.Riproponi(db, [nota]);
+                var note = GestionePersone.PersoneNote(archivio).Where(p => toccate.Contains(p.Id)).ToList();
+                if (riproponi && note.Count > 0)
+                    foreach (var db in aperti.Values) GestionePersone.Riproponi(db, note);
 
                 var cambiati = new List<VoltoCambiato>();
                 foreach (var (cartella, db) in aperti)
@@ -258,21 +313,20 @@ public static class NomiVolti
                     }
                 }
 
+                var persone = toccate.Distinct().Select(id => personePrima.TryGetValue(id, out var p)
+                    ? new PersonaPrima(id, false, p.Campioni.Select(Convert.ToBase64String).ToList(), p.Soprannome, p.Cerchia)
+                    : new PersonaPrima(id, true, null, null, null)).ToList();
                 var operazioni = LeggiOperazioni();
                 var numero = operazioni.Count > 0 ? operazioni.Max(o => o.Numero) + 1 : 1;
-                operazioni.Add(new OperazioneVolti(
-                    numero, DateTime.Now, descrizione, personaId, personaCreata,
-                    personaCreata ? null : prima?.Campioni.Select(Convert.ToBase64String).ToList(),
-                    personaCreata ? null : prima?.Soprannome, personaCreata ? null : prima?.Cerchia,
-                    cambiati));
+                operazioni.Add(new OperazioneVolti(numero, DateTime.Now, descrizione, persone, cambiati));
                 ScriviOperazioni(operazioni.Count > OperazioniTenute ? operazioni.Skip(operazioni.Count - OperazioniTenute).ToList() : operazioni);
                 Volti.Invalida();
 
-                var nuoveProposte = cambiati.Where(c => c.StatoDopo == StatoPersona.Proposto && c.StatoPrima != StatoPersona.Proposto).ToList();
-                var scelti = cambiati.Count - nuoveProposte.Count;
-                RegistroAttivita.Scrivi("mcp.volti", $"operazione {numero}: {descrizione} (persona {personaId?.ToString() ?? "-"}), " +
-                    $"{scelti} volti cambiati, {nuoveProposte.Count} proposte nuove");
-                return new EsitoNomi(numero, null, scelti, nuoveProposte.Count);
+                var nuoveProposte = cambiati.Count(c => c.StatoDopo == StatoPersona.Proposto && c.StatoPrima != StatoPersona.Proposto);
+                var scelti = cambiati.Count - nuoveProposte;
+                RegistroAttivita.Scrivi("mcp.volti", $"operazione {numero}: {descrizione} ({persone.Count} persone, {persone.Count(p => p.Creata)} nuove), " +
+                    $"{scelti} volti cambiati, {nuoveProposte} proposte nuove");
+                return new EsitoNomi(numero, null, scelti, nuoveProposte);
             }
             catch (Exception ex)
             {

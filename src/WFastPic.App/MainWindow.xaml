@@ -106,6 +106,7 @@
                             </ListView.ItemTemplate>
                         </ListView>
                         <HyperlinkButton Content="Rianalizza le persone di questa cartella" FontSize="12" Padding="0" Click="RianalizzaPersone_Click" />
+                        <HyperlinkButton Content="Importa i nomi da Picasa" FontSize="12" Padding="0" Click="ImportaPicasa_Click" />
                     </StackPanel>
                 </Expander>
                 <Grid Grid.Row="1" ColumnDefinitions="*,Auto" Padding="14,8,8,6">

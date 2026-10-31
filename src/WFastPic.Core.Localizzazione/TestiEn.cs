@@ -20,6 +20,7 @@ internal static partial class TestiEn
         Libreria(d);
         VotoAutomatico(d);
         Doppioni(d);
+        Picasa(d);
         return d;
     }
 }

@@ -239,6 +239,15 @@ Aggiunte fuori piano, su richiesta esplicita durante lo sviluppo:
   salvano il diff in `annullamenti-volti.json` (ultime 50) per `annulla_volti`; registro `mcp.volti*`. Logica comune
   con l'app in `Core.Persone/GestionePersone` (campioni, proposte, volti da salvare) e `Core.Decoding/JpegBgra`.
   L'assistente non identifica le persone dalla faccia: `mostra_volto` serve all'utente per dire chi è.
+- Import dei nomi da Picasa (`Core.Library/VoltiPicasa`, testato in `PicasaTests`): `Picasa.ini`/`.picasa.ini` per
+  cartella, `faces=rect64(16 hex),<id>` (sinistra/alto/destra/basso su 65535, **già sulla foto girata**: 98% di
+  sovrapposizione ≥ 0,25 con i volti YuNet su 185 volti reali, nessuna correzione), contatti in `[Contacts]/[Contacts2]`
+  di tutti gli ini (id globali) + `%LOCALAPPDATA%\Google\Picasa2\contacts\contacts.xml`. `Pianifica` abbina uno a uno per
+  sovrapposizione e unisce le grafie dello stesso nome; email e `ForseUguali` restano da decidere all'utente.
+  Scrittura comune in `GestionePersone.AssegnaNomi` (mai sopra un volto confermato come altra persona o ignorato).
+  App: `MainWindow.Picasa.cs` (cartella aperta, con Annulla); MCP: `importa_picasa` (anteprima, poi `esegui` + `nomi`,
+  una sola operazione per `annulla_volti`, che ora ricorda più persone per operazione). Con più di 20 persone
+  `Riproponi` sceglie prima le 5 più vicine per media dei campioni.
 - Dettagli del viewer: sezione Voto (il tuo / automatico con i motivi) e sezione Volti come Picasa
   (miniature con nome, "?" se proposto, cerchia; clic = "Chi è?" su quel volto, via `IViewerHost`).
 
@@ -284,7 +293,7 @@ src/
 ├─ WFastPic.Core.Persistence/   (sidecar SQLite)
 └─ WFastPic.Core.Export/        (bake ricetta + watermark + tag EXIF + encode JPEG — Windows-targeted)
 tests/
-└─ WFastPic.Core.Tests/         (xUnit, 253 test — Library/Selection/Processing/Metadata/Export)
+└─ WFastPic.Core.Tests/         (xUnit, 262 test — Library/Selection/Processing/Metadata/Export)
 tools/
 ├─ HeicSmokeTest/                (Fase 0, smoke test decoding)
 ├─ ScanSmokeTest/
@@ -352,7 +361,7 @@ Nota: `Z`/`F` zoom, `M` riproduci video, `Ctrl+C/V` copia ricetta — presenti n
   `IViewerHost`; la finestra lo usa con `Viewer.Apri/Chiudi/IsAperto/SalvaRicettaCorrente` e l'evento
   `Chiuso`. Una nuova dipendenza va aggiunta all'interfaccia, non aggirata.
 
-- Test prima o insieme al codice per la logica in `Core.*` (xUnit) — 253 test attuali coprono
+- Test prima o insieme al codice per la logica in `Core.*` (xUnit) — 262 test attuali coprono
   scan/identità, raffiche, selezione, ricetta/crop/rotate/tono/geometria raddrizzamento, ordinamento
   cronologico, riapertura veloce, scarti, concorrenza sidecar, stima avanzamento, zoom/trascinamento viewer.
 - `LibrarySidecarDatabase` è condiviso tra thread UI e coda di scrittura: ogni metodo pubblico nuovo
