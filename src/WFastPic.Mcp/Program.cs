@@ -9,6 +9,9 @@ Console.OutputEncoding = new System.Text.UTF8Encoding(false);
 // Dal terminale: «WFastPic.Mcp analizza <cartella> [quante foto]» analizza i volti senza server (archivi lunghi).
 if (args.Length >= 2 && args[0] == "analizza")
     return await RigaDiComando.AnalizzaAsync(args[1], args.Length >= 3 && int.TryParse(args[2], out var quante) ? quante : null);
+// «WFastPic.Mcp importa-picasa <cartella> [esegui] [nomi.json]»: nomi dei volti dai Picasa.ini, dal terminale.
+if (args.Length >= 2 && args[0] == "importa-picasa")
+    return RigaDiComando.ImportaPicasa(args);
 
 var uscita = Console.Out;
 string? riga;

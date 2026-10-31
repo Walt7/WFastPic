@@ -34,4 +34,31 @@ public static class RigaDiComando
             return 1;
         }
     }
+
+    /// <summary>
+    /// «WFastPic.Mcp importa-picasa &lt;cartella&gt; [esegui] [nomi.json]»: come lo strumento importa_picasa, dal terminale.
+    /// Senza «esegui» è solo l'anteprima. nomi.json = {"nome in Picasa": "nome da usare", "x@gmail.com": ""}.
+    /// Va lanciato da un terminale normale (non da dentro Claude Desktop) perché scriva nel persone.db vero.
+    /// </summary>
+    public static int ImportaPicasa(string[] args)
+    {
+        try
+        {
+            var argomenti = new System.Text.Json.Nodes.JsonObject
+            {
+                ["cartella"] = args[1],
+                ["esegui"] = args.Skip(2).Any(a => a.Equals("esegui", StringComparison.OrdinalIgnoreCase)),
+                ["limite"] = 1000,
+            };
+            if (args.Skip(2).FirstOrDefault(a => a.EndsWith(".json", StringComparison.OrdinalIgnoreCase)) is { } fileNomi)
+                argomenti["nomi"] = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(fileNomi));
+            Console.WriteLine(Strumenti.Chiama("importa_picasa", argomenti));
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine(ex.Message);
+            return 1;
+        }
+    }
 }
