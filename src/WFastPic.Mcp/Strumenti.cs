@@ -186,6 +186,23 @@ public static class Strumenti
                     },
                     ["limite"] = Prop("integer", "Quanti nomi elencare nell'anteprima (default 60)."),
                 })),
+            Strumento("luoghi_frequenti",
+                "I posti dove sono state fatte più foto, in più occasioni: raggruppa le foto con GPS per vicinanza e le ordina per numero di anni " +
+                "diversi e di giorni diversi. Serve per scoprire i luoghi che contano (montagna, mare, posti dove si torna). Con casa_lat/casa_lon ed " +
+                "escludi_km si tolgono i posti vicino a casa. Il nome del luogo c'è solo se l'app l'ha già calcolato; altrimenti ci sono le coordinate. Sola lettura.",
+                Schema(new JsonObject
+                {
+                    ["cartella"] = Prop("string", "Solo le foto sotto questa cartella (percorso completo o parte del nome). Vuoto = tutto l'archivio."),
+                    ["dal"] = Prop("string", "Data minima, AAAA-MM-GG."),
+                    ["al"] = Prop("string", "Data massima inclusa, AAAA-MM-GG."),
+                    ["raggio_m"] = Prop("integer", "Raggio del luogo in metri (default 300): foto più vicine di così sono lo stesso posto."),
+                    ["minimo_anni"] = Prop("integer", "Almeno quanti anni diversi (default 2)."),
+                    ["minimo_giorni"] = Prop("integer", "Almeno quanti giorni diversi (default 2)."),
+                    ["casa_lat"] = Prop("number", "Latitudine di casa, per escludere i posti vicini."),
+                    ["casa_lon"] = Prop("number", "Longitudine di casa."),
+                    ["escludi_km"] = Prop("number", "Raggio attorno a casa da escludere, in km (default 0 = niente)."),
+                    ["limite"] = Prop("integer", "Quanti luoghi elencare (default 30)."),
+                })),
             Strumento("persone_nel_giorno",
                 "Chi compare nelle foto di un giorno o di un intervallo: per ogni giorno le persone con nome e le loro foto, e quanti volti sono ancora " +
                 "senza nome (con esempi da mostrare). Serve per il diario: sapere chi c'era quando. Sola lettura.",
@@ -240,7 +257,7 @@ public static class Strumenti
             ["text"] = Serializza(new
             {
                 nota = "Volti nell'ordine delle immagini. Chiedi all'utente chi è: il nome lo dice o lo conferma lui.",
-                volti = immagini.Select((i, n) => new { n = n + 1, volto = i.Rif, foto = i.Foto, ritaglio = i.DallaFoto ? "dalla foto" : "miniatura salvata" }),
+                volti = immagini.Select((i, n) => new { n = n + 1, volto = i.Rif, foto = i.Foto, posizione = i.Posizione, ritaglio = i.DallaFoto ? "dalla foto" : "miniatura salvata" }),
                 non_trovati = rifs.Count > immagini.Count ? rifs.Except(immagini.Select(i => i.Rif), StringComparer.OrdinalIgnoreCase) : null,
             }),
         });
@@ -345,8 +362,11 @@ public static class Strumenti
                     volti_trovati = s.Volti, non_lette = s.Errori, avanzamento = s.Avanzamento, finita = s.Finita, errore = s.Errore,
                     iniziata = s.Inizio.ToString("yyyy-MM-dd HH:mm"), aggiornata = s.Aggiornato.ToString("yyyy-MM-dd HH:mm:ss"),
                     altro_processo = s.Processo != Environment.ProcessId ? true : (bool?)null,
+                    jpeg_anomali = s.JpegAnomali > 0 ? s.JpegAnomali : (int?)null,
+                    elenco_jpeg_anomali = s.JpegAnomali > 0 ? AnalisiCartella.FileJpegAnomali : null,
                     nota = fermata ? "Fermata: riprende dalla stessa foto con analizza_cartella."
                         : abbandonata ? "Nessun aggiornamento da più di 5 minuti: il processo che la faceva si è probabilmente chiuso. Rilancia analizza_cartella per riprendere."
+                        : s.JpegAnomali > 0 ? $"Attenzione: {s.JpegAnomali} JPEG hanno un'intestazione anomala (Windows li legge lo stesso ma segnala «Invalid SOS parameters for sequential JPEG»). Elenco in {AnalisiCartella.FileJpegAnomali}. Chiedi all'utente se vuole risolverli."
                         : null,
                 });
             }
@@ -429,6 +449,27 @@ public static class Strumenti
                     nota = esito is not null
                         ? $"Fatto: {esito.Volti} volti cambiati, {esito.ProposteNuove} proposte nuove nel resto dell'archivio. Si annulla con annulla_volti operazione={esito.Operazione}."
                         : "Anteprima: niente è stato scritto. Fai decidere all'utente email e nomi forse uguali, poi richiama con esegui=true (e nomi).",
+                });
+            }
+
+            case "luoghi_frequenti":
+            {
+                double? Num(string chiave) => args[chiave] is JsonValue v && v.TryGetValue<double>(out var d) ? d : null;
+                var foto = Ricerca.Cerca(new FiltriFoto(Cartella: Testo(args, "cartella"), Dal: Data(args, "dal"), Al: Data(args, "al")));
+                (double, double)? casa = Num("casa_lat") is { } cla && Num("casa_lon") is { } clo ? (cla, clo) : null;
+                var luoghi = LuoghiFrequenti.Calcola(
+                    foto, Math.Max(50, Int(args, "raggio_m") ?? 300), Math.Max(1, Int(args, "minimo_anni") ?? 2),
+                    Math.Max(1, Int(args, "minimo_giorni") ?? 2), casa, Num("escludi_km") ?? 0);
+                var limite = Math.Clamp(Int(args, "limite") ?? 30, 1, 200);
+                return Serializza(new
+                {
+                    foto_con_gps = foto.Count(f => f.Latitudine is not null),
+                    luoghi_trovati = luoghi.Count,
+                    luoghi = luoghi.Take(limite).Select(l => new
+                    {
+                        lat = l.Latitudine, lon = l.Longitudine, nome = l.Nome, foto = l.Foto, anni = l.Anni, giorni = l.Giorni,
+                        primo = l.Primo.ToString("yyyy-MM-dd"), ultimo = l.Ultimo.ToString("yyyy-MM-dd"), esempio = l.Esempio,
+                    }),
                 });
             }
 

@@ -69,6 +69,12 @@ public static class FolderScanner
         return risultato;
     }
 
+    /// <summary>
+    /// Quante foto supportate ha la cartella (sottocartelle comprese, con le stesse esclusioni di <see cref="Scan"/>):
+    /// solo l'elenco dei file, senza leggere né EXIF né dimensioni. Serve a capire se una cartella è già tutta catalogata.
+    /// </summary>
+    public static int ContaFoto(string cartella) => ElencaFoto(cartella, radice: true, []).Count();
+
     /// <summary>File che segna una cartella di export: la scansione non la visita (i JPEG lì dentro sono copie).</summary>
     public const string FileSegnoExport = ".wfastpic-export";
 

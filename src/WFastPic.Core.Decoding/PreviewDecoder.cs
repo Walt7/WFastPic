@@ -11,10 +11,26 @@ namespace WFastPic.Core.Decoding;
 public static class PreviewDecoder
 {
     public static async Task<(byte[] Bgra, int Width, int Height)> DecodePreviewBgraAsync(
-        string percorsoFoto, int latoLungo = 2048, ColorManagementMode gestioneColore = ColorManagementMode.DoNotColorManage)
+        string percorsoFoto, int latoLungo = 2048, ColorManagementMode gestioneColore = ColorManagementMode.DoNotColorManage,
+        BitmapInterpolationMode interpolazione = BitmapInterpolationMode.Fant)
     {
         using var fs = File.OpenRead(percorsoFoto);
-        using var winrtStream = fs.AsRandomAccessStream();
+        return await DecodePreviewBgraAsync(fs, latoLungo, gestioneColore, interpolazione);
+    }
+
+    /// <summary>Dai byte del file già letti: una lettura sola e sequenziale (su un HDD, molte letture a pezzi di file diversi fanno saltare la testina).</summary>
+    public static async Task<(byte[] Bgra, int Width, int Height)> DecodePreviewBgraAsync(
+        byte[] datiFile, int latoLungo = 2048, ColorManagementMode gestioneColore = ColorManagementMode.DoNotColorManage,
+        BitmapInterpolationMode interpolazione = BitmapInterpolationMode.Fant)
+    {
+        using var ms = new MemoryStream(datiFile, writable: false);
+        return await DecodePreviewBgraAsync(ms, latoLungo, gestioneColore, interpolazione);
+    }
+
+    private static async Task<(byte[] Bgra, int Width, int Height)> DecodePreviewBgraAsync(
+        Stream flusso, int latoLungo, ColorManagementMode gestioneColore, BitmapInterpolationMode interpolazione)
+    {
+        using var winrtStream = flusso.AsRandomAccessStream();
         var decoder = await BitmapDecoder.CreateAsync(winrtStream);
 
         var ow = (double)decoder.OrientedPixelWidth;
@@ -23,7 +39,7 @@ public static class PreviewDecoder
 
         var transform = new BitmapTransform
         {
-            InterpolationMode = BitmapInterpolationMode.Fant,
+            InterpolationMode = interpolazione,
             // WIC applica la scala PRIMA della rotazione EXIF: le misure vanno date sul file non ruotato
             // (PixelWidth/Height), altrimenti una foto con orientamento 90° esce stirata.
             ScaledWidth = (uint)Math.Max(1, Math.Round(decoder.PixelWidth * scale)),

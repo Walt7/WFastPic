@@ -144,6 +144,6 @@ internal static class OpzioniSessione
     {
         LogSeverityLevel = OrtLoggingLevel.ORT_LOGGING_LEVEL_ERROR,
         GraphOptimizationLevel = GraphOptimizationLevel.ORT_ENABLE_ALL,
-        IntraOpNumThreads = Math.Max(1, Environment.ProcessorCount / 2),
+        IntraOpNumThreads = Math.Max(1, Environment.ProcessorCount / 4),
     };
 }

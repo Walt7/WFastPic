@@ -1,3 +1,4 @@
+using System.Threading.Channels;
 using System.Diagnostics;
 using System.Text.Json;
 using WFastPic.Core.Decoding;
@@ -10,7 +11,7 @@ namespace WFastPic.Mcp;
 /// <summary>Dove è arrivata un'analisi dei volti: fase (lettura della cartella, volti, finita…), foto fatte su quante.</summary>
 public sealed record StatoAnalisi(
     string Cartella, string Catalogo, string Fase, int Fatte, int Totale, int Volti, int Errori,
-    DateTime Inizio, DateTime Aggiornato, bool Finita, string? Errore, string? Avanzamento, int Processo);
+    DateTime Inizio, DateTime Aggiornato, bool Finita, string? Errore, string? Avanzamento, int Processo, int JpegAnomali = 0);
 
 /// <summary>
 /// Cerca e riconosce i volti di una cartella (sottocartelle comprese) senza aprire l'app, come la ricerca in background
@@ -49,6 +50,17 @@ public static class AnalisiCartella
         for (var su = cartella; !string.IsNullOrEmpty(su); su = Path.GetDirectoryName(su))
             if (Ricerca.HaSidecar(su)) trovato = su;
         return trovato ?? cartella;
+    }
+
+    /// <summary>
+    /// True se <paramref name="radice"/> è una sottocartella del <paramref name="catalogo"/> e tutte le sue foto sono già
+    /// nel catalogo (stesso numero dei file su disco): l'inventario dell'intero archivio si può saltare.
+    /// </summary>
+    internal static bool CartellaGiaCatalogata(LibrarySidecarDatabase db, string catalogo, string radice)
+    {
+        if (string.Equals(radice, catalogo, StringComparison.OrdinalIgnoreCase)) return false;
+        var note = db.GetAllPhotos().Count(f => Ricerca.FotoNellaCartella(Path.Combine(catalogo, f.PathRelativo), radice));
+        return note > 0 && note == FolderScanner.ContaFoto(radice);
     }
 
     /// <summary>Avvia l'analisi in background e torna subito; una sola alla volta.</summary>
@@ -115,6 +127,8 @@ public static class AnalisiCartella
             }
         }
 
+        using var _ = NonDormire.Attiva();
+        Volatile.Write(ref _jpegAnomali, 0);
         RegistroAttivita.Scrivi("mcp.analisi.avvio", $"{radice} (catalogo {catalogo}){(massimoFoto is int m ? $", al massimo {m} foto" : "")}");
         Aggiorna(stato, forzaFile: true);
         try
@@ -126,12 +140,20 @@ public static class AnalisiCartella
             var nonLette = new List<string>();
             var progresso = new Subito<(int Elaborate, int Totale)>(p =>
                 Aggiorna(stato with { Fatte = p.Elaborate, Totale = p.Totale, Avanzamento = StimaAvanzamento.Descrivi(p.Elaborate, p.Totale, cronometro.Elapsed) }));
-            var scansione = await Task.Run(() => FolderScanner.Scan(catalogo, db.CreaRisolutoreMetadatiNoti(), progresso, nonLette), ct);
-            ct.ThrowIfCancellationRequested();
-            db.SyncScan(scansione, nonLette);
-            var importate = db.ImportaDaSidecarFigli();
-            if (importate > 0) RegistroAttivita.Scrivi("cartella.import-figli", $"{importate} sottocartelle riversate in {catalogo}");
-            Ricerca.RegistraCartella(catalogo);
+            // Se si analizza una sola cartella dentro un archivio grande (E:\Fotocamera: 240.000 foto) e le sue foto sono già
+            // tutte nel catalogo, non serve rileggere l'intero archivio: si passa direttamente ai volti.
+            var giaCatalogata = await Task.Run(() => CartellaGiaCatalogata(db, catalogo, radice), ct);
+            if (giaCatalogata)
+                RegistroAttivita.Scrivi("mcp.analisi.salta-inventario", $"{radice}: già catalogata in {catalogo}, inventario dell'archivio saltato");
+            else
+            {
+                var scansione = await Task.Run(() => FolderScanner.Scan(catalogo, db.CreaRisolutoreMetadatiNoti(), progresso, nonLette), ct);
+                ct.ThrowIfCancellationRequested();
+                db.SyncScan(scansione, nonLette);
+                var importate = db.ImportaDaSidecarFigli();
+                if (importate > 0) RegistroAttivita.Scrivi("cartella.import-figli", $"{importate} sottocartelle riversate in {catalogo}");
+                Ricerca.RegistraCartella(catalogo);
+            }
 
             var daFare = db.GetAllPhotos()
                 .Where(f => !f.PersoneAnalizzate)
@@ -143,6 +165,7 @@ public static class AnalisiCartella
 
             Aggiorna(stato with { Fase = "volti", Fatte = 0, Totale = daFare.Count, Avanzamento = null }, forzaFile: true);
             var analizza = AnalizzatoreDiProva;
+            Func<byte[], Task<IReadOnlyList<VoltoAnalizzato>>>? analizzaDati = null;
             AnalizzatorePersone? analizzatore = null;
             try
             {
@@ -152,9 +175,9 @@ public static class AnalisiCartella
                     await ModelliPersone.AssicuraAsync(Http, ModelliPersone.CartellaPredefinita, ct: ct);
                     analizzatore = new AnalizzatorePersone(ModelliPersone.CartellaPredefinita);
                     var reale = analizzatore;
-                    analizza = async percorso =>
+                    analizzaDati = async dati =>
                     {
-                        var (bgra, w, h) = await PreviewDecoder.DecodePreviewBgraAsync(percorso, AnalizzatorePersone.LatoAnalisi);
+                        var (bgra, w, h) = await PreviewDecoder.DecodePreviewBgraAsync(dati, AnalizzatorePersone.LatoAnalisi);
                         return reale.Analizza(bgra, w, h);
                     };
                     Aggiorna(stato with { Fase = "volti" }, forzaFile: true);
@@ -162,17 +185,74 @@ public static class AnalisiCartella
 
                 var persone = Volti.PersoneNote();
                 cronometro.Restart();
-                for (var i = 0; i < daFare.Count; i++)
+
+                // Decodifica + rilevamento + impronte in parallelo (le sessioni ONNX sono thread-safe);
+                // il salvataggio resta su un solo thread. L'ordine di arrivo non conta: ogni foto salvata
+                // risulta analizzata, quelle non arrivate si riprendono alla prossima analisi.
+                var motiviNonLette = new System.Collections.Concurrent.ConcurrentDictionary<int, string>();
+                var pronte = Channel.CreateBounded<(int Indice, IReadOnlyList<VoltoAnalizzato>? Volti)>(GradoParallelo * 2);
+                // Un solo lettore legge i file interi, nell'ordine, su un canale limitato (pochi file in RAM):
+                // l'HDD lavora in sequenza invece di far saltare la testina tra 6 file insieme.
+                var letti = Channel.CreateBounded<(int Indice, byte[]? Dati)>(GradoParallelo * 2);
+                var lettore = Task.Run(async () =>
+                {
+                    try
+                    {
+                        for (var i = 0; i < daFare.Count; i++)
+                        {
+                            ct.ThrowIfCancellationRequested();
+                            byte[]? dati = null;
+                            if (analizzaDati is not null)
+                            {
+                                try { dati = await File.ReadAllBytesAsync(daFare[i].Percorso, ct); }
+                                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { /* illeggibile: si salta */ }
+                                if (dati is not null && IntestazioneJpeg.Problema(dati) is { } problema)
+                                {
+                                                                        SegnalaJpegAnomalo(daFare[i].Percorso, problema, dati.Length);
+                                }
+                            }
+                            await letti.Writer.WriteAsync((i, dati), ct);
+                        }
+                        letti.Writer.TryComplete();
+                    }
+                    catch (Exception ex) { letti.Writer.TryComplete(ex); }
+                }, CancellationToken.None);
+                var produttori = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await Parallel.ForEachAsync(
+                            letti.Reader.ReadAllAsync(CancellationToken.None),
+                            new ParallelOptions { MaxDegreeOfParallelism = GradoParallelo, CancellationToken = ct },
+                            async (lettura, token) =>
+                            {
+                                IReadOnlyList<VoltoAnalizzato>? trovati = null;
+                                try
+                                {
+                                    trovati = analizzaDati is not null
+                                        ? lettura.Dati is null ? null : await analizzaDati(lettura.Dati)
+                                        : await analizza!(daFare[lettura.Indice].Percorso);
+                                }
+                                catch (Exception ex) when (ex is not OperationCanceledException and not ObjectDisposedException) { motiviNonLette[lettura.Indice] = ex.Message; /* file illeggibile: si salta */ }
+                                await pronte.Writer.WriteAsync((lettura.Indice, trovati), token);
+                            });
+                        pronte.Writer.TryComplete();
+                    }
+                    catch (Exception ex) { pronte.Writer.TryComplete(ex); }
+                }, CancellationToken.None);
+
+                var fatte = 0;
+                await foreach (var (indice, trovati) in pronte.Reader.ReadAllAsync(CancellationToken.None))
                 {
                     ct.ThrowIfCancellationRequested();
-                    var (foto, percorso) = daFare[i];
+                    var (foto, _) = daFare[indice];
                     // Nomi dati intanto (dall'app o con assegna_nome) valgono subito anche per le foto che restano.
-                    if (i % 50 == 49) persone = Volti.PersoneNote();
+                    if (fatte % 50 == 49) persone = Volti.PersoneNote();
                     var volti = stato.Volti;
                     var errori = stato.Errori;
                     try
                     {
-                        var trovati = await analizza!(percorso);
+                        if (trovati is null) throw new IOException("foto non letta");
                         var daSalvare = await GestionePersone.DaSalvareAsync(trovati, persone, (b, w, h) => JpegBgra.CodificaAsync(b, w, h));
                         db.SalvaVoltiPersone(foto.Id, daSalvare);
                         volti += daSalvare.Count;
@@ -180,16 +260,22 @@ public static class AnalisiCartella
                     catch (Exception ex) when (ex is not OperationCanceledException and not ObjectDisposedException)
                     {
                         errori++; // file illeggibile: si salta, si riproverà alla prossima analisi
+                        var motivo = motiviNonLette.TryRemove(indice, out var motivoLettura) ? motivoLettura : ex.Message;
+                        Console.Error.WriteLine($"Foto non letta: {daFare[indice].Percorso} ({motivo})");
                     }
 
+                    fatte++;
                     Aggiorna(stato with
                     {
-                        Fatte = i + 1, Volti = volti, Errori = errori,
-                        Avanzamento = StimaAvanzamento.Descrivi(i + 1, daFare.Count, cronometro.Elapsed),
+                        Fatte = fatte, Volti = volti, Errori = errori, JpegAnomali = Volatile.Read(ref _jpegAnomali),
+                        Avanzamento = DescriviLungo(fatte, daFare.Count, cronometro.Elapsed)
+                            + (Volatile.Read(ref _jpegAnomali) is > 0 and var anomali ? $" · {anomali} JPEG con intestazione anomala" : ""),
                     });
-                    if ((i + 1) % 250 == 0)
-                        RegistroAttivita.Scrivi("mcp.analisi.avanzamento", $"{radice}: {i + 1} di {daFare.Count} foto, {volti} volti, {errori} non lette");
+                    if (fatte % 250 == 0)
+                        RegistroAttivita.Scrivi("mcp.analisi.avanzamento", $"{radice}: {fatte} di {daFare.Count} foto, {volti} volti, {errori} non lette");
                 }
+                await lettore;
+                await produttori;
             }
             finally
             {
@@ -213,6 +299,56 @@ public static class AnalisiCartella
             RegistroAttivita.Errore("mcp.analisi.errore", ex, radice);
             if (avanzamento is not null) throw; // dalla riga di comando l'errore si vede
         }
+    }
+
+    /// <summary>Foto elaborate insieme (decodifica e inferenza); il salvataggio resta su un solo thread.</summary>
+    private static readonly int GradoParallelo = Math.Clamp(Environment.ProcessorCount / 3, 2, 6);
+
+    private static int _jpegAnomali;
+
+    /// <summary>Elenco (percorso | motivo | byte) dei JPEG con intestazione anomala trovati dalle analisi.</summary>
+    public static string FileJpegAnomali => Path.Combine(Ricerca.DatiApp, "jpeg-anomali.txt");
+
+    /// <summary>
+    /// Il decodificatore di Windows scrive «Invalid SOS parameters for sequential JPEG» senza dire di che file si tratta:
+    /// qui, che il file lo conosciamo, lo diciamo noi (a video accanto all'avviso e in un elenco su file).
+    /// </summary>
+    private static void SegnalaJpegAnomalo(string percorso, string problema, int byteFile)
+    {
+        Interlocked.Increment(ref _jpegAnomali);
+        Console.Error.WriteLine($"JPEG con intestazione anomala: {percorso} ({problema})");
+        try
+        {
+            Directory.CreateDirectory(Ricerca.DatiApp);
+            lock (FileJpegAnomali) File.AppendAllText(FileJpegAnomali, $"{percorso}|{problema}|{byteFile}{Environment.NewLine}");
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { /* l'elenco è un aiuto */ }
+    }
+
+    private static readonly Queue<(DateTime Quando, int Fatte)> Campioni = new();
+
+    /// <summary>
+    /// Come StimaAvanzamento.Descrivi, ma per lavori di ore e sul ritmo degli ultimi minuti (non sulla media da inizio:
+    /// una sospensione del PC o un tratto lento non falsano la stima): "circa 8 h 05 min rimanenti · fine verso le 16:10".
+    /// </summary>
+    private static string DescriviLungo(int fatte, int totale, TimeSpan trascorso)
+    {
+        var adesso = DateTime.Now;
+        Campioni.Enqueue((adesso, fatte));
+        while (Campioni.Count > 2 && adesso - Campioni.Peek().Quando > TimeSpan.FromMinutes(3)) Campioni.Dequeue();
+
+        var primo = Campioni.Peek();
+        var secondi = (adesso - primo.Quando).TotalSeconds;
+        var ritmo = secondi >= 20 ? (fatte - primo.Fatte) / secondi : 0;
+        if (ritmo <= 0 || fatte >= totale) return StimaAvanzamento.Descrivi(fatte, totale, trascorso);
+
+        var r = TimeSpan.FromSeconds((totale - fatte) / ritmo);
+        if (r < TimeSpan.FromMinutes(60)) return $"{fatte} di {totale} · circa {StimaAvanzamento.Durata(r)} rimanenti · {ritmo:F1} foto/s";
+
+        var minuti = (int)Math.Ceiling(r.TotalMinutes);
+        var fine = adesso + r;
+        var giorno = fine.Date == adesso.Date ? "" : fine.Date == adesso.Date.AddDays(1) ? " (domani)" : $" ({fine:dd/MM})";
+        return $"{fatte} di {totale} · circa {minuti / 60} h {minuti % 60:00} min rimanenti · fine verso le {fine:HH:mm}{giorno} · {ritmo:F1} foto/s";
     }
 
     private static StatoAnalisi Nuovo(string cartella, string catalogo, string fase) =>

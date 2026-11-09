@@ -3,7 +3,22 @@ using WFastPic.Core.Decoding;
 namespace WFastPic.Mcp;
 
 /// <summary>Un volto da mostrare: JPEG piccolo e da quale foto viene.</summary>
-public sealed record ImmagineVolto(string Rif, string Foto, byte[] Jpeg, bool DallaFoto);
+public sealed record ImmagineVolto(string Rif, string Foto, byte[] Jpeg, bool DallaFoto, string? Posizione = null)
+{
+    /// <summary>
+    /// Dove sta il volto nella foto, per controllarlo a occhio: a parole («in alto, a destra») e in percentuale
+    /// (da sinistra / dall'alto, 0 % = bordo sinistro o superiore). Coordinate normalizzate 0..1.
+    /// </summary>
+    public static string DescriviPosizione(double x0, double y0, double x1, double y1)
+    {
+        var cx = (x0 + x1) / 2; var cy = (y0 + y1) / 2;
+        var orizzontale = cx < 1.0 / 3 ? "a sinistra" : cx > 2.0 / 3 ? "a destra" : "al centro";
+        var verticale = cy < 1.0 / 3 ? "in alto" : cy > 2.0 / 3 ? "in basso" : "a metà altezza";
+        var parole = orizzontale == "al centro" && verticale == "a metà altezza" ? "al centro della foto" : $"{verticale}, {orizzontale}";
+        string P(double v) => $"{Math.Round(Math.Clamp(v, 0, 1) * 100)} %";
+        return $"{parole} (da sinistra {P(x0)}–{P(x1)}, dall'alto {P(y0)}–{P(y1)})";
+    }
+}
 
 /// <summary>
 /// I volti come immagini piccole per chi deve dare il nome: ritagliati dalla foto con un po' di contesto attorno
@@ -27,8 +42,9 @@ public static class ImmaginiVolti
                 try { jpeg = await RitaglioAsync(v.Foto, v.X0, v.Y0, v.X1, v.Y1); }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or System.Runtime.InteropServices.COMException) { }
             }
-            if (jpeg is not null) risultato.Add(new ImmagineVolto(rif, v.Foto, jpeg, true));
-            else if (v.Miniatura is not null) risultato.Add(new ImmagineVolto(rif, v.Foto, v.Miniatura, false));
+            var posizione = ImmagineVolto.DescriviPosizione(v.X0, v.Y0, v.X1, v.Y1);
+            if (jpeg is not null) risultato.Add(new ImmagineVolto(rif, v.Foto, jpeg, true, posizione));
+            else if (v.Miniatura is not null) risultato.Add(new ImmagineVolto(rif, v.Foto, v.Miniatura, false, posizione));
         }
         return risultato;
     }
