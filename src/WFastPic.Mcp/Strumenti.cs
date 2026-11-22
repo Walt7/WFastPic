@@ -32,6 +32,12 @@ public static class Strumenti
         ["selezione"] = Prop("string", "Nome di una selezione salvata (vedi salva_selezione): limita la ricerca a quelle foto."),
     };
 
+    private static JsonObject Con(JsonObject basi, params object[] coppie)
+    {
+        for (var i = 0; i < coppie.Length; i += 2) basi[(string)coppie[i]] = ((JsonObject)coppie[i + 1]).DeepClone();
+        return basi;
+    }
+
     private static JsonObject Prop(string tipo, string descrizione) => new() { ["type"] = tipo, ["description"] = descrizione };
 
     private static JsonObject Schema(JsonObject proprieta) => new() { ["type"] = "object", ["properties"] = proprieta };
@@ -91,6 +97,21 @@ public static class Strumenti
                 "Prima controlla con cerca_foto quali foto verranno incluse.",
                 Schema(pacchetto)),
 
+            Strumento("indicizza_significato",
+                "Prepara la ricerca per significato su una cartella (foto e video, sottocartelle comprese): calcola un'impronta CLIP di ogni foto e di un fotogramma ogni N secondi dei video. " +
+                "Tutto in locale (Python + ffmpeg), in background; l'avanzamento si legge con stato_significato. Le foto già indicizzate si saltano. Scrive solo gli indici in LocalAppData.",
+                Schema(new JsonObject
+                {
+                    ["cartella"] = Prop("string", "Percorso completo della cartella, es. E:\\Fotocamera\\2007\\Spagna."),
+                    ["ogni_secondi"] = Prop("integer", "Un fotogramma ogni quanti secondi di video (default 5)."),
+                })),
+            Strumento("stato_significato", "A che punto è l'indicizzazione per significato: fase, file fatti su quanti, errori.", Schema([])),
+            Strumento("cerca_per_significato",
+                "Cerca foto e VIDEO per ciò che mostrano, con una frase in italiano (es. «piazza con una fontana», «ballerine di flamenco», «porto con le barche»). " +
+                "Serve prima indicizza_significato sulla cartella. Per i video indica a che secondo compare la scena. " +
+                "Con persone, date, luogo, voto o selezione la ricerca si limita alle FOTO catalogate che rispondono a quei filtri (i video non hanno volti catalogati); " +
+                "con la sola cartella cerca in foto e video. Sola lettura.",
+                Schema(Con(Filtri(), "testo", Prop("string", "Cosa cercare, in italiano o inglese."), "limite", Prop("integer", "Quanti risultati (default 12, massimo 100).")))),
             Strumento("analizza_cartella",
                 "Cerca e raggruppa i volti delle foto di una cartella (sottocartelle comprese, anche tutto l'archivio) senza aprire l'app. " +
                 "Gira in background e torna subito: l'avanzamento si legge con stato_analisi. Cataloga la cartella come l'app (.wfastpic) " +
@@ -338,6 +359,37 @@ public static class Strumenti
                     megabyte = Math.Round(esito.Byte / 1048576.0, 1),
                     non_trovate = esito.Mancanti.Count > 0 ? esito.Mancanti : null,
                     nota = "Copie degli originali: niente è stato spostato o cancellato, e niente è stato inviato.",
+                });
+            }
+
+            case "indicizza_significato":
+            {
+                Semantica.Indicizza(Testo(args, "cartella") ?? "", Int(args, "ogni_secondi") ?? 5);
+                return Serializza(new { avviata = Testo(args, "cartella"), nota = "Gira in background: controlla con stato_significato." });
+            }
+
+            case "stato_significato":
+                return Serializza(Semantica.Stato());
+
+            case "cerca_per_significato":
+            {
+                var testo = Testo(args, "testo") ?? throw new InvalidOperationException("Indica cosa cercare (testo).");
+                var limite = Math.Clamp(Int(args, "limite") ?? 12, 1, 100);
+                var f = LeggiFiltri(args);
+                var conFiltri = f.Persone is { Count: > 0 } || f.Dal is not null || f.Al is not null || !string.IsNullOrWhiteSpace(f.Luogo)
+                    || f.SoloSelezionate || f.VotoMinimo > 0 || f.Percorsi is not null;
+                var solo = conFiltri ? Ricerca.Cerca(f).Select(x => x.Percorso).ToList() : null;
+                if (solo is { Count: 0 }) return Serializza(new { risultati = Array.Empty<object>(), nota = "Nessuna foto catalogata risponde ai filtri." });
+                var cartella = Testo(args, "cartella");
+                var trovati = Semantica.Cerca(testo, Directory.Exists(cartella ?? "") ? cartella : null, solo, limite);
+                return Serializza(new
+                {
+                    risultati = trovati.EnumerateArray().Select(r => new
+                    {
+                        percorso = r.GetProperty("percorso").GetString(), punteggio = r.GetProperty("punteggio").GetDouble(),
+                        secondo_del_video = r.GetProperty("secondo").ValueKind == JsonValueKind.Number ? r.GetProperty("secondo").GetInt32() : (int?)null,
+                    }),
+                    nota = conFiltri ? "Limitato alle foto catalogate che rispondono ai filtri." : null,
                 });
             }
 

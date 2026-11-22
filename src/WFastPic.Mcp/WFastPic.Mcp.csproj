@@ -21,4 +21,8 @@
     <ProjectReference Include="..\WFastPic.Core.Decoding\WFastPic.Core.Decoding.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Content Include="ricerca_semantica.py" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>
